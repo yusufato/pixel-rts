@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; padding:0; background:#0a0b0f; overflow-x:hidden; }
+  *::-webkit-scrollbar { width:10px; height:10px; }
+  *::-webkit-scrollbar-thumb { background:#2a3142; border-radius:8px; }
+  *::-webkit-scrollbar-track { background:#12141c; }
+  @media (max-width:1360px){ [data-frame]{ zoom:.80 } }
+  @media (max-width:1080px){ [data-frame]{ zoom:.62 } }
+  @media (max-width:840px){ [data-frame]{ zoom:.46 } }
+  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
+  @keyframes ringPulse { 0%,100%{transform:scale(1);opacity:.95} 50%{transform:scale(1.14);opacity:.45} }
+  @keyframes flick { 0%,100%{opacity:.2;transform:scale(.7)} 45%{opacity:1;transform:scale(1.2)} }
+  @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+  @keyframes scan { from{background-position:0 0} to{background-position:0 6px} }
+  @keyframes sweep { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+  @keyframes vpShine { 0%{transform:translateX(-130%)} 60%,100%{transform:translateX(620%)} }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.18} }
+  @keyframes dash { to{background-position:22px 0} }
+  @keyframes floatY { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:radial-gradient(1200px 700px at 50% -10%, #141826 0%, #0a0b0f 60%); font-family:'JetBrains Mono',monospace; padding:34px 24px 80px; box-sizing:border-box;">
+
+  <div style="max-width:1320px; margin:0 auto 30px; display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap;">
+    <div>
+      <div style="font-family:'Press Start 2P'; font-size:11px; letter-spacing:1px; color:#5a6b86; margin-bottom:14px;">PIXEL RTS · ARAYÜZ KEŞFİ</div>
+      <div style="font-family:'Press Start 2P'; font-size:26px; line-height:1.5; color:#eaf2ff; text-shadow:0 2px 0 #1a2233;">SAVAŞ HUD'U</div>
+      <div style="margin-top:14px; font-size:13.5px; line-height:1.7; color:#8fa3bf; max-width:620px;">Aynı taktik an, üç görsel yönde. Hepsi canlı savaş HUD'u: bölge skoru, seçili birim, taktik destek, birim cetveli ve mini-harita. Birini seç — tüm akışı (menü → harita → deploy → sonuç) o yönde açayım.</div>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; font-size:11px; color:#7e93b0;">
+      <div style="display:flex; align-items:center; gap:6px; background:#11141d; border:1px solid #232a39; border-radius:7px; padding:7px 11px;"><span style="width:11px;height:11px;border-radius:2px;background:#4dffa0;box-shadow:0 0 8px #4dffa0;"></span>MAVİ · Sen</div>
+      <div style="display:flex; align-items:center; gap:6px; background:#11141d; border:1px solid #232a39; border-radius:7px; padding:7px 11px;"><span style="width:11px;height:11px;border-radius:2px;background:#ff5f5f;box-shadow:0 0 8px #ff5f5f;"></span>KIRMIZI · AI</div>
+    </div>
+  </div>
+
+  <section style="display:flex; flex-wrap:wrap; gap:54px; justify-content:center; align-items:flex-start;">
+
+    <!-- ════════ 1a · NEON ARCADE ════════ -->
+    <div id="1a" style="display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <div style="font-family:'Press Start 2P'; font-size:13px; color:#0a0b0f; background:#4dffa0; padding:8px 12px; border-radius:7px; box-shadow:0 0 16px rgba(77,255,160,.5);">1a</div>
+        <div>
+          <div style="font-family:'Press Start 2P'; font-size:13px; color:#eaf2ff;">NEON ARCADE</div>
+          <div style="font-size:12px; color:#7e93b0; margin-top:5px;">Mevcut pixel + neon dilin cilalı hâli — tarayıcı-arcade enerjisi</div>
+        </div>
+      </div>
+
+      <div data-frame style="position:relative; width:1280px; height:720px; border-radius:14px; overflow:hidden; border:1px solid #1c2433; box-shadow:0 30px 80px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(108,200,255,.08); font-family:'Press Start 2P'; color:#cfe3ff;">
+
+        <!-- BATTLEFIELD: realistic terrain -->
+        <dc-import name="Terrain" style="position:absolute; inset:0; width:100%; height:100%;" hint-size="100%,100%"></dc-import>
+        <!-- teal tactical grid + glow tint over terrain -->
+        <div style="position:absolute; inset:0; background-image:linear-gradient(rgba(110,200,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(110,200,255,.06) 1px, transparent 1px); background-size:46px 46px; mix-blend-mode:screen;"></div>
+        <div style="position:absolute; inset:0; background:radial-gradient(900px 560px at 40% 46%, rgba(24,84,74,.34) 0%, rgba(10,26,30,.18) 55%, transparent 100%); mix-blend-mode:screen;"></div>
+
+        <!-- CONTROL POINTS -->
+        <!-- CP A left, blue owned -->
+        <div style="position:absolute; left:26%; top:50%; transform:translate(-50%,-50%); width:118px; height:118px;">
+          <div style="position:absolute; inset:0; border-radius:50%; border:2px dashed rgba(77,255,160,.55); animation:sweep 14s linear infinite;"></div>
+          <div style="position:absolute; inset:18px; border-radius:50%; background:radial-gradient(circle, rgba(77,255,160,.22), transparent 72%); box-shadow:0 0 26px rgba(77,255,160,.3) inset;"></div>
+          <div style="position:absolute; left:50%; top:-22px; transform:translateX(-50%); font-size:7px; color:#4dffa0; white-space:nowrap;">⚑ SOL MEVZİ</div>
+        </div>
+        <!-- CP B center, contested -->
+        <div style="position:absolute; left:50%; top:49%; transform:translate(-50%,-50%); width:132px; height:132px;">
+          <div style="position:absolute; inset:0; border-radius:50%; border:2px dashed rgba(255,210,76,.7); animation:sweep 8s linear infinite reverse;"></div>
+          <div style="position:absolute; inset:16px; border-radius:50%; background:radial-gradient(circle, rgba(255,210,76,.2), transparent 70%); box-shadow:0 0 30px rgba(255,180,40,.35) inset; animation:pulse 1.6s ease-in-out infinite;"></div>
+          <div style="position:absolute; left:50%; top:-22px; transform:translateX(-50%); font-size:7px; color:#ffd24c; white-space:nowrap;">⚑ MERKEZ · ÇEKİŞMELİ</div>
+        </div>
+        <!-- CP C right, red owned -->
+        <div style="position:absolute; left:75%; top:53%; transform:translate(-50%,-50%); width:118px; height:118px;">
+          <div style="position:absolute; inset:0; border-radius:50%; border:2px dashed rgba(255,95,95,.55); animation:sweep 14s linear infinite;"></div>
+          <div style="position:absolute; inset:18px; border-radius:50%; background:radial-gradient(circle, rgba(255,95,95,.2), transparent 72%); box-shadow:0 0 26px rgba(255,95,95,.3) inset;"></div>
+          <div style="position:absolute; left:50%; top:-22px; transform:translateX(-50%); font-size:7px; color:#ff7a7a; white-space:nowrap;">⚑ SAĞ MEVZİ</div>
+        </div>
+
+        <!-- TRENCHES (red dug-in) -->
+        <div style="position:absolute; left:60%; top:51%; width:120px; height:46px; transform:translate(-50%,-50%) rotate(-18deg); border-radius:40%; border-top:3px solid rgba(180,140,90,.6); border-bottom:3px dotted rgba(120,90,60,.5); background:linear-gradient(rgba(70,55,40,.35), transparent);"></div>
+        <div style="position:absolute; left:82%; top:58%; width:96px; height:38px; transform:translate(-50%,-50%) rotate(12deg); border-radius:40%; border-top:3px solid rgba(180,140,90,.5); background:linear-gradient(rgba(70,55,40,.3), transparent);"></div>
+
+        <!-- UNITS -->
+        <sc-for list="{{ units }}" as="u" hint-placeholder-count="18">
+          <div style="position:absolute; left:{{ u.x }}; top:{{ u.y }}; transform:translate(-50%,-50%); z-index:{{ u.z }};">
+            <div style="position:relative; animation:bob {{ u.bob }} ease-in-out infinite;">
+              <sc-if value="{{ u.sel }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; left:50%; top:50%; width:62px; height:62px; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #4dffa0; box-shadow:0 0 16px rgba(77,255,160,.7); animation:ringPulse 1.5s ease-in-out infinite;"></div>
+              </sc-if>
+              <div style="width:{{ u.w }}; height:{{ u.h }}; background-image:url(icons.png); background-size:900% 200%; background-position:{{ u.bgx }} {{ u.bgy }}; image-rendering:pixelated; border-radius:3px; box-shadow:0 0 0 1px rgba(0,0,0,.5), 0 3px 6px rgba(0,0,0,.55);"></div>
+              <sc-if value="{{ u.fire }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; left:{{ u.fx }}; top:{{ u.fy }}; width:9px; height:9px; border-radius:50%; background:radial-gradient(circle,#fff,#ffd24c 45%,transparent 70%); animation:flick .18s steps(2) infinite;"></div>
+              </sc-if>
+              <sc-if value="{{ u.dmg }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; left:50%; top:calc(100% + 3px); transform:translateX(-50%); width:30px; height:4px; background:rgba(0,0,0,.6); border-radius:2px; overflow:hidden;">
+                  <div style="width:{{ u.hpw }}; height:100%; background:{{ u.hpColor }};"></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ u.role }}" hint-placeholder-val="">
+                <div style="position:absolute; left:50%; top:-15px; transform:translateX(-50%); font-size:6px; color:#7defb0; background:rgba(8,18,14,.85); border:1px solid rgba(77,255,160,.4); padding:2px 4px; border-radius:3px; white-space:nowrap;">{{ u.role }}</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+
+        <!-- FOG / VIGNETTE -->
+        <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(120% 100% at 50% 50%, transparent 52%, rgba(5,9,12,.75) 100%);"></div>
+        <div style="position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px); mix-blend-mode:overlay; animation:scan 1.2s steps(3) infinite;"></div>
+
+        <!-- ░░ HUD: TOP-LEFT RESOURCES ░░ -->
+        <div style="position:absolute; left:16px; top:16px; z-index:600; background:rgba(8,12,22,.88); border:2px solid rgba(108,200,255,.4); border-radius:9px; padding:11px 14px; box-shadow:0 0 18px rgba(0,150,255,.18), inset 0 0 14px rgba(0,80,160,.12);">
+          <div style="display:flex; align-items:center; gap:18px;">
+            <div style="display:flex; align-items:center; gap:6px; font-size:11px;"><span style="color:#ffd24c;">₿</span><span style="color:#4dffa0;">180</span></div>
+            <div style="display:flex; align-items:center; gap:6px; font-size:11px;"><span style="color:#6cc8ff;">👥</span><span style="color:#cfe3ff;">18/24</span></div>
+          </div>
+          <div style="margin-top:9px; padding-top:9px; border-top:1px solid rgba(108,200,255,.18); display:flex; align-items:center; gap:10px; font-size:7px; color:#7e93b0;">
+            <span>TUR 7 · KIŞ</span><span style="color:#ff9a4c;">⏱ 03:48</span>
+          </div>
+        </div>
+
+        <!-- ░░ HUD: TOP-CENTER PHASE + VP ░░ -->
+        <div style="position:absolute; left:50%; top:14px; transform:translateX(-50%); z-index:600; width:430px;">
+          <div style="text-align:center; font-size:9px; color:#ffd24c; background:rgba(8,12,22,.85); border:2px solid rgba(255,200,76,.5); border-radius:8px; padding:7px 0; box-shadow:0 0 20px rgba(255,200,76,.18); animation:pulse 2.4s ease-in-out infinite;">⚔️ SAVAŞ — BÖLGELERİ TUT</div>
+          <div style="margin-top:8px; background:rgba(8,12,22,.85); border:2px solid rgba(108,200,255,.32); border-radius:8px; padding:9px 12px;">
+            <div style="display:flex; justify-content:space-between; font-size:8px; margin-bottom:6px;"><span style="color:#ff7a7a;">AI 1640</span><span style="color:#8fa3bf;">HEDEF 3000</span><span style="color:#4dffa0;">2180 SEN</span></div>
+            <div style="position:relative; height:13px; background:rgba(0,0,0,.5); border-radius:7px; overflow:hidden;">
+              <div style="position:absolute; left:0; top:0; height:100%; width:55%; background:linear-gradient(90deg,#ff5f5f,#b83232); opacity:.8;"></div>
+              <div style="position:absolute; right:0; top:0; height:100%; width:72%; background:linear-gradient(90deg,#1f8a5b,#4dffa0); opacity:.85;"></div>
+              <div style="position:absolute; left:50%; top:-2px; width:2px; height:17px; background:#ffd24c; box-shadow:0 0 8px #ffd24c;"></div>
+              <div style="position:absolute; top:0; left:0; width:30%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent); animation:vpShine 3.5s ease-in-out infinite;"></div>
+            </div>
+            <div style="margin-top:7px; text-align:center; font-size:7px; color:#9fb4d0;">⚑ BÖLGE  1 : 1  ·  MERKEZ ÇEKİŞMELİ</div>
+          </div>
+        </div>
+
+        <!-- ░░ HUD: TOP-RIGHT SELECTED UNIT ░░ -->
+        <div style="position:absolute; right:16px; top:16px; z-index:600; width:248px; background:rgba(8,12,22,.9); border:2px solid rgba(77,255,160,.45); border-radius:10px; padding:12px; box-shadow:0 0 22px rgba(77,255,160,.18), inset 0 0 16px rgba(0,80,60,.14);">
+          <div style="display:flex; gap:10px; align-items:center;">
+            <div style="width:46px; height:36px; background-image:url(icons.png); background-size:900% 200%; background-position:75% 0%; image-rendering:pixelated; border-radius:4px; box-shadow:0 0 0 1px rgba(0,0,0,.5);"></div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:11px; color:#eaf2ff;">TANK</div>
+              <div style="margin-top:5px; font-size:6px; color:#7defb0; background:rgba(77,255,160,.12); border:1px solid rgba(77,255,160,.35); display:inline-block; padding:2px 5px; border-radius:3px;">★★ ANA-ÇABA</div>
+            </div>
+          </div>
+          <div style="margin-top:11px; font-size:7px; color:#9fb4d0;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>CAN</span><span style="color:#4dffa0;">470/600</span></div>
+            <div style="height:8px; background:rgba(0,0,0,.5); border-radius:5px; overflow:hidden;"><div style="width:78%; height:100%; background:linear-gradient(90deg,#1f8a5b,#4dffa0);"></div></div>
+            <div style="display:flex; justify-content:space-between; margin:9px 0 4px;"><span>MERMİ</span><span style="color:#ffd24c;">11/15</span></div>
+            <div style="height:8px; background:rgba(0,0,0,.5); border-radius:5px; overflow:hidden;"><div style="width:73%; height:100%; background:linear-gradient(90deg,#a87a2a,#ffd24c);"></div></div>
+          </div>
+          <div style="margin-top:11px; display:grid; grid-template-columns:1fr 1fr; gap:7px; font-size:7px;">
+            <div style="background:rgba(255,255,255,.04); border-radius:5px; padding:6px 7px;"><span style="color:#7e93b0;">SALDIRI</span><div style="color:#ff9a4c; font-size:10px; margin-top:3px;">20</div></div>
+            <div style="background:rgba(255,255,255,.04); border-radius:5px; padding:6px 7px;"><span style="color:#7e93b0;">MENZİL</span><div style="color:#6cc8ff; font-size:10px; margin-top:3px;">275</div></div>
+            <div style="background:rgba(255,255,255,.04); border-radius:5px; padding:6px 7px;"><span style="color:#7e93b0;">ZIRH</span><div style="color:#cfe3ff; font-size:10px; margin-top:3px;">8</div></div>
+            <div style="background:rgba(255,255,255,.04); border-radius:5px; padding:6px 7px;"><span style="color:#7e93b0;">HIZ</span><div style="color:#cfe3ff; font-size:10px; margin-top:3px;">0.48</div></div>
+          </div>
+          <div style="margin-top:10px; font-size:6px; color:#7e93b0; line-height:1.7;"><span style="color:#7defb0;">▲ GÜÇLÜ</span> Piyade · Mekanize<br><span style="color:#ff8c8c;">▼ ZAYIF</span> Tanksavar · Topçu</div>
+        </div>
+
+        <!-- ░░ HUD: LEFT SUPPORT ░░ -->
+        <div style="position:absolute; left:16px; top:44%; transform:translateY(-50%); z-index:600; display:flex; flex-direction:column; gap:12px;">
+          <div style="position:relative; width:150px; background:linear-gradient(135deg,#112233,#1c3350); border:2px solid rgba(108,200,255,.45); border-radius:8px; padding:10px; box-shadow:0 0 14px rgba(0,0,0,.5); cursor:pointer;" onMouseOver="this.style.borderColor='rgba(108,200,255,.9)'" onMouseOut="this.style.borderColor='rgba(108,200,255,.45)'">
+            <div style="font-size:9px; color:#aaddff;">🪂 PARAŞÜTÇÜ</div>
+            <div style="margin-top:6px; font-size:7px; color:#ffd24c;">₿150 · 3 PİYADE</div>
+          </div>
+          <div style="position:relative; width:150px; background:linear-gradient(135deg,#0e2a1e,#16402b); border:2px solid rgba(77,255,160,.45); border-radius:8px; padding:10px; box-shadow:0 0 14px rgba(0,0,0,.5); cursor:pointer;" onMouseOver="this.style.borderColor='rgba(77,255,160,.9)'" onMouseOut="this.style.borderColor='rgba(77,255,160,.45)'">
+            <div style="font-size:9px; color:#9fffd0;">🧱 SİPER + İKMAL</div>
+            <div style="margin-top:6px; font-size:7px; color:#68e6a0;">ÜCRETSİZ</div>
+          </div>
+        </div>
+
+        <!-- ░░ HUD: MINIMAP ░░ -->
+        <div style="position:absolute; right:16px; bottom:112px; z-index:600; width:190px; height:114px; background:rgba(6,10,16,.9); border:2px solid rgba(108,200,255,.35); border-radius:7px; overflow:hidden; box-shadow:0 0 14px rgba(0,0,0,.5);">
+          <div style="position:absolute; inset:0; background-image:linear-gradient(rgba(110,200,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(110,200,255,.08) 1px,transparent 1px); background-size:19px 19px;"></div>
+          <div style="position:absolute; left:26%; top:50%; width:8px; height:8px; transform:translate(-50%,-50%); border-radius:50%; border:1px solid #4dffa0;"></div>
+          <div style="position:absolute; left:50%; top:49%; width:8px; height:8px; transform:translate(-50%,-50%); border-radius:50%; border:1px solid #ffd24c; animation:pulse 1.5s infinite;"></div>
+          <div style="position:absolute; left:75%; top:53%; width:8px; height:8px; transform:translate(-50%,-50%); border-radius:50%; border:1px solid #ff5f5f;"></div>
+          <div style="position:absolute; left:30%; top:46%; width:4px; height:4px; background:#4dffa0; border-radius:50%; box-shadow:0 0 4px #4dffa0;"></div>
+          <div style="position:absolute; left:22%; top:62%; width:4px; height:4px; background:#4dffa0; border-radius:50%;"></div>
+          <div style="position:absolute; left:14%; top:42%; width:4px; height:4px; background:#4dffa0; border-radius:50%;"></div>
+          <div style="position:absolute; left:44%; top:76%; width:4px; height:4px; background:#4dffa0; border-radius:50%;"></div>
+          <div style="position:absolute; left:60%; top:50%; width:4px; height:4px; background:#ff5f5f; border-radius:50%; box-shadow:0 0 4px #ff5f5f;"></div>
+          <div style="position:absolute; left:80%; top:55%; width:4px; height:4px; background:#ff5f5f; border-radius:50%;"></div>
+          <div style="position:absolute; left:88%; top:46%; width:4px; height:4px; background:#ff5f5f; border-radius:50%;"></div>
+          <div style="position:absolute; left:6px; top:5px; font-size:6px; color:#6c86a8;">HARİTA</div>
+        </div>
+
+        <!-- ░░ HUD: BOTTOM ROSTER ░░ -->
+        <div style="position:absolute; left:0; right:0; bottom:0; height:100px; z-index:600; background:rgba(8,11,20,.94); border-top:2px solid rgba(108,200,255,.3); box-shadow:0 -6px 22px rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; gap:7px;">
+          <sc-for list="{{ roster }}" as="r" hint-placeholder-count="9">
+            <button onClick="{{ r.onPick }}" style="position:relative; width:106px; height:80px; background:rgba(30,40,70,.7); border:2px solid rgba(80,130,220,.4); border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:0; transition:transform .12s, border-color .12s, background .12s;" onMouseOver="this.style.transform='translateY(-3px)'; this.style.borderColor='rgba(108,200,255,.8)'" onMouseOut="this.style.transform='translateY(0)'; this.style.borderColor='rgba(80,130,220,.4)'">
+              <sc-if value="{{ r.picked }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; inset:-2px; border:2px solid #4dffa0; border-radius:8px; box-shadow:0 0 14px rgba(77,255,160,.5); pointer-events:none;"></div>
+              </sc-if>
+              <div style="width:42px; height:33px; background-image:url(icons.png); background-size:900% 200%; background-position:{{ r.bgx }} 0%; image-rendering:pixelated; border-radius:3px;"></div>
+              <div style="font-size:6px; color:#aaddff; text-align:center;">{{ r.name }}</div>
+              <div style="font-size:6px; color:#ffd24c;">{{ r.cost }}</div>
+              <sc-if value="{{ r.notAfford }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; inset:0; background:rgba(6,8,14,.62); border-radius:8px; pointer-events:none;"></div>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+
+        <!-- pause -->
+        <div style="position:absolute; right:272px; top:18px; z-index:600; width:30px; height:30px; background:rgba(8,12,22,.85); border:2px solid rgba(108,200,255,.3); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:9px; color:#9fb4d0; cursor:pointer;">❚❚</div>
+
+      </div>
+    </div>
+    <!-- ════════ 1b · TACTICAL CLEAN ════════ -->
+    <div id="1b" style="display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <div style="font-family:'Press Start 2P'; font-size:13px; color:#0a0b0f; background:#7cc6ff; padding:8px 12px; border-radius:7px;">1b</div>
+        <div>
+          <div style="font-family:'Press Start 2P'; font-size:13px; color:#eaf2ff;">TACTICAL CLEAN</div>
+          <div style="font-size:12px; color:#7e93b0; margin-top:5px;">Into the Breach / FTL netliği — düz paneller, sakin slate, segmentli okunurluk</div>
+        </div>
+      </div>
+
+      <div data-frame style="position:relative; width:1280px; height:720px; border-radius:14px; overflow:hidden; border:1px solid #28323f; box-shadow:0 30px 80px -20px rgba(0,0,0,.8); font-family:'JetBrains Mono',monospace; color:#dbe4ee;">
+
+        <!-- BATTLEFIELD: realistic terrain (clean theme) -->
+        <dc-import name="Terrain" style="position:absolute; inset:0; width:100%; height:100%;" hint-size="100%,100%"></dc-import>
+        <div style="position:absolute; inset:0; background:rgba(20,30,42,.46);"></div>
+        <div style="position:absolute; left:0; top:0; bottom:0; width:42%; background:linear-gradient(90deg, rgba(56,189,248,.14), transparent);"></div>
+        <div style="position:absolute; right:0; top:0; bottom:0; width:42%; background:linear-gradient(270deg, rgba(251,113,133,.14), transparent);"></div>
+        <div style="position:absolute; inset:0; background-image:linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px); background-size:53.3px 53.3px;"></div>
+        <div style="position:absolute; left:50%; top:0; bottom:0; width:2px; transform:translateX(-50%); background:repeating-linear-gradient(180deg, rgba(255,255,255,.2) 0 8px, transparent 8px 16px);"></div>
+
+        <!-- CONTROL POINTS -->
+        <div style="position:absolute; left:26%; top:50%; transform:translate(-50%,-50%); width:104px; height:104px;">
+          <div style="position:absolute; inset:0; border-radius:50%; border:2px solid rgba(56,189,248,.45);"></div>
+          <div style="position:absolute; inset:0; border-radius:50%; border:2px solid #38bdf8; clip-path:polygon(0 0,100% 0,100% 100%,0 100%);"></div>
+          <div style="position:absolute; inset:20px; border-radius:50%; background:rgba(56,189,248,.14);"></div>
+          <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:13px; color:#7cc6ff;">◆</div>
+          <div style="position:absolute; left:50%; top:-20px; transform:translateX(-50%); font-size:9px; color:#9fc6e8; background:rgba(14,23,34,.9); border:1px solid rgba(56,189,248,.4); padding:2px 6px; border-radius:4px; white-space:nowrap;">A · SENİN</div>
+        </div>
+        <div style="position:absolute; left:50%; top:49%; transform:translate(-50%,-50%); width:116px; height:116px;">
+          <div style="position:absolute; inset:0; border-radius:50%; border:2px dashed rgba(255,210,120,.85); animation:sweep 9s linear infinite;"></div>
+          <div style="position:absolute; inset:18px; border-radius:50%; background:rgba(255,200,90,.16); animation:pulse 1.8s ease-in-out infinite;"></div>
+          <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:13px; color:#ffce6e;">◆</div>
+          <div style="position:absolute; left:50%; top:-20px; transform:translateX(-50%); font-size:9px; color:#ffce6e; background:rgba(14,23,34,.9); border:1px solid rgba(255,200,90,.5); padding:2px 6px; border-radius:4px; white-space:nowrap;">B · ÇEKİŞMELİ</div>
+        </div>
+        <div style="position:absolute; left:75%; top:53%; transform:translate(-50%,-50%); width:104px; height:104px;">
+          <div style="position:absolute; inset:0; border-radius:50%; border:2px solid rgba(251,113,133,.45);"></div>
+          <div style="position:absolute; inset:20px; border-radius:50%; background:rgba(251,113,133,.14);"></div>
+          <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:13px; color:#fb7185;">◆</div>
+          <div style="position:absolute; left:50%; top:-20px; transform:translateX(-50%); font-size:9px; color:#fda4ad; background:rgba(14,23,34,.9); border:1px solid rgba(251,113,133,.4); padding:2px 6px; border-radius:4px; white-space:nowrap;">C · DÜŞMAN</div>
+        </div>
+
+        <!-- UNITS (shared {{ units }}, clean styling) -->
+        <sc-for list="{{ units }}" as="u" hint-placeholder-count="18">
+          <div style="position:absolute; left:{{ u.x }}; top:{{ u.y }}; transform:translate(-50%,-50%); z-index:{{ u.z }};">
+            <div style="position:relative;">
+              <sc-if value="{{ u.sel }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; left:50%; top:50%; width:56px; height:56px; transform:translate(-50%,-50%);">
+                  <div style="position:absolute; left:0; top:0; width:13px; height:13px; border-left:2px solid #38bdf8; border-top:2px solid #38bdf8;"></div>
+                  <div style="position:absolute; right:0; top:0; width:13px; height:13px; border-right:2px solid #38bdf8; border-top:2px solid #38bdf8;"></div>
+                  <div style="position:absolute; left:0; bottom:0; width:13px; height:13px; border-left:2px solid #38bdf8; border-bottom:2px solid #38bdf8;"></div>
+                  <div style="position:absolute; right:0; bottom:0; width:13px; height:13px; border-right:2px solid #38bdf8; border-bottom:2px solid #38bdf8;"></div>
+                </div>
+              </sc-if>
+              <div style="width:{{ u.w }}; height:{{ u.h }}; background-image:url(icons.png); background-size:900% 200%; background-position:{{ u.bgx }} {{ u.bgy }}; image-rendering:pixelated; border-radius:3px;"></div>
+              <sc-if value="{{ u.fire }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; left:{{ u.fx }}; top:{{ u.fy }}; width:7px; height:7px; border-radius:50%; background:#fff;"></div>
+              </sc-if>
+              <sc-if value="{{ u.dmg }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; left:50%; top:calc(100% + 3px); transform:translateX(-50%); width:32px; height:3px; background:rgba(0,0,0,.5); border-radius:0; overflow:hidden;">
+                  <div style="width:{{ u.hpw }}; height:100%; background:{{ u.hpColor }};"></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ u.role }}" hint-placeholder-val="">
+                <div style="position:absolute; left:50%; top:-14px; transform:translateX(-50%); font-size:7px; letter-spacing:.5px; color:#a8c4e0; background:rgba(14,23,34,.92); border:1px solid #2c3a4d; padding:1px 4px; border-radius:3px; white-space:nowrap;">{{ u.role }}</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+
+        <!-- ░ RESOURCES (flat) ░ -->
+        <div style="position:absolute; left:16px; top:16px; z-index:600; background:#151e2a; border:1px solid #2c3a4d; border-radius:10px; padding:12px 15px; display:flex; gap:16px; align-items:center;">
+          <div><div style="font-size:8px; color:#6b8099; letter-spacing:1px;">KREDİ</div><div style="font-size:16px; color:#7cd6a0; margin-top:3px;">180</div></div>
+          <div style="width:1px; height:28px; background:#2c3a4d;"></div>
+          <div><div style="font-size:8px; color:#6b8099; letter-spacing:1px;">BİRLİK</div><div style="font-size:16px; color:#dbe4ee; margin-top:3px;">18<span style="font-size:10px; color:#6b8099;">/24</span></div></div>
+          <div style="width:1px; height:28px; background:#2c3a4d;"></div>
+          <div><div style="font-size:8px; color:#6b8099; letter-spacing:1px;">TUR</div><div style="font-size:16px; color:#dbe4ee; margin-top:3px;">7</div></div>
+        </div>
+
+        <!-- ░ PHASE + VP (segmented ITB) ░ -->
+        <div style="position:absolute; left:50%; top:16px; transform:translateX(-50%); z-index:600; width:440px;">
+          <div style="display:flex; align-items:center; justify-content:center; gap:8px; font-size:10px; letter-spacing:2px; color:#ffce6e; margin-bottom:8px;"><span style="width:7px;height:7px;border-radius:50%;background:#ffce6e;animation:pulse 1.6s infinite;"></span>SAVAŞ FAZI — BÖLGELERİ TUT</div>
+          <div style="background:#151e2a; border:1px solid #2c3a4d; border-radius:10px; padding:11px 14px;">
+            <div style="display:flex; justify-content:space-between; font-size:9px; margin-bottom:7px;"><span style="color:#fda4ad;">DÜŞMAN 1640</span><span style="color:#6b8099;">/ 3000</span><span style="color:#7cd6a0;">SEN 2180</span></div>
+            <div style="display:flex; gap:3px; height:12px;">
+              <div style="flex:1; display:flex; gap:3px;">
+                <div style="flex:1;background:#fb7185;border-radius:2px;"></div><div style="flex:1;background:#fb7185;border-radius:2px;"></div><div style="flex:1;background:#fb7185;border-radius:2px;"></div><div style="flex:1;background:#fb7185;border-radius:2px;"></div><div style="flex:1;background:#fb7185;opacity:.4;border-radius:2px;"></div><div style="flex:1;background:#2c3a4d;border-radius:2px;"></div>
+              </div>
+              <div style="width:2px;background:#ffce6e;border-radius:2px;"></div>
+              <div style="flex:1; display:flex; gap:3px;">
+                <div style="flex:1;background:#2c3a4d;border-radius:2px;"></div><div style="flex:1;background:#34d399;opacity:.4;border-radius:2px;"></div><div style="flex:1;background:#34d399;border-radius:2px;"></div><div style="flex:1;background:#34d399;border-radius:2px;"></div><div style="flex:1;background:#34d399;border-radius:2px;"></div><div style="flex:1;background:#34d399;border-radius:2px;"></div>
+              </div>
+            </div>
+            <div style="margin-top:8px; display:flex; justify-content:center; gap:14px; font-size:8px; color:#8aa0b8;"><span style="color:#7cd6a0;">▮ A tutuluyor</span><span style="color:#ffce6e;">▮ B çekişmeli</span><span style="color:#fda4ad;">▮ C düşmanda</span></div>
+          </div>
+        </div>
+
+        <!-- ░ SELECTED UNIT (flat, segmented health) ░ -->
+        <div style="position:absolute; right:16px; top:16px; z-index:600; width:250px; background:#151e2a; border:1px solid #2c3a4d; border-radius:12px; padding:14px;">
+          <div style="display:flex; gap:11px; align-items:center;">
+            <div style="width:48px; height:38px; background-image:url(icons.png); background-size:900% 200%; background-position:75% 0%; image-rendering:pixelated; border-radius:5px; border:1px solid #2c3a4d;"></div>
+            <div style="flex:1;">
+              <div style="font-size:14px; color:#eaf2ff; letter-spacing:.5px;">TANK</div>
+              <div style="margin-top:4px; font-size:8px; color:#7cd6a0; letter-spacing:1px;">★★ ANA-ÇABA</div>
+            </div>
+          </div>
+          <div style="margin-top:13px;">
+            <div style="display:flex; justify-content:space-between; font-size:8px; color:#8aa0b8; margin-bottom:5px;"><span>CAN</span><span style="color:#7cd6a0;">470 / 600</span></div>
+            <div style="display:flex; gap:2px;"><div style="flex:1;height:7px;background:#34d399;border-radius:1px;"></div><div style="flex:1;height:7px;background:#34d399;border-radius:1px;"></div><div style="flex:1;height:7px;background:#34d399;border-radius:1px;"></div><div style="flex:1;height:7px;background:#34d399;border-radius:1px;"></div><div style="flex:1;height:7px;background:#34d399;border-radius:1px;"></div><div style="flex:1;height:7px;background:#34d399;border-radius:1px;"></div><div style="flex:1;height:7px;background:#34d399;border-radius:1px;"></div><div style="flex:1;height:7px;background:#34d399;border-radius:1px;"></div><div style="flex:1;height:7px;background:#243042;border-radius:1px;"></div><div style="flex:1;height:7px;background:#243042;border-radius:1px;"></div></div>
+            <div style="display:flex; justify-content:space-between; font-size:8px; color:#8aa0b8; margin:11px 0 5px;"><span>MERMİ</span><span style="color:#ffce6e;">11 / 15</span></div>
+            <div style="display:flex; gap:2px;"><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#fbbf24;border-radius:1px;"></div><div style="flex:1;height:7px;background:#243042;border-radius:1px;"></div><div style="flex:1;height:7px;background:#243042;border-radius:1px;"></div><div style="flex:1;height:7px;background:#243042;border-radius:1px;"></div><div style="flex:1;height:7px;background:#243042;border-radius:1px;"></div></div>
+          </div>
+          <div style="margin-top:13px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div style="background:#101824; border:1px solid #243042; border-radius:7px; padding:8px;"><div style="font-size:7px; color:#6b8099; letter-spacing:1px;">SALDIRI</div><div style="font-size:15px; color:#fb9a4c; margin-top:2px;">20</div></div>
+            <div style="background:#101824; border:1px solid #243042; border-radius:7px; padding:8px;"><div style="font-size:7px; color:#6b8099; letter-spacing:1px;">MENZİL</div><div style="font-size:15px; color:#7cc6ff; margin-top:2px;">275</div></div>
+            <div style="background:#101824; border:1px solid #243042; border-radius:7px; padding:8px;"><div style="font-size:7px; color:#6b8099; letter-spacing:1px;">ZIRH</div><div style="font-size:15px; color:#dbe4ee; margin-top:2px;">8</div></div>
+            <div style="background:#101824; border:1px solid #243042; border-radius:7px; padding:8px;"><div style="font-size:7px; color:#6b8099; letter-spacing:1px;">HIZ</div><div style="font-size:15px; color:#dbe4ee; margin-top:2px;">0.48</div></div>
+          </div>
+          <div style="margin-top:11px; font-size:8px; color:#8aa0b8; line-height:1.7;"><span style="color:#7cd6a0;">▲</span> Piyade · Mekanize güçlü<br><span style="color:#fda4ad;">▼</span> Tanksavar · Topçu zayıf</div>
+        </div>
+
+        <!-- ░ SUPPORT (flat) ░ -->
+        <div style="position:absolute; left:16px; top:46%; transform:translateY(-50%); z-index:600; display:flex; flex-direction:column; gap:10px;">
+          <div style="width:158px; background:#151e2a; border:1px solid #2c3a4d; border-left:3px solid #38bdf8; border-radius:8px; padding:11px; cursor:pointer; transition:background .12s;" onMouseOver="this.style.background='#1b2738'" onMouseOut="this.style.background='#151e2a'">
+            <div style="font-size:10px; color:#cfe3ff;">PARAŞÜTÇÜ</div>
+            <div style="margin-top:5px; font-size:8px; color:#7cd6a0;">150 kr · 3 piyade</div>
+          </div>
+          <div style="width:158px; background:#151e2a; border:1px solid #2c3a4d; border-left:3px solid #34d399; border-radius:8px; padding:11px; cursor:pointer; transition:background .12s;" onMouseOver="this.style.background='#1b2738'" onMouseOut="this.style.background='#151e2a'">
+            <div style="font-size:10px; color:#cfe3ff;">SİPER + İKMAL</div>
+            <div style="margin-top:5px; font-size:8px; color:#7cd6a0;">ücretsiz</div>
+          </div>
+        </div>
+
+        <!-- ░ MINIMAP (flat) ░ -->
+        <div style="position:absolute; right:16px; bottom:108px; z-index:600; width:196px; height:116px; background:#101824; border:1px solid #2c3a4d; border-radius:9px; overflow:hidden;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:42%; background:rgba(56,189,248,.10);"></div>
+          <div style="position:absolute; right:0; top:0; bottom:0; width:42%; background:rgba(251,113,133,.10);"></div>
+          <div style="position:absolute; left:26%; top:50%; width:7px; height:7px; transform:translate(-50%,-50%); border-radius:50%; background:#38bdf8;"></div>
+          <div style="position:absolute; left:50%; top:49%; width:7px; height:7px; transform:translate(-50%,-50%); border-radius:50%; background:#ffce6e; animation:pulse 1.5s infinite;"></div>
+          <div style="position:absolute; left:75%; top:53%; width:7px; height:7px; transform:translate(-50%,-50%); border-radius:50%; background:#fb7185;"></div>
+          <div style="position:absolute; left:30%; top:46%; width:3px; height:3px; background:#7cc6ff; border-radius:50%;"></div>
+          <div style="position:absolute; left:22%; top:62%; width:3px; height:3px; background:#7cc6ff; border-radius:50%;"></div>
+          <div style="position:absolute; left:14%; top:42%; width:3px; height:3px; background:#7cc6ff; border-radius:50%;"></div>
+          <div style="position:absolute; left:44%; top:76%; width:3px; height:3px; background:#7cc6ff; border-radius:50%;"></div>
+          <div style="position:absolute; left:60%; top:50%; width:3px; height:3px; background:#fda4ad; border-radius:50%;"></div>
+          <div style="position:absolute; left:80%; top:55%; width:3px; height:3px; background:#fda4ad; border-radius:50%;"></div>
+          <div style="position:absolute; left:88%; top:46%; width:3px; height:3px; background:#fda4ad; border-radius:50%;"></div>
+          <div style="position:absolute; left:8px; top:6px; font-size:7px; color:#6b8099; letter-spacing:1px;">HARİTA</div>
+        </div>
+
+        <!-- ░ ROSTER (flat) ░ -->
+        <div style="position:absolute; left:0; right:0; bottom:0; height:96px; z-index:600; background:#101824; border-top:1px solid #2c3a4d; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <sc-for list="{{ roster }}" as="r" hint-placeholder-count="9">
+            <button onClick="{{ r.onPick }}" style="position:relative; width:106px; height:76px; background:#172132; border:1px solid #2c3a4d; border-radius:9px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:0; transition:transform .12s, border-color .12s;" onMouseOver="this.style.transform='translateY(-3px)'; this.style.borderColor='#4a6b88'" onMouseOut="this.style.transform='translateY(0)'; this.style.borderColor='#2c3a4d'">
+              <sc-if value="{{ r.picked }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; inset:-1px; border:2px solid #38bdf8; border-radius:9px; pointer-events:none;"></div>
+              </sc-if>
+              <div style="width:40px; height:31px; background-image:url(icons.png); background-size:900% 200%; background-position:{{ r.bgx }} 0%; image-rendering:pixelated; border-radius:3px;"></div>
+              <div style="font-size:8px; color:#cfe3ff;">{{ r.name }}</div>
+              <div style="font-size:8px; color:#7cd6a0;">{{ r.cost }}</div>
+              <sc-if value="{{ r.notAfford }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; inset:0; background:rgba(16,24,36,.6); border-radius:9px; pointer-events:none;"></div>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+
+      </div>
+    </div>
+    <!-- ════════ 1c · WAR ROOM ════════ -->
+    <div id="1c" style="display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <div style="font-family:'Press Start 2P'; font-size:13px; color:#0a0b0f; background:#ffb000; padding:8px 12px; border-radius:7px;">1c</div>
+        <div>
+          <div style="font-family:'Press Start 2P'; font-size:13px; color:#eaf2ff;">WAR ROOM</div>
+          <div style="font-size:12px; color:#7e93b0; margin-top:5px;">Amber fosfor komuta konsolu — radar, sektör grid, hedef-kilit, CRT atmosfer</div>
+        </div>
+      </div>
+
+      <div data-frame style="position:relative; width:1280px; height:720px; border-radius:14px; overflow:hidden; border:1px solid #2a2410; box-shadow:0 30px 80px -20px rgba(0,0,0,.85); font-family:'Share Tech Mono',monospace; color:#ffb000;">
+
+        <!-- TACTICAL MAP: realistic terrain (war-room phosphor) -->
+        <dc-import name="Terrain" style="position:absolute; inset:0; width:100%; height:100%;" hint-size="100%,100%"></dc-import>
+        <div style="position:absolute; inset:0; background:radial-gradient(900px 600px at 50% 50%, rgba(58,68,18,.4) 0%, rgba(8,14,6,.5) 60%, rgba(4,6,4,.72) 100%); mix-blend-mode:multiply;"></div>
+        <div style="position:absolute; inset:0; background:rgba(44,42,8,.28); mix-blend-mode:overlay;"></div>
+        <div style="position:absolute; inset:0; background-image:linear-gradient(rgba(255,176,0,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,176,0,.09) 1px, transparent 1px); background-size:64px 64px;"></div>
+        <div style="position:absolute; inset:0; background-image:linear-gradient(rgba(255,176,0,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(255,176,0,.16) 1px, transparent 1px); background-size:256px 256px;"></div>
+        <!-- radar sweep over field -->
+        <div style="position:absolute; left:50%; top:50%; width:1400px; height:1400px; transform:translate(-50%,-50%); border-radius:50%; background:conic-gradient(from 0deg, rgba(255,176,0,.10), transparent 38%); animation:sweep 8s linear infinite; pointer-events:none;"></div>
+        <!-- sector coords -->
+        <div style="position:absolute; left:0; right:0; top:6px; display:flex; justify-content:space-around; font-size:9px; color:rgba(255,176,0,.4); letter-spacing:2px; padding:0 60px; z-index:200;"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div>
+        <div style="position:absolute; left:6px; top:0; bottom:0; display:flex; flex-direction:column; justify-content:space-around; font-size:9px; color:rgba(255,176,0,.4); padding:120px 0 110px; z-index:200;"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
+
+        <!-- CONTROL POINTS as objectives -->
+        <div style="position:absolute; left:26%; top:50%; transform:translate(-50%,-50%); width:120px; height:120px;">
+          <div style="position:absolute; inset:0; border-radius:50%; border:1px solid rgba(74,222,128,.5);"></div>
+          <div style="position:absolute; inset:14px; border-radius:50%; border:1px dashed rgba(74,222,128,.4);"></div>
+          <div style="position:absolute; inset:30px; border-radius:50%; background:rgba(74,222,128,.12);"></div>
+          <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:11px; color:#4ade80;">⊕</div>
+          <div style="position:absolute; left:50%; top:-18px; transform:translateX(-50%); font-size:8px; color:#4ade80; letter-spacing:1px; white-space:nowrap;">[OBJ-A] HELD</div>
+        </div>
+        <div style="position:absolute; left:50%; top:49%; transform:translate(-50%,-50%); width:134px; height:134px;">
+          <div style="position:absolute; inset:0; border-radius:50%; border:1px solid rgba(255,176,0,.7); animation:pulse 1.6s ease-in-out infinite;"></div>
+          <div style="position:absolute; inset:14px; border-radius:50%; border:1px dashed rgba(255,176,0,.6); animation:sweep 7s linear infinite reverse;"></div>
+          <div style="position:absolute; inset:32px; border-radius:50%; background:rgba(255,176,0,.14);"></div>
+          <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:11px; color:#ffb000;">⊕</div>
+          <div style="position:absolute; left:50%; top:-18px; transform:translateX(-50%); font-size:8px; color:#ffb000; letter-spacing:1px; white-space:nowrap;">[OBJ-B] CONTESTED</div>
+        </div>
+        <div style="position:absolute; left:75%; top:53%; transform:translate(-50%,-50%); width:120px; height:120px;">
+          <div style="position:absolute; inset:0; border-radius:50%; border:1px solid rgba(255,77,77,.5);"></div>
+          <div style="position:absolute; inset:14px; border-radius:50%; border:1px dashed rgba(255,77,77,.4);"></div>
+          <div style="position:absolute; inset:30px; border-radius:50%; background:rgba(255,77,77,.12);"></div>
+          <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:11px; color:#ff6b6b;">⊕</div>
+          <div style="position:absolute; left:50%; top:-18px; transform:translateX(-50%); font-size:8px; color:#ff6b6b; letter-spacing:1px; white-space:nowrap;">[OBJ-C] HOSTILE</div>
+        </div>
+
+        <!-- range arc on selected -->
+        <div style="position:absolute; left:40%; top:47%; width:300px; height:300px; transform:translate(-50%,-50%); border-radius:50%; border:1px dashed rgba(255,176,0,.3); pointer-events:none;"></div>
+
+        <!-- UNITS (shared {{ units }}, war-room styling) -->
+        <sc-for list="{{ units }}" as="u" hint-placeholder-count="18">
+          <div style="position:absolute; left:{{ u.x }}; top:{{ u.y }}; transform:translate(-50%,-50%); z-index:{{ u.z }};">
+            <div style="position:relative;">
+              <sc-if value="{{ u.sel }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; left:50%; top:50%; width:70px; height:70px; transform:translate(-50%,-50%); pointer-events:none;">
+                  <div style="position:absolute; inset:0; border-radius:50%; border:1px solid rgba(255,176,0,.55);"></div>
+                  <div style="position:absolute; left:50%; top:-6px; width:1px; height:16px; transform:translateX(-50%); background:#ffb000;"></div>
+                  <div style="position:absolute; left:50%; bottom:-6px; width:1px; height:16px; transform:translateX(-50%); background:#ffb000;"></div>
+                  <div style="position:absolute; top:50%; left:-6px; height:1px; width:16px; transform:translateY(-50%); background:#ffb000;"></div>
+                  <div style="position:absolute; top:50%; right:-6px; height:1px; width:16px; transform:translateY(-50%); background:#ffb000;"></div>
+                </div>
+              </sc-if>
+              <div style="width:{{ u.w }}; height:{{ u.h }}; background-image:url(icons.png); background-size:900% 200%; background-position:{{ u.bgx }} {{ u.bgy }}; image-rendering:pixelated; border-radius:2px; box-shadow:0 0 0 1px rgba(0,0,0,.6);"></div>
+              <sc-if value="{{ u.fire }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; left:{{ u.fx }}; top:{{ u.fy }}; width:8px; height:8px; border-radius:50%; background:radial-gradient(circle,#fff,#ffb000 50%,transparent 72%); animation:flick .18s steps(2) infinite;"></div>
+              </sc-if>
+              <sc-if value="{{ u.dmg }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; left:50%; top:calc(100% + 3px); transform:translateX(-50%); width:30px; height:3px; background:rgba(0,0,0,.6);">
+                  <div style="width:{{ u.hpw }}; height:100%; background:{{ u.hpColor }};"></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ u.role }}" hint-placeholder-val="">
+                <div style="position:absolute; left:50%; top:-13px; transform:translateX(-50%); font-size:7px; letter-spacing:1px; color:#ffd27a; background:rgba(8,10,6,.9); border:1px solid rgba(255,176,0,.35); padding:1px 4px; white-space:nowrap;">{{ u.role }}</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+
+        <!-- CRT scanlines + vignette -->
+        <div style="position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg, rgba(0,0,0,.32) 0 1px, transparent 1px 3px); animation:scan 1.4s steps(3) infinite;"></div>
+        <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(130% 110% at 50% 50%, transparent 48%, rgba(2,4,2,.88) 100%);"></div>
+        <div style="position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 120px rgba(255,176,0,.06);"></div>
+
+        <!-- classification banner -->
+        <div style="position:absolute; left:50%; top:0; transform:translateX(-50%); z-index:650; background:rgba(255,176,0,.14); border:1px solid rgba(255,176,0,.4); border-top:none; border-radius:0 0 6px 6px; padding:3px 18px; font-size:8px; letter-spacing:3px; color:#ffd27a;">// TACNET — RESTRICTED //</div>
+
+        <!-- ░ STATUS (top-left) ░ -->
+        <div style="position:absolute; left:16px; top:24px; z-index:600; background:rgba(8,12,6,.9); border:1px solid rgba(255,176,0,.35); padding:11px 14px; box-shadow:inset 0 0 20px rgba(255,176,0,.05);">
+          <div style="font-size:8px; letter-spacing:2px; color:rgba(255,176,0,.55); margin-bottom:8px;">▌ KOMUTA DURUMU</div>
+          <div style="display:flex; gap:16px; font-size:11px;">
+            <span style="color:#4ade80;">SUPPLY 180</span>
+            <span style="color:#ffd27a;">UNITS 18/24</span>
+          </div>
+          <div style="margin-top:8px; font-size:8px; color:rgba(255,176,0,.6); letter-spacing:1px;">TURN 07 · WINTER · T+03:48</div>
+        </div>
+
+        <!-- ░ VP READOUT (top-center) ░ -->
+        <div style="position:absolute; left:50%; top:30px; transform:translateX(-50%); z-index:600; width:440px;">
+          <div style="text-align:center; font-size:10px; letter-spacing:3px; color:#ffb000; margin-bottom:8px; text-shadow:0 0 8px rgba(255,176,0,.5);">◤ ENGAGEMENT — HOLD SECTORS ◢</div>
+          <div style="background:rgba(8,12,6,.9); border:1px solid rgba(255,176,0,.35); padding:10px 13px; box-shadow:inset 0 0 20px rgba(255,176,0,.05);">
+            <div style="display:flex; justify-content:space-between; font-size:9px; margin-bottom:6px;"><span style="color:#ff6b6b;">HOSTILE 1640</span><span style="color:rgba(255,176,0,.5);">TGT 3000</span><span style="color:#4ade80;">FRIENDLY 2180</span></div>
+            <div style="position:relative; height:14px; background:rgba(0,0,0,.55); border:1px solid rgba(255,176,0,.25); overflow:hidden;">
+              <div style="position:absolute; left:0; top:0; height:100%; width:55%; background:repeating-linear-gradient(90deg,#ff6b6b 0 6px,#c43d3d 6px 12px); opacity:.75;"></div>
+              <div style="position:absolute; right:0; top:0; height:100%; width:72%; background:repeating-linear-gradient(90deg,#4ade80 0 6px,#2c9c5a 6px 12px); opacity:.8;"></div>
+              <div style="position:absolute; left:50%; top:-1px; bottom:-1px; width:2px; background:#ffb000; box-shadow:0 0 8px #ffb000;"></div>
+            </div>
+            <div style="margin-top:7px; text-align:center; font-size:8px; color:rgba(255,210,122,.8); letter-spacing:1px;">SECTORS 1 : 1 · OBJ-B CONTESTED · ETA TO TGT 02:10</div>
+          </div>
+        </div>
+
+        <!-- ░ SELECTED UNIT (target lock readout) ░ -->
+        <div style="position:absolute; right:16px; top:24px; z-index:600; width:250px; background:rgba(8,12,6,.92); border:1px solid rgba(255,176,0,.4); box-shadow:inset 0 0 24px rgba(255,176,0,.06);">
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 11px; background:rgba(255,176,0,.12); border-bottom:1px solid rgba(255,176,0,.3); font-size:8px; letter-spacing:2px; color:#ffd27a;"><span>▌ TARGET LOCK</span><span style="color:#4ade80;">● TRACK</span></div>
+          <div style="padding:13px;">
+            <div style="display:flex; gap:11px; align-items:center;">
+              <div style="width:48px; height:38px; background-image:url(icons.png); background-size:900% 200%; background-position:75% 0%; image-rendering:pixelated; border:1px solid rgba(255,176,0,.4);"></div>
+              <div style="flex:1;">
+                <div style="font-size:13px; color:#ffe9bf; letter-spacing:1px;">M-TANK</div>
+                <div style="margin-top:4px; font-size:8px; color:#4ade80; letter-spacing:1px;">CLASS ★★ MAIN-EFFORT</div>
+              </div>
+            </div>
+            <div style="margin-top:12px; font-size:9px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:rgba(255,176,0,.6);">HULL</span><span style="color:#4ade80;">470/600</span></div>
+              <div style="height:8px; background:rgba(0,0,0,.55); border:1px solid rgba(255,176,0,.2);"><div style="width:78%; height:100%; background:#4ade80;"></div></div>
+              <div style="display:flex; justify-content:space-between; margin:9px 0 4px;"><span style="color:rgba(255,176,0,.6);">AMMO</span><span style="color:#ffb000;">11/15</span></div>
+              <div style="height:8px; background:rgba(0,0,0,.55); border:1px solid rgba(255,176,0,.2);"><div style="width:73%; height:100%; background:#ffb000;"></div></div>
+            </div>
+            <div style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:1px; background:rgba(255,176,0,.2); border:1px solid rgba(255,176,0,.2); font-size:9px;">
+              <div style="background:#0a0e08; padding:7px 9px;"><span style="color:rgba(255,176,0,.55); font-size:7px; letter-spacing:1px;">ATK</span><div style="color:#ff9a4c; font-size:13px; margin-top:2px;">20</div></div>
+              <div style="background:#0a0e08; padding:7px 9px;"><span style="color:rgba(255,176,0,.55); font-size:7px; letter-spacing:1px;">RNG</span><div style="color:#ffd27a; font-size:13px; margin-top:2px;">275</div></div>
+              <div style="background:#0a0e08; padding:7px 9px;"><span style="color:rgba(255,176,0,.55); font-size:7px; letter-spacing:1px;">ARM</span><div style="color:#ffe9bf; font-size:13px; margin-top:2px;">08</div></div>
+              <div style="background:#0a0e08; padding:7px 9px;"><span style="color:rgba(255,176,0,.55); font-size:7px; letter-spacing:1px;">SPD</span><div style="color:#ffe9bf; font-size:13px; margin-top:2px;">0.48</div></div>
+            </div>
+            <div style="margin-top:11px; font-size:8px; line-height:1.7; color:rgba(255,210,122,.75);"><span style="color:#4ade80;">+ EFF</span> vs INF · MECH<br><span style="color:#ff6b6b;">- VUL</span> vs AT · ARTY</div>
+          </div>
+        </div>
+
+        <!-- ░ SUPPORT (left) ░ -->
+        <div style="position:absolute; left:16px; top:48%; transform:translateY(-50%); z-index:600; display:flex; flex-direction:column; gap:9px;">
+          <div style="width:160px; background:rgba(8,12,6,.9); border:1px solid rgba(255,176,0,.4); padding:10px; cursor:pointer; transition:background .12s;" onMouseOver="this.style.background='rgba(255,176,0,.12)'" onMouseOut="this.style.background='rgba(8,12,6,.9)'">
+            <div style="font-size:9px; color:#ffd27a; letter-spacing:1px;">▌ AIRDROP</div>
+            <div style="margin-top:5px; font-size:8px; color:#4ade80;">CALL · 150 · 3×INF</div>
+          </div>
+          <div style="width:160px; background:rgba(8,12,6,.9); border:1px solid rgba(255,176,0,.4); padding:10px; cursor:pointer; transition:background .12s;" onMouseOver="this.style.background='rgba(255,176,0,.12)'" onMouseOut="this.style.background='rgba(8,12,6,.9)'">
+            <div style="font-size:9px; color:#ffd27a; letter-spacing:1px;">▌ ENTRENCH + RESUPPLY</div>
+            <div style="margin-top:5px; font-size:8px; color:#4ade80;">READY · FREE</div>
+          </div>
+        </div>
+
+        <!-- ░ RADAR MINIMAP ░ -->
+        <div style="position:absolute; right:16px; bottom:110px; z-index:600; width:188px; height:130px; background:rgba(5,8,5,.92); border:1px solid rgba(255,176,0,.35); overflow:hidden;">
+          <div style="padding:5px 8px; font-size:7px; letter-spacing:2px; color:rgba(255,176,0,.55); border-bottom:1px solid rgba(255,176,0,.2);">▌ TAC-RADAR</div>
+          <div style="position:relative; height:106px;">
+            <div style="position:absolute; inset:0; background-image:linear-gradient(rgba(255,176,0,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(255,176,0,.10) 1px,transparent 1px); background-size:24px 24px;"></div>
+            <div style="position:absolute; left:50%; top:50%; width:200px; height:200px; transform:translate(-50%,-50%); border-radius:50%; background:conic-gradient(from 0deg, rgba(74,222,128,.22), transparent 32%); animation:sweep 4s linear infinite;"></div>
+            <div style="position:absolute; left:26%; top:50%; width:6px; height:6px; transform:translate(-50%,-50%); border-radius:50%; background:#4ade80;"></div>
+            <div style="position:absolute; left:50%; top:49%; width:6px; height:6px; transform:translate(-50%,-50%); border-radius:50%; background:#ffb000; animation:pulse 1.5s infinite;"></div>
+            <div style="position:absolute; left:75%; top:53%; width:6px; height:6px; transform:translate(-50%,-50%); border-radius:50%; background:#ff6b6b;"></div>
+            <div style="position:absolute; left:30%; top:46%; width:3px; height:3px; background:#4ade80; border-radius:50%;"></div>
+            <div style="position:absolute; left:22%; top:62%; width:3px; height:3px; background:#4ade80; border-radius:50%;"></div>
+            <div style="position:absolute; left:14%; top:42%; width:3px; height:3px; background:#4ade80; border-radius:50%;"></div>
+            <div style="position:absolute; left:44%; top:76%; width:3px; height:3px; background:#4ade80; border-radius:50%;"></div>
+            <div style="position:absolute; left:60%; top:50%; width:3px; height:3px; background:#ff6b6b; border-radius:50%;"></div>
+            <div style="position:absolute; left:80%; top:55%; width:3px; height:3px; background:#ff6b6b; border-radius:50%;"></div>
+            <div style="position:absolute; left:88%; top:46%; width:3px; height:3px; background:#ff6b6b; border-radius:50%;"></div>
+          </div>
+        </div>
+
+        <!-- ░ ROSTER (console) ░ -->
+        <div style="position:absolute; left:0; right:0; bottom:0; height:96px; z-index:600; background:rgba(6,9,5,.95); border-top:1px solid rgba(255,176,0,.3); display:flex; align-items:center; justify-content:center; gap:7px;">
+          <sc-for list="{{ roster }}" as="r" hint-placeholder-count="9">
+            <button onClick="{{ r.onPick }}" style="position:relative; width:106px; height:76px; background:rgba(20,26,14,.8); border:1px solid rgba(255,176,0,.28); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:0; transition:transform .12s, border-color .12s, background .12s;" onMouseOver="this.style.transform='translateY(-3px)'; this.style.borderColor='rgba(255,176,0,.85)'; this.style.background='rgba(255,176,0,.08)'" onMouseOut="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,176,0,.28)'; this.style.background='rgba(20,26,14,.8)'">
+              <sc-if value="{{ r.picked }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; inset:-1px; border:1px solid #ffb000; box-shadow:0 0 12px rgba(255,176,0,.5); pointer-events:none;"></div>
+              </sc-if>
+              <div style="width:40px; height:31px; background-image:url(icons.png); background-size:900% 200%; background-position:{{ r.bgx }} 0%; image-rendering:pixelated;"></div>
+              <div style="font-size:8px; color:#ffe9bf; letter-spacing:.5px;">{{ r.name }}</div>
+              <div style="font-size:8px; color:#4ade80;">{{ r.cost }}</div>
+              <sc-if value="{{ r.notAfford }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; inset:0; background:rgba(6,9,5,.62); pointer-events:none;"></div>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+
+      </div>
+    </div>
+
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { pick: 6 };
+  renderVals() {
+    const OWN = '#4dffa0', ENEMY = '#ff5f5f';
+    const sz = (t) => (t === 6 || t === 8) ? [50, 39] : (t === 7 ? [44, 34] : [38, 30]);
+    // [type, team(1=blue), x%, y%, hpRatio, sel, fire, role]
+    const R = [
+      [6,1,40,47,.78,1,1,'ANA-ÇABA'],
+      [2,1,34,39,.90,0,1,null],
+      [2,1,35,55,.82,0,0,null],
+      [0,1,29,47,1.0,0,0,null],
+      [1,1,32,33,.95,0,1,null],
+      [5,1,24,43,1.0,0,0,null],
+      [0,1,28,59,.70,0,0,null],
+      [8,1,13,39,1.0,0,1,null],
+      [8,1,11,49,1.0,0,0,null],
+      [3,1,20,29,1.0,0,0,'KEŞİF'],
+      [1,1,46,75,.90,0,1,'KANAT'],
+      [1,1,41,82,1.0,0,0,null],
+      [3,1,52,84,1.0,0,0,null],
+      [6,1,14,64,1.0,0,0,'YEDEK'],
+      [0,1,10,69,1.0,0,0,null],
+      [2,0,57,45,.60,0,1,null],
+      [7,0,63,51,.85,0,1,null],
+      [0,0,58,57,.50,0,0,null],
+      [4,0,65,42,1.0,0,0,null],
+      [6,0,79,53,1.0,0,0,null],
+      [7,0,84,61,.90,0,0,null],
+      [8,0,89,46,1.0,0,1,null],
+      [3,0,72,30,1.0,0,0,null],
+      [2,0,81,37,.95,0,0,null],
+    ];
+    const units = R.map((r, i) => {
+      const [t, b, x, y, hp, sel, fire, role] = r;
+      const [w, h] = sz(t);
+      return {
+        x: x + '%', y: y + '%', w: w + 'px', h: h + 'px',
+        bgx: (t * 12.5) + '%', bgy: b ? '0%' : '100%',
+        hpw: Math.round(hp * 100) + '%', hpColor: b ? OWN : ENEMY, dmg: hp < 1,
+        fire: !!fire, fx: b ? '86%' : '-14%', fy: '32%',
+        sel: !!sel, role: role,
+        z: Math.round(y) + (sel ? 200 : 0),
+        bob: (2.0 + (i % 5) * 0.35).toFixed(2) + 's',
+      };
+    });
+    const NAMES = ['Piyade','Mekanize','Zırhlı Piy.','Keşif','İstihkam','Sağlıkçı','Tank','Tanksavar','Topçu'];
+    const COST = [50,80,100,40,60,70,200,100,150];
+    const money = 180;
+    const pick = this.state.pick;
+    const roster = NAMES.map((n, i) => ({
+      i, name: n, cost: '₿' + COST[i], bgx: (i * 12.5) + '%',
+      notAfford: money < COST[i], picked: i === pick,
+      onPick: () => this.setState({ pick: i }),
+    }));
+    return { units, roster };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; overflow:hidden;">
+
+  <!-- frozen ground base -->
+  <div style="position:absolute; inset:0; background:radial-gradient(130% 95% at 48% 36%, #2a3126 0%, #1c2118 45%, #11140c 78%, #0a0c07 100%);"></div>
+
+  <!-- large snow + mud mottling -->
+  <div style="position:absolute; inset:0; background:radial-gradient(220px 150px at 22% 28%, rgba(196,206,210,.18), transparent 70%), radial-gradient(250px 170px at 68% 20%, rgba(190,202,208,.14), transparent 70%), radial-gradient(280px 190px at 40% 74%, rgba(182,198,202,.15), transparent 72%), radial-gradient(230px 160px at 86% 64%, rgba(176,192,198,.12), transparent 72%), radial-gradient(200px 150px at 60% 52%, rgba(196,206,210,.10), transparent 70%), radial-gradient(320px 210px at 58% 46%, rgba(64,52,38,.4), transparent 68%), radial-gradient(190px 140px at 12% 58%, rgba(58,48,34,.45), transparent 70%), radial-gradient(170px 120px at 80% 40%, rgba(56,46,32,.4), transparent 70%);"></div>
+
+  <!-- plowed field plots -->
+  <div style="position:absolute; left:56%; top:7%; width:33%; height:28%; transform:rotate(-13deg); opacity:.16; background:repeating-linear-gradient(90deg, rgba(150,124,86,.6) 0 3px, transparent 3px 15px); border-radius:40px;"></div>
+  <div style="position:absolute; left:5%; top:63%; width:27%; height:23%; transform:rotate(9deg); opacity:.14; background:repeating-linear-gradient(90deg, rgba(150,124,86,.6) 0 3px, transparent 3px 14px); border-radius:40px;"></div>
+
+  <!-- frozen river (diagonal channel) -->
+  <div style="position:absolute; left:53%; top:50%; width:74px; height:1250px; transform:translate(-50%,-50%) rotate(62deg); border-radius:44px; background:linear-gradient(90deg, rgba(16,24,28,.9) 0%, rgba(42,58,66,.66) 32%, rgba(96,122,132,.34) 50%, rgba(42,58,66,.66) 68%, rgba(16,24,28,.9) 100%);"></div>
+  <div style="position:absolute; left:53%; top:50%; width:13px; height:1250px; transform:translate(-50%,-50%) rotate(62deg); border-radius:44px; background:linear-gradient(90deg, transparent, rgba(188,208,214,.26), transparent); opacity:.5;"></div>
+  <!-- river banks (snow rim) -->
+  <div style="position:absolute; left:53%; top:50%; width:96px; height:1250px; transform:translate(-50%,-50%) rotate(62deg); border-radius:50px; box-shadow:inset 0 0 0 3px rgba(186,200,204,.09);"></div>
+
+  <!-- dirt roads -->
+  <div style="position:absolute; left:50%; top:51%; width:155%; height:26px; transform:translate(-50%,-50%) rotate(19deg); background:linear-gradient(180deg, transparent, rgba(76,62,44,.78) 32%, rgba(92,76,52,.82) 50%, rgba(76,62,44,.78) 68%, transparent); border-radius:30px;"></div>
+  <div style="position:absolute; left:50%; top:51%; width:155%; height:3px; transform:translate(-50%,-50%) rotate(19deg); background:repeating-linear-gradient(90deg, rgba(214,200,170,.4) 0 12px, transparent 12px 28px);"></div>
+  <div style="position:absolute; left:32%; top:44%; width:115%; height:20px; transform:translate(-50%,-50%) rotate(-57deg); background:linear-gradient(180deg, transparent, rgba(70,57,40,.7) 40%, rgba(70,57,40,.7) 60%, transparent); border-radius:30px;"></div>
+
+  <!-- vehicle tracks -->
+  <div style="position:absolute; left:24%; top:50%; width:160px; height:48px; transform:translate(-50%,-50%) rotate(-12deg); opacity:.4; background:repeating-linear-gradient(90deg, rgba(30,26,18,.6) 0 2px, transparent 2px 7px);"></div>
+
+  <!-- forest floor snow under clusters -->
+  <sc-for list="{{ clusters }}" as="cl" hint-placeholder-count="6">
+    <div style="position:absolute; left:{{ cl.x }}; top:{{ cl.y }}; width:{{ cl.d }}; height:{{ cl.d }}; transform:translate(-50%,-50%); border-radius:50%; background:radial-gradient(circle, rgba(20,30,18,.55) 30%, transparent 72%);"></div>
+  </sc-for>
+
+  <!-- craters -->
+  <sc-for list="{{ craters }}" as="c" hint-placeholder-count="7">
+    <div style="position:absolute; left:{{ c.x }}; top:{{ c.y }}; width:{{ c.sz }}; height:{{ c.h }}; transform:translate(-50%,-50%) rotate({{ c.r }}); border-radius:50%; background:radial-gradient(circle at 50% 42%, rgba(5,7,5,.94) 0%, rgba(26,22,15,.82) 34%, rgba(48,40,28,.4) 56%, rgba(70,60,42,.18) 68%, transparent 74%); box-shadow:inset 0 -3px 6px rgba(0,0,0,.6), 0 0 0 1px rgba(198,210,214,.10);"></div>
+  </sc-for>
+
+  <!-- trees -->
+  <sc-for list="{{ trees }}" as="t" hint-placeholder-count="60">
+    <div style="position:absolute; left:{{ t.x }}; top:{{ t.y }}; width:{{ t.s }}; height:{{ t.s }}; transform:translate(-50%,-50%); z-index:{{ t.z }}; border-radius:50% 50% 48% 48%; background:{{ t.bg }}; box-shadow:0 {{ t.sh }} {{ t.sh }} rgba(0,0,0,.55);"></div>
+  </sc-for>
+
+  <!-- fine grain -->
+  <div style="position:absolute; inset:0; pointer-events:none; opacity:.5; background-image:radial-gradient(rgba(222,230,234,.06) 1px, transparent 1.4px), radial-gradient(rgba(0,0,0,.12) 1px, transparent 1.4px); background-size:5px 5px, 8px 8px; background-position:0 0, 3px 4px;"></div>
+
+  <!-- coarse mud speckle -->
+  <div style="position:absolute; inset:0; pointer-events:none; opacity:.42; background-image:radial-gradient(rgba(44,36,22,.55) 2px, transparent 3px), radial-gradient(rgba(180,196,200,.10) 1.5px, transparent 2.5px); background-size:26px 26px, 34px 34px; background-position:7px 11px, 18px 5px;"></div>
+
+  <!-- soft elevation light -->
+  <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(140% 120% at 44% 34%, rgba(210,220,224,.07), transparent 55%);"></div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:720}}">
+class Component extends DCLogic {
+  renderVals() {
+    function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+    const rnd = mulberry32(20260630);
+    // forest clusters: [cx%, cy%, radiusX%, radiusY%, count]
+    const CL = [
+      [18,24,10,8,13],
+      [14,70,9,7,11],
+      [52,13,9,6,12],
+      [84,28,10,8,13],
+      [86,71,9,7,11],
+      [37,87,8,5,9],
+    ];
+    const SHADES = [
+      'radial-gradient(circle at 40% 30%, #3a4f2c, #243619 55%, #0f1a0a 100%)',
+      'radial-gradient(circle at 40% 30%, #33472a, #1f2f16 55%, #0c160a 100%)',
+      'radial-gradient(circle at 38% 26%, #50683f, #2c4220 52%, #13200d 100%)',
+      'radial-gradient(circle at 42% 28%, #9fb0a4, #4a5d3a 48%, #1c2a12 100%)',
+    ];
+    const clusters = [];
+    const trees = [];
+    CL.forEach(([cx,cy,rx,ry,n]) => {
+      clusters.push({ x: cx + '%', y: cy + '%', d: (Math.max(rx,ry) * 2.6) + '%' });
+      for (let i = 0; i < n; i++) {
+        const a = rnd() * Math.PI * 2;
+        const rr = Math.sqrt(rnd());
+        const x = cx + Math.cos(a) * rx * rr;
+        const y = cy + Math.sin(a) * ry * rr;
+        const s = 9 + Math.round(rnd() * 9);
+        const shadeRoll = rnd();
+        const shade = shadeRoll > 0.86 ? 3 : Math.floor(rnd() * 3);
+        trees.push({
+          x: x.toFixed(1) + '%', y: y.toFixed(1) + '%',
+          s: s + 'px', bg: SHADES[shade],
+          sh: Math.round(s / 4) + 'px',
+          z: Math.round(y),
+        });
+      }
+    });
+    // craters: [x%, y%, sizePx, squashRatio, rotDeg]
+    const CR = [[44,53,72,.62,18],[58,48,54,.66,-22],[40,46,46,.6,40],[30,61,40,.64,8],[67,40,46,.58,-12],[78,58,38,.66,26],[50,71,34,.62,-30],[71,67,30,.6,14]];
+    const craters = CR.map(([x,y,sz,sq,r]) => ({
+      x: x + '%', y: y + '%', sz: sz + 'px', h: Math.round(sz * sq) + 'px', r: r + 'deg',
+    }));
+    return { clusters, craters, trees };
+  }
+}
+</script>
+</body>
+</html>

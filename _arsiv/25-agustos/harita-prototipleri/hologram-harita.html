@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<!-- Arşiv notu (25 Ağustos 2026): Aktif Electron çalışma zamanı veya paketleme girdisi değildir. -->
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Pixel RTS — Avrupa Haritası Görsel Yönleri</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
+<style>
+  :root{ --ac:#ffb000; --ac2:#4ade80; --red:#ff6b6b; --line:rgba(255,176,0,.22); --panel:rgba(8,12,6,.9); }
+  body{ margin:0; background:#0a0d0a; font-family:'Share Tech Mono',monospace; color:#ffd27a; }
+  a{ color:var(--ac); } a:hover{ color:#ffe9bf; }
+  .turn{ padding:28px; }
+  .turnhead{ font-family:'Press Start 2P',monospace; font-size:13px; color:var(--ac); letter-spacing:2px; margin:0 0 6px; }
+  .turnsub{ color:#8c7a3e; font-size:13px; margin:0 0 22px; }
+  .row{ display:flex; gap:36px; align-items:flex-start; flex-wrap:wrap; }
+  .opt{ position:relative; }
+  .badge{ position:absolute; top:-10px; left:-14px; z-index:20; font-family:'Press Start 2P',monospace; font-size:11px; background:var(--ac); color:#0a0d0a; padding:7px 9px; border:2px solid #0a0d0a; box-shadow:0 0 0 2px var(--ac); }
+  .optname{ font-family:'Press Start 2P',monospace; font-size:10px; color:#ffe9bf; margin:0 0 4px 44px; letter-spacing:1px; }
+  .optdesc{ color:#8c7a3e; font-size:12px; margin:0 0 12px; max-width:1440px; line-height:1.5; }
+  /* ── War Room ekran kabuğu ── */
+  .screen{ width:1440px; height:860px; background:#060a06; border:1px solid #2a2415; display:flex; flex-direction:column; position:relative; overflow:hidden; }
+  .topbar{ height:62px; flex:none; display:flex; align-items:stretch; border-bottom:1px solid var(--line); background:rgba(8,12,6,.95); z-index:10; }
+  .logo{ padding:12px 18px; display:flex; flex-direction:column; justify-content:center; }
+  .logo b{ font-family:'Press Start 2P',monospace; font-size:14px; color:#ffe9bf; letter-spacing:3px; }
+  .logo b em{ font-style:normal; color:var(--ac); }
+  .logo span{ font-size:9px; color:#6e6330; letter-spacing:2px; margin-top:5px; }
+  .stat{ border-left:1px solid var(--line); padding:10px 18px; display:flex; flex-direction:column; justify-content:center; min-width:86px; }
+  .stat i{ font-style:normal; font-size:9px; color:#8c7a3e; letter-spacing:2px; }
+  .stat b{ font-size:15px; color:#ffe9bf; margin-top:4px; font-weight:normal; }
+  .stat.green b{ color:var(--ac2); }
+  .tbtns{ margin-left:auto; display:flex; align-items:center; gap:8px; padding-right:14px; }
+  .tbtn{ border:1px solid var(--line); background:rgba(20,16,4,.6); color:#ffd27a; font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:2px; padding:8px 12px; }
+  .main{ flex:1; display:flex; min-height:0; }
+  .maparea{ flex:1; position:relative; overflow:hidden; background:#04070c; }
+  .mapstack{ position:absolute; inset:0; }
+  .mapstack canvas{ position:absolute; left:0; top:0; }
+  .tag{ position:absolute; top:14px; left:14px; z-index:6; background:rgba(8,12,6,.85); border:1px solid var(--line); color:#ffd27a; font-size:10px; letter-spacing:2px; padding:6px 10px; }
+  .fkeys{ position:absolute; bottom:38px; left:14px; z-index:6; display:flex; gap:8px; }
+  .fkey{ background:rgba(8,12,6,.88); border:1px solid var(--line); color:#ffd27a; font-size:10px; letter-spacing:2px; padding:9px 12px; }
+  .fkey.on{ border-color:var(--ac); color:#ffe9bf; background:rgba(50,36,4,.85); }
+  .maphint{ position:absolute; bottom:10px; left:14px; z-index:6; font-size:9px; letter-spacing:2px; color:#6e6330; }
+  .legend{ position:absolute; bottom:10px; right:14px; z-index:6; font-size:9px; letter-spacing:1px; color:#8c7a3e; display:flex; gap:14px; background:rgba(8,12,6,.7); padding:5px 9px; border:1px solid rgba(255,176,0,.12); }
+  .legend s{ text-decoration:none; display:inline-flex; align-items:center; gap:5px; }
+  .dotc{ width:7px; height:7px; display:inline-block; }
+  .inset{ position:absolute; right:14px; top:14px; z-index:6; border:1px solid var(--ac); background:#060a06; box-shadow:0 6px 24px rgba(0,0,0,.6); }
+  .inset .cap{ font-size:9px; letter-spacing:2px; color:var(--ac); padding:5px 8px; border-bottom:1px solid var(--line); background:rgba(8,12,6,.9); }
+  .inset canvas{ display:block; }
+  /* CRT katmanları */
+  .scan{ position:absolute; inset:0; z-index:5; pointer-events:none; background:repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px); }
+  .grid{ position:absolute; inset:0; z-index:4; pointer-events:none;
+    background:linear-gradient(rgba(255,176,0,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,176,0,.05) 1px, transparent 1px);
+    background-size:60px 60px; }
+  .vig{ position:absolute; inset:0; z-index:5; pointer-events:none; background:radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.45)); }
+  /* sağ panel */
+  .side{ width:322px; flex:none; border-left:1px solid var(--line); background:rgba(6,10,6,.97); display:flex; flex-direction:column; z-index:10; }
+  .side h3{ font-size:11px; letter-spacing:3px; color:var(--ac); margin:0; padding:16px 16px 3px; font-weight:normal; }
+  .side .era{ font-size:9px; letter-spacing:2px; color:#6e6330; padding:0 16px 10px; border-bottom:1px solid var(--line); }
+  .cityrow{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px 10px; }
+  .cityrow b{ font-family:'Press Start 2P',monospace; font-size:13px; color:#ffe9bf; font-weight:normal; }
+  .chip{ font-size:8px; letter-spacing:1px; color:var(--ac2); border:1px solid rgba(74,222,128,.5); padding:4px 6px; }
+  .fields{ padding:4px 16px; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .field{ border:1px solid var(--line); padding:8px 10px; }
+  .field i{ font-style:normal; display:block; font-size:8px; letter-spacing:2px; color:#8c7a3e; }
+  .field b{ display:block; font-size:12px; color:#ffe9bf; margin-top:4px; font-weight:normal; }
+  .field b.g{ color:var(--ac2); }
+  .note{ margin:10px 16px 0; border-left:2px solid var(--ac); background:rgba(50,36,4,.35); font-size:10px; color:#cfa14c; padding:8px 10px; line-height:1.5; }
+  .bigbtn{ margin:12px 16px 0; border:1px solid var(--ac); color:var(--ac); text-align:center; font-size:11px; letter-spacing:3px; padding:13px 0; background:rgba(50,36,4,.25); }
+  .loghead{ margin-top:14px; font-size:10px; letter-spacing:3px; color:var(--ac); background:rgba(50,36,4,.4); border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:8px 16px; }
+  .logbody{ padding:10px 16px; font-size:11px; color:#8c7a3e; line-height:1.6; }
+</style>
+</head>
+<body>
+<section class="turn" id="turn1">
+  <p class="turnhead">TUR 1 — GERÇEK AVRUPA · 3 GÖRSEL YÖN</p>
+  <p class="turnsub">Kıyı çizgileri ve ülke şekilleri gerçek coğrafi veriden (Natural Earth). 8 blok politik katmanı, gerçek şehir adları, yol ağı, fabrika/petrol işaretleri, cephe hatları. Sağ üstteki inset = yakın zoom LOD önizlemesi.</p>
+  <div class="row">
+
+    <div class="opt" id="1a">
+      <div class="badge"><a href="#1a" style="color:inherit;text-decoration:none">1A</a></div>
+      <p class="optname">UYDU + AMBER CRT</p>
+      <p class="optdesc">Gerçekçi uydu-vari rölyef (dağ gölgelendirme, çöl/orman kuşakları) + yarı saydam politik boyama. Üstte amber taktik grid + scanline. Hafif 2.5D eğim, kıyı ekstrüzyonu.</p>
+      <div class="screen" data-opt="a"></div>
+    </div>
+
+    <div class="opt" id="1b">
+      <div class="badge"><a href="#1b" style="color:inherit;text-decoration:none">1B</a></div>
+      <p class="optname">EU5 MODERN RÖLYEF</p>
+      <p class="optdesc">Kartografik hipsometrik arazi, doygun politik dolgular ve kalın blok sınırları — EU5'in modern dünyaya taşınmış hali. Cephe hatları kırmızı; derinlik kıyı ekstrüzyonuyla, CRT etkisi minimum.</p>
+      <div class="screen" data-opt="b"></div>
+    </div>
+
+    <div class="opt" id="1c">
+      <div class="badge"><a href="#1c" style="color:inherit;text-decoration:none">1C</a></div>
+      <p class="optname">TAKTİK HOLOGRAM 2.5D</p>
+      <p class="optdesc">Komuta masası hologramı: güçlü perspektif eğimi, şehirler ışıklı sütunlar (yükseklik = şehir seviyesi), dağlar amber kontur ışıması, yollar enerji hatları. En stilize yön.</p>
+      <div class="screen" data-opt="c"></div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+const BLOC = {
+  turk:{c:'#4cff7c',n:'Türk Cumhuriyeti'}, iber:{c:'#ff8a3c',n:'İber Federasyonu'},
+  brit:{c:'#e34c4c',n:'Britanya Topluluğu'}, germ:{c:'#e0d24c',n:'Cermen Federasyonu'},
+  nord:{c:'#4cc8ff',n:'Kuzey Paktı'}, slav:{c:'#b07cff',n:'Slav Federasyonu'},
+  magr:{c:'#d98cc0',n:'Mağrip Konseyi'}, arab:{c:'#cfa14c',n:'Arap Koalisyonu'}
+};
+const CB = {
+  'Turkey':'turk','Greece':'turk','Bulgaria':'turk','Cyprus':'turk','N. Cyprus':'turk','Albania':'turk','Macedonia':'turk','North Macedonia':'turk','Serbia':'turk','Kosovo':'turk','Montenegro':'turk','Bosnia and Herz.':'turk','Georgia':'turk','Armenia':'turk','Azerbaijan':'turk',
+  'Spain':'iber','Portugal':'iber','France':'iber','Italy':'iber','Malta':'iber',
+  'United Kingdom':'brit','Ireland':'brit','Iceland':'brit',
+  'Germany':'germ','Netherlands':'germ','Belgium':'germ','Luxembourg':'germ','Switzerland':'germ','Austria':'germ','Czechia':'germ','Czech Rep.':'germ','Poland':'germ','Denmark':'germ','Hungary':'germ','Slovakia':'germ','Slovenia':'germ','Croatia':'germ',
+  'Norway':'nord','Sweden':'nord','Finland':'nord','Estonia':'nord','Latvia':'nord','Lithuania':'nord',
+  'Russia':'slav','Ukraine':'slav','Belarus':'slav','Moldova':'slav','Romania':'slav',
+  'Morocco':'magr','Algeria':'magr','Tunisia':'magr','Libya':'magr','W. Sahara':'magr',
+  'Egypt':'arab','Israel':'arab','Palestine':'arab','Jordan':'arab','Syria':'arab','Lebanon':'arab','Iraq':'arab','Saudi Arabia':'arab','Kuwait':'arab'
+};
+const blocOf = f => CB[f.properties.name] || null;
+
+// [ad, lon, lat, tier(3=başkent,2=büyük,1=kasaba), fabrika 0-3, petrol 0/1]
+const CITIES = [
+ ['Ankara',32.85,39.93,3,2,0],['İstanbul',28.97,41.01,2,3,0],['İzmir',27.14,38.42,2,1,0],['Adana',35.32,37.0,1,1,0],
+ ['Atina',23.73,37.98,2,1,0],['Sofya',23.32,42.70,2,1,0],['Belgrad',20.46,44.79,2,1,0],
+ ['Madrid',-3.70,40.42,3,2,0],['Barselona',2.17,41.39,2,2,0],['Lizbon',-9.14,38.72,2,1,0],['Sevilla',-5.98,37.39,1,1,0],
+ ['Paris',2.35,48.86,2,3,0],['Lyon',4.84,45.76,1,2,0],['Marsilya',5.37,43.30,2,1,0],
+ ['Roma',12.50,41.90,2,1,0],['Milano',9.19,45.46,2,3,0],['Napoli',14.25,40.85,1,1,0],
+ ['Londra',-0.13,51.51,3,3,0],['Manchester',-2.24,53.48,2,3,0],['Dublin',-6.26,53.35,2,1,0],
+ ['Berlin',13.40,52.52,3,3,0],['Hamburg',9.99,53.55,2,2,0],['Münih',11.58,48.14,2,2,0],['Frankfurt',8.68,50.11,1,2,0],
+ ['Amsterdam',4.90,52.37,2,2,0],['Brüksel',4.35,50.85,1,1,0],['Zürih',8.54,47.37,1,1,0],
+ ['Viyana',16.37,48.21,2,2,0],['Prag',14.42,50.09,2,2,0],['Budapeşte',19.04,47.50,2,1,0],
+ ['Varşova',21.01,52.23,2,2,0],['Kopenhag',12.57,55.68,2,1,0],
+ ['Stokholm',18.07,59.33,3,2,0],['Oslo',10.75,59.91,2,1,0],['Helsinki',24.94,60.17,2,1,0],
+ ['Moskova',37.62,55.76,3,3,0],['St. Petersburg',30.34,59.93,2,2,0],['Volgograd',44.50,48.70,1,1,1],
+ ['Kiev',30.52,50.45,2,2,0],['Minsk',27.56,53.90,2,1,0],['Bükreş',26.10,44.43,2,1,1],
+ ['Cezayir',3.06,36.75,3,1,1],['Kazablanka',-7.59,33.57,2,1,0],['Tunus',10.17,36.80,2,1,0],['Trablus',13.19,32.90,2,0,1],
+ ['Kahire',31.24,30.04,2,2,0],['Şam',36.29,33.51,2,1,0],['Amman',35.93,31.95,1,0,0],
+ ['Bağdat',44.36,33.31,2,1,1],['Riyad',46.72,24.63,3,1,1]
+];
+const CI = {}; CITIES.forEach((c,i)=>CI[c[0]]=i);
+const ROADS = [
+ ['Kazablanka','Cezayir'],['Cezayir','Tunus'],['Tunus','Trablus'],['Trablus','Kahire'],
+ ['Kahire','Amman'],['Amman','Şam'],['Şam','Bağdat'],['Bağdat','Riyad'],['Şam','Adana'],
+ ['Adana','Ankara'],['Ankara','İstanbul'],['Ankara','İzmir'],['İstanbul','Sofya'],['Sofya','Atina'],
+ ['Sofya','Belgrad'],['Belgrad','Budapeşte'],['Budapeşte','Viyana'],['Viyana','Prag'],['Viyana','Münih'],
+ ['Prag','Berlin'],['Berlin','Varşova'],['Varşova','Minsk'],['Minsk','Moskova'],['Moskova','St. Petersburg'],
+ ['St. Petersburg','Helsinki'],['Stokholm','Oslo'],['Kopenhag','Hamburg'],['Hamburg','Berlin'],
+ ['Hamburg','Amsterdam'],['Amsterdam','Brüksel'],['Brüksel','Paris'],['Paris','Frankfurt'],['Frankfurt','Münih'],
+ ['Paris','Lyon'],['Lyon','Marsilya'],['Zürih','Milano'],['Milano','Roma'],['Roma','Napoli'],
+ ['Marsilya','Barselona'],['Barselona','Madrid'],['Madrid','Lizbon'],['Madrid','Sevilla'],
+ ['Londra','Manchester'],['Londra','Paris'],['Dublin','Manchester'],
+ ['Kiev','Moskova'],['Kiev','Varşova'],['Kiev','Bükreş'],['Bükreş','Sofya'],['Moskova','Volgograd'],['Lyon','Zürih']
+];
+const RANGES = [ // [polyline lon/lat, yarıçap derece, güç]
+ [[[5.5,44.2],[7,45.5],[9,46.3],[11,46.8],[13.5,47.0],[15,47.3]],1.0,1.0],       // Alpler
+ [[[-1.5,42.9],[0.5,42.7],[2.5,42.4]],0.7,.8],                                    // Pireneler
+ [[[19.5,49.3],[22,49.0],[24,48.2],[25.5,47.0],[25,45.6],[23,45.4]],0.9,.8],      // Karpatlar
+ [[[15.5,45.2],[17.5,43.8],[19.5,42.8],[20.5,41.8]],0.7,.7],                      // Dinarikler
+ [[[9.5,44.4],[11.5,43.5],[13.5,42.2],[15,41.2]],0.6,.6],                         // Apeninler
+ [[[6,59.5],[7.5,61],[10,62.5]],1.1,.8],                                          // İskandinav
+ [[[30,37.3],[33,37.0],[36,37.5],[39,38.5],[41,39.5],[43,39.8]],0.9,.9],          // Toroslar/Doğu Anadolu
+ [[[35,40.8],[39,40.6]],0.6,.6],                                                  // Kuzey Anadolu
+ [[[40,43.3],[44,42.8],[47,42.0]],0.9,1.0],                                       // Kafkaslar
+ [[[-7,31.2],[-4,32.5],[-1,34.0],[2,35.0],[6,35.5],[9,35.8]],0.9,.9],             // Atlas
+ [[[44,37.5],[46,35.0],[47.5,33.0]],0.9,.8],                                      // Zagros
+ [[[-5.5,43.0],[-3,42.8]],0.6,.6],[[[-3.2,37.1]],0.5,.6],                         // Kantabria / S.Nevada
+ [[[23,42.8],[25.5,42.7]],0.6,.6],[[[3,45.2]],0.7,.5],                            // Balkan / Massif C.
+ [[[13.5,50.7],[16,50.4]],0.5,.4]                                                 // Sudetler
+];
+const RIVERS = [
+ [[8.7,47.6],[7.75,48.58],[7.5,49.4],[6.96,50.94],[6.1,51.8],[4.5,51.9]],               // Ren
+ [[8.6,48.4],[10.5,48.5],[13,48.5],[16.37,48.2],[19,47.4],[19.5,46],[20.5,44.8],[24.5,44.0],[28.0,45.3]], // Tuna
+ [[31.2,30.1],[31.6,28.5],[32.6,26.0],[32.9,24.0]],                                     // Nil
+ [[2.35,48.86],[1.2,49.35],[0.3,49.45]],                                                // Sen
+ [[37.6,55.4],[40,54.0],[42.5,50.6],[44.5,48.7],[46.5,47.2]]                            // Volga (kısmi)
+];
+const BBOX = [[-12,22],[50,63]];
+const INSET_BBOX = [[8,45.0],[22,52.6]];
+
+const CFG = {
+a:{ sea:['#0a2438','#123a5c','#1a4a70'], coast:'rgba(140,200,255,.55)',
+    landN:[86,120,72], landM:[104,138,78], landS:[150,140,88],
+    tint:.20, borderIn:'rgba(0,0,0,.28)', front:'#ff5a5a', frontW:2.2,
+    mtnHi:'rgba(235,225,200,.5)', mtnSh:'rgba(40,32,18,.55)', mtnTone:[122,104,72],
+    river:'rgba(120,180,220,.75)', road:'rgba(255,208,110,.8)', roadW:1.4,
+    marker:'pixel', label:'#ffe9bf', halo:'rgba(4,8,4,.9)',
+    extr:8, extrCol:'#04121e', tilt:'perspective(1600px) rotateX(9deg) scale(1.06)',
+    overlays:['grid','scan','vig'], desat:'rgba(2,8,4,.24)' },
+b:{ sea:['#89aec6','#9dbfd4','#b3d0e0'], coast:'rgba(30,60,80,.8)',
+    landN:[140,168,118], landM:[168,186,126], landS:[208,192,138],
+    tint:.38, borderIn:'rgba(40,30,10,.35)', front:'#e03030', frontW:3,
+    mtnHi:'rgba(255,250,235,.65)', mtnSh:'rgba(70,52,28,.5)', mtnTone:[150,126,90],
+    river:'rgba(70,120,170,.9)', road:'rgba(90,60,20,.75)', roadW:1.6,
+    marker:'dot', label:'#1c1408', halo:'rgba(255,250,235,.85)',
+    extr:7, extrCol:'#3a4a56', tilt:'none',
+    overlays:['vig'], desat:null },
+c:{ sea:['#03080f','#061423','#0a1e33'], coast:'rgba(255,176,0,.65)',
+    landN:[16,34,26], landM:[20,42,30], landS:[34,40,26],
+    tint:.16, borderIn:'rgba(255,176,0,.12)', front:'#ff4646', frontW:2,
+    mtnHi:'rgba(255,190,60,.35)', mtnSh:'rgba(0,0,0,.5)', mtnTone:[46,58,38],
+    river:'rgba(60,150,200,.5)', road:'rgba(255,176,0,.55)', roadW:1.2,
+    marker:'pillar', label:'#ffe9bf', halo:'rgba(0,4,8,.95)',
+    extr:13, extrCol:'#01060c', tilt:'perspective(1200px) rotateX(26deg) scale(1.28) translateY(-26px)',
+    overlays:['grid','scan','vig'], desat:'rgba(0,6,12,.2)' }
+};
+
+function bboxPoly(b){ return {type:'MultiPoint',coordinates:[[b[0][0],b[0][1]],[b[1][0],b[0][1]],[b[1][0],b[1][1]],[b[0][0],b[1][1]]]}; }
+
+function renderMap(cv, cfg, bbox, lod, world){
+  const {features, land, frontMesh, innerMesh, coastMesh} = world;
+  const w=cv.width, h=cv.height, ctx=cv.getContext('2d');
+  const proj=d3.geoMercator().fitSize([w,h], bboxPoly(bbox));
+  const path=d3.geoPath(proj, ctx);
+  const P=(lon,lat)=>proj([lon,lat]);
+  const pxDeg = Math.abs(P(11,48)[0]-P(10,48)[0]);   // 1 derece ≈ px
+  // deniz
+  const sg=ctx.createLinearGradient(0,0,0,h);
+  sg.addColorStop(0,cfg.sea[0]); sg.addColorStop(.55,cfg.sea[1]); sg.addColorStop(1,cfg.sea[2]);
+  ctx.fillStyle=sg; ctx.fillRect(0,0,w,h);
+  // kara ekstrüzyonu (2.5D)
+  const depth=lod==='near'?Math.round(cfg.extr*.6):cfg.extr;
+  ctx.fillStyle=cfg.extrCol;
+  for(let d=depth;d>=1;d--){ ctx.save(); ctx.translate(0,d); ctx.beginPath(); path(land); ctx.fill(); ctx.restore(); }
+  // arazi tabanı (enlem gradyanı) — kara clip
+  ctx.save(); ctx.beginPath(); path(land); ctx.clip();
+  const yTop=P(0,bbox[1][1])[1], yBot=P(0,bbox[0][1])[1];
+  const lg=ctx.createLinearGradient(0,yTop,0,yBot);
+  const rgb=a=>`rgb(${a[0]},${a[1]},${a[2]})`;
+  lg.addColorStop(0,rgb(cfg.landN)); lg.addColorStop(.5,rgb(cfg.landM)); lg.addColorStop(1,rgb(cfg.landS));
+  ctx.fillStyle=lg; ctx.fillRect(0,0,w,h);
+  // çöl kuşağı (lat<35 → lat 28 tam)
+  const y35=P(0,35)[1], y28=P(0,28)[1];
+  if(y35<h){ const dg=ctx.createLinearGradient(0,y35,0,y28);
+    dg.addColorStop(0,'rgba(196,168,110,0)'); dg.addColorStop(1,'rgba(206,178,116,.9)');
+    ctx.fillStyle=dg; ctx.fillRect(0,y35,w,h-y35); }
+  // boreal orman (lat>57)
+  const y57=P(0,57)[1], y63=P(0,63)[1];
+  if(y57>0){ const fg=ctx.createLinearGradient(0,y57,0,y63);
+    fg.addColorStop(0,'rgba(30,64,40,0)'); fg.addColorStop(1,'rgba(24,54,36,.7)');
+    ctx.fillStyle=fg; ctx.fillRect(0,0,w,y57+2); }
+  // orta Anadolu / İspanya iç steppe hafif ton
+  for(const [lon,lat,r] of [[33,39,2.6],[-4.3,40.5,2.2],[44,31,4]]){
+    const p=P(lon,lat), rr=r*pxDeg, g2=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],rr);
+    g2.addColorStop(0,'rgba(190,168,108,.4)'); g2.addColorStop(1,'rgba(190,168,108,0)');
+    ctx.fillStyle=g2; ctx.fillRect(p[0]-rr,p[1]-rr,rr*2,rr*2);
+  }
+  // dağ sıraları — hillshade
+  for(const [pts,r,str] of RANGES){
+    const rr=r*pxDeg;
+    for(let i=0;i<pts.length;i++){
+      const segs = i<pts.length-1?3:1;
+      for(let s=0;s<segs;s++){
+        const t=s/segs, a=pts[i], b=pts[Math.min(i+1,pts.length-1)];
+        const p=P(a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t);
+        let g2=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],rr);
+        const mt=cfg.mtnTone;
+        g2.addColorStop(0,`rgba(${mt[0]},${mt[1]},${mt[2]},${.85*str})`); g2.addColorStop(1,`rgba(${mt[0]},${mt[1]},${mt[2]},0)`);
+        ctx.fillStyle=g2; ctx.fillRect(p[0]-rr,p[1]-rr,rr*2,rr*2);
+        g2=ctx.createRadialGradient(p[0]+rr*.25,p[1]+rr*.25,0,p[0]+rr*.25,p[1]+rr*.25,rr*.9);
+        g2.addColorStop(0,cfg.mtnSh.replace(/[\d.]+\)$/,(m)=> (parseFloat(m)*str)+')')); g2.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=g2; ctx.fillRect(p[0]-rr,p[1]-rr,rr*2.5,rr*2.5);
+        g2=ctx.createRadialGradient(p[0]-rr*.28,p[1]-rr*.28,0,p[0]-rr*.28,p[1]-rr*.28,rr*.55);
+        g2.addColorStop(0,cfg.mtnHi); g2.addColorStop(1,'rgba(255,255,255,0)');
+        ctx.fillStyle=g2; ctx.fillRect(p[0]-rr*2,p[1]-rr*2,rr*3,rr*3);
+      }
+    }
+  }
+  // pixel doku
+  const rnd=(sx=>()=> (sx=(sx*1103515245+12345)&0x7fffffff)/0x7fffffff)(7);
+  ctx.fillStyle='rgba(0,0,0,.05)';
+  for(let i=0;i<2600;i++){ ctx.fillRect(rnd()*w, rnd()*h, 2,2); }
+  ctx.fillStyle='rgba(255,255,255,.035)';
+  for(let i=0;i<1600;i++){ ctx.fillRect(rnd()*w, rnd()*h, 2,2); }
+  // politik boyama
+  for(const f of features){
+    const b=blocOf(f);
+    ctx.beginPath(); path(f);
+    if(b){ ctx.fillStyle=BLOC[b].c; ctx.globalAlpha=cfg.tint; ctx.fill(); }
+    else { ctx.fillStyle='#777'; ctx.globalAlpha=cfg.tint*.25; ctx.fill(); }
+    ctx.globalAlpha=1;
+  }
+  ctx.restore();
+  // nehirler
+  ctx.strokeStyle=cfg.river; ctx.lineWidth=lod==='near'?2:1.3; ctx.lineCap='round'; ctx.lineJoin='round';
+  for(const rv of RIVERS){ ctx.beginPath(); rv.forEach((pt,i)=>{ const p=P(pt[0],pt[1]); i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]); }); ctx.stroke(); }
+  // iç sınırlar (aynı blok) + kıyı
+  ctx.beginPath(); path(innerMesh); ctx.strokeStyle=cfg.borderIn; ctx.lineWidth=1; ctx.stroke();
+  ctx.beginPath(); path(coastMesh); ctx.strokeStyle=cfg.coast; ctx.lineWidth=1.2; ctx.stroke();
+  // CEPHE HATLARI (farklı blok sınırı)
+  ctx.beginPath(); path(frontMesh);
+  ctx.save(); ctx.strokeStyle=cfg.front; ctx.lineWidth=cfg.frontW; ctx.setLineDash([7,4]);
+  ctx.shadowColor=cfg.front; ctx.shadowBlur=6; ctx.stroke(); ctx.restore();
+  // yollar
+  const roadA = lod==='near'?1:.55;
+  ctx.save(); ctx.globalAlpha=roadA; ctx.strokeStyle=cfg.road; ctx.lineWidth=cfg.roadW; ctx.setLineDash(cfg.marker==='pillar'?[5,3]:[]);
+  for(const [a,b] of ROADS){
+    const A=CITIES[CI[a]], B=CITIES[CI[b]]; const p=P(A[1],A[2]), q=P(B[1],B[2]);
+    const mx=(p[0]+q[0])/2, my=(p[1]+q[1])/2 - Math.hypot(q[0]-p[0],q[1]-p[1])*.08;
+    ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.quadraticCurveTo(mx,my,q[0],q[1]); ctx.stroke();
+  }
+  ctx.restore();
+  // şehirler
+  ctx.textAlign='center';
+  for(const [name,lon,lat,tier,fac,oil] of CITIES){
+    const p=P(lon,lat); if(p[0]<-20||p[1]<-20||p[0]>w+20||p[1]>h+20) continue;
+    if(lod!=='near' && tier<2) continue;
+    const x=Math.round(p[0]), y=Math.round(p[1]);
+    const col = '#ffffff';
+    if(cfg.marker==='pixel'){
+      const s=tier===3?6:tier===2?4.5:3;
+      ctx.fillStyle='#000'; ctx.fillRect(x-s-1,y-s-1,2*s+2,2*s+2);
+      ctx.fillStyle=tier===3?'#ffe9bf':col; ctx.fillRect(x-s,y-s,2*s,2*s);
+      if(tier===3){ ctx.strokeStyle='#ffb000'; ctx.lineWidth=1.5; ctx.strokeRect(x-s-3,y-s-3,2*s+6,2*s+6); }
+    } else if(cfg.marker==='dot'){
+      const r=tier===3?6:tier===2?4.5:3;
+      ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fillStyle='#20180a'; ctx.fill();
+      ctx.lineWidth=1.6; ctx.strokeStyle='#fffbe8'; ctx.stroke();
+      if(tier===3){ ctx.beginPath(); ctx.arc(x,y,r+3.4,0,7); ctx.strokeStyle='#20180a'; ctx.lineWidth=1.2; ctx.stroke(); }
+    } else { // pillar
+      const ph=6+tier*8;
+      ctx.save(); ctx.strokeStyle='rgba(255,176,0,.9)'; ctx.shadowColor='#ffb000'; ctx.shadowBlur=8; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y-ph); ctx.stroke();
+      ctx.fillStyle=tier===3?'#ffe9bf':'#ffb000'; ctx.fillRect(x-3,y-ph-3,6,6);
+      ctx.restore();
+      ctx.beginPath(); ctx.ellipse(x,y,5,2.2,0,0,7); ctx.strokeStyle='rgba(255,176,0,.5)'; ctx.lineWidth=1; ctx.stroke();
+    }
+    // fabrika (seviye = baca sayısı)
+    if(fac>0 && (lod==='near'||tier===3)){
+      const fx=x+9, fy=(cfg.marker==='pillar'? y-4 : y-4);
+      ctx.fillStyle='rgba(0,0,0,.65)'; ctx.fillRect(fx-1,fy-6,10,8);
+      ctx.fillStyle=cfg.marker==='dot'?'#4a4034':'#c8b070'; ctx.fillRect(fx,fy-5,8,6);
+      for(let k=0;k<Math.min(fac,3);k++){ ctx.fillRect(fx+1+k*3,fy-9,2,4); ctx.fillStyle='#ffb000'; ctx.fillRect(fx+1+k*3,fy-10,2,1); ctx.fillStyle=cfg.marker==='dot'?'#4a4034':'#c8b070'; }
+    }
+    // petrol
+    if(oil && (lod==='near'||tier>=2)){
+      const ox=x-12, oy=y-2;
+      ctx.strokeStyle='#ff8a00'; ctx.lineWidth=1.4;
+      ctx.beginPath(); ctx.moveTo(ox-4,oy+4); ctx.lineTo(ox,oy-6); ctx.lineTo(ox+4,oy+4); ctx.stroke();
+      ctx.fillStyle='#ff8a00'; ctx.fillRect(ox-1.5,oy-7,3,3);
+    }
+    // etiket
+    if(lod==='near' || tier>=2){
+      const fs=tier===3?11:lod==='near'?10:9;
+      ctx.font=(tier===3?'bold ':'')+fs+'px "Share Tech Mono"';
+      ctx.lineWidth=3; ctx.strokeStyle=cfg.halo;
+      const ly=cfg.marker==='pillar'? y-(6+tier*8)-7 : y-(tier===3?12:9);
+      ctx.strokeText(name.toUpperCase(),x,ly); ctx.fillStyle=cfg.label; ctx.fillText(name.toUpperCase(),x,ly);
+    }
+  }
+  // seçili şehir vurgusu (Ankara)
+  const ap=P(32.85,39.93), ax=Math.round(ap[0]), ay=Math.round(ap[1]);
+  ctx.strokeStyle='#ffb000'; ctx.lineWidth=2; ctx.strokeRect(ax-13,ay-13,26,26);
+  ctx.font='9px "Share Tech Mono"'; ctx.lineWidth=3; ctx.strokeStyle=cfg.halo;
+  ctx.strokeText('SELECT',ax,ay+24); ctx.fillStyle='#ffb000'; ctx.fillText('SELECT',ax,ay+24);
+  ctx.fillStyle='#060a06'; ctx.fillRect(ax-11,ay+2,22,10);
+  ctx.fillStyle='#ffd27a'; ctx.font='bold 8px "Share Tech Mono"'; ctx.fillText('CMD',ax,ay+10);
+  // War Room renk kapama
+  if(cfg.desat){ ctx.fillStyle=cfg.desat; ctx.fillRect(0,0,w,h); }
+}
+
+function frameHTML(opt){
+  return `
+  <div class="topbar">
+    <div class="logo"><b>PIXEL <em>AVRUPA</em></b><span>YAŞAYAN HAREKÂT AĞI · MODERN ÇAĞ</span></div>
+    <div class="stat green"><i>DEVLET</i><b>Türk Cumhuriyeti</b></div>
+    <div class="stat"><i>PETROL</i><b>200</b></div>
+    <div class="stat"><i>İNSAN</i><b>200</b></div>
+    <div class="stat"><i>PUAN</i><b>200</b></div>
+    <div class="stat"><i>GÜN</i><b>1</b></div>
+    <div class="tbtns"><span class="tbtn">DURAKLAT</span><span class="tbtn">KAYDET</span><span class="tbtn">MENÜ</span></div>
+  </div>
+  <div class="main">
+    <div class="maparea">
+      <div class="mapstack" style="transform:${CFG[opt].tilt}; transform-origin:50% 78%;">
+        <canvas class="mapcv" width="1118" height="736"></canvas>
+      </div>
+      ${CFG[opt].overlays.includes('grid')?'<div class="grid"></div>':''}
+      ${CFG[opt].overlays.includes('scan')?'<div class="scan"></div>':''}
+      ${CFG[opt].overlays.includes('vig')?'<div class="vig"></div>':''}
+      <div class="tag">TACNET AVRUPA TAKTİK GÖRÜNÜMÜ</div>
+      <div class="inset"><div class="cap">YAKIN ZOOM — LOD DETAY</div><canvas class="insetcv" width="330" height="228"></canvas></div>
+      <div class="fkeys"><span class="fkey">01 KONSEY</span><span class="fkey">02 ORDU</span><span class="fkey">03 AR-GE</span><span class="fkey on">04 ŞEHİR</span><span class="fkey">05 KOMUTAN</span></div>
+      <div class="maphint">SÜRÜKLE: KAMERA · TEKERLEK: ZOOM · DÜĞÜM: BRİFİNG</div>
+      <div class="legend">
+        <s><span class="dotc" style="background:#4cff7c"></span>DOST</s>
+        <s><span class="dotc" style="background:#ff5a5a"></span>CEPHE</s>
+        <s><span class="dotc" style="background:#c8b070"></span>FABRİKA</s>
+        <s><span class="dotc" style="background:#ff8a00"></span>PETROL</s>
+      </div>
+    </div>
+    <div class="side">
+      <h3>HAREKÂT BRİFİNGİ</h3><div class="era">MODERN ÇAĞ</div>
+      <div class="cityrow"><b>ANKARA</b><span class="chip">KOMUTA MERKEZİ</span></div>
+      <div class="fields">
+        <div class="field"><i>TÜR</i><b>KARARGAH</b></div>
+        <div class="field"><i>KONTROL</i><b class="g">Türk Cumhuriyeti</b></div>
+        <div class="field"><i>MUHAREBE SAHASI</i><b>Köşe Kaleleri</b></div>
+        <div class="field"><i>GARNİZON / GÜÇ</i><b>2</b></div>
+        <div class="field"><i>FABRİKA</i><b>Sv.2 · 2 baca</b></div>
+        <div class="field"><i>KIŞLA</i><b>Sv.1</b></div>
+      </div>
+      <div class="note">BEKLENEN SONUÇ: Komuta ve ikmal merkezi<br>DOKTRİN: COMBINED</div>
+      <div class="bigbtn">KOMUTA MERKEZİNDESİN</div>
+      <div class="loghead">MUHAREBE KAYDI</div>
+      <div class="logbody">Türk Cumhuriyeti harekâtı başladı. Komşu düşman şehirlere saldırarak genişle.</div>
+    </div>
+  </div>`;
+}
+
+(async function(){
+  const topo = await (await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json')).json();
+  const obj = topo.objects.countries;
+  const features = topojson.feature(topo, obj).features;
+  const world = {
+    features,
+    land: topojson.merge(topo, obj.geometries),
+    frontMesh: topojson.mesh(topo, obj, (a,b)=>a!==b && blocOf(a)!==blocOf(b)),
+    innerMesh: topojson.mesh(topo, obj, (a,b)=>a!==b && blocOf(a)===blocOf(b)),
+    coastMesh: topojson.mesh(topo, obj, (a,b)=>a===b)
+  };
+  for(const scr of document.querySelectorAll('.screen')){
+    const opt = scr.dataset.opt, cfg = CFG[opt];
+    scr.innerHTML = frameHTML(opt);
+    renderMap(scr.querySelector('.mapcv'), cfg, BBOX, 'far', world);
+    renderMap(scr.querySelector('.insetcv'), cfg, INSET_BBOX, 'near', world);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,597 @@
+{
+  "schema_version": 1,
+  "operation": "25-agustos-worktree-reconciliation-no-delete",
+  "generated_at": "2026-08-26",
+  "branch": "atlas/worktree-reconciliation-2026-08-26",
+  "starting_status": {
+    "total": 97,
+    "deleted": 58,
+    "staged_renames": 9,
+    "modified": 6,
+    "untracked": 24
+  },
+  "classification_totals": {
+    "exact_archive": 21,
+    "line_ending_normalized_archive": 5,
+    "annotated_archive": 5,
+    "missing_archive": 27
+  },
+  "invariants": [
+    "No tracked HEAD blob is lost",
+    "M2/night BAT tools remain active at repository root",
+    "Game source scope remains byte-identical to HEAD",
+    "Pre-10-August qa-runtime blob is preserved only in archive",
+    "CRLF and annotated archive variants remain preserved"
+  ],
+  "deleted_paths": [
+    {
+      "source_path": "AI-EGIT-GECE.bat",
+      "head_blob": "d415b60034afddb501aba430e25a7c0e7900d2f2",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "AI-EGIT-GECE.bat",
+      "resolution": "restore_active_m2_night_tool"
+    },
+    {
+      "source_path": "BEYIN-TURNUVA.bat",
+      "head_blob": "96705cb2b33dc9d8c7e6651682aed9158cc3d0f9",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "BEYIN-TURNUVA.bat",
+      "resolution": "restore_active_m2_night_tool"
+    },
+    {
+      "source_path": "DIVERSE-SELFPLAY.bat",
+      "head_blob": "be1cca537a518f742d064cb930a5e63697a0eaac",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "DIVERSE-SELFPLAY.bat",
+      "resolution": "restore_active_m2_night_tool"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/Pixel RTS - Komuta Terminali.dc.html",
+      "head_blob": "9108f1edff63024527b3fb89edb02f1298697556",
+      "classification": "line_ending_normalized_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/Pixel RTS - Komuta Terminali.dc.html",
+      "existing_archive_blob": "2fd6c0c001ba01aa3ddcaa77d0633a1f75034453",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/orijinaller/Pixel RTS - Komuta Terminali.dc.html",
+      "resolution": "keep_crlf_and_preserve_head_original"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/Pixel RTS - Savaş HUD.dc.html",
+      "head_blob": "997ab4e7375ef14e67881347df42c981c453d70b",
+      "classification": "line_ending_normalized_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/Pixel RTS - Savaş HUD.dc.html",
+      "existing_archive_blob": "a7d2d8d29fb54f4fbe365015eeabb05bb24ab3fa",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/orijinaller/Pixel RTS - Savaş HUD.dc.html",
+      "resolution": "keep_crlf_and_preserve_head_original"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/README.md",
+      "head_blob": "f3aff09b43c85f6eb8e392b73f83c15cc1f17152",
+      "classification": "line_ending_normalized_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/README.md",
+      "existing_archive_blob": "9012d7b24f3f5b83b0df9dcc13d2e22efc5ad4d5",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/orijinaller/README.md",
+      "resolution": "keep_crlf_and_preserve_head_original"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/Terrain.dc.html",
+      "head_blob": "5374f5d16525b9eedd9e8eaa26782319688379f4",
+      "classification": "line_ending_normalized_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/Terrain.dc.html",
+      "existing_archive_blob": "07f6510602bcd30b1811ec25b71c1cdb71706227",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/orijinaller/Terrain.dc.html",
+      "resolution": "keep_crlf_and_preserve_head_original"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/icons.png",
+      "head_blob": "104096f1c466c77a29e797888d1014526b2d5f3a",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/25-agustos/kok-eski-dosyalar/icons.png.bak9",
+      "existing_archive_blob": "104096f1c466c77a29e797888d1014526b2d5f3a",
+      "preservation_target": "_arsiv/25-agustos/kok-eski-dosyalar/icons.png.bak9",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/shots/01-ana-menu.png",
+      "head_blob": "0c6435f0cdd33bec0dadd3ad5e058c58b8312031",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/01-ana-menu.png",
+      "existing_archive_blob": "0c6435f0cdd33bec0dadd3ad5e058c58b8312031",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/01-ana-menu.png",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/shots/02-kurulum.png",
+      "head_blob": "e4dcbba566214b8015c5456039236ea218582ab2",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/02-kurulum.png",
+      "existing_archive_blob": "e4dcbba566214b8015c5456039236ea218582ab2",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/02-kurulum.png",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/shots/03-pixel-avrupa.png",
+      "head_blob": "f68da53cdb0c08e6a1323ef7a0afed2790855ff5",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/03-pixel-avrupa.png",
+      "existing_archive_blob": "f68da53cdb0c08e6a1323ef7a0afed2790855ff5",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/03-pixel-avrupa.png",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/shots/04-deploy.png",
+      "head_blob": "0c6435f0cdd33bec0dadd3ad5e058c58b8312031",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/01-ana-menu.png",
+      "existing_archive_blob": "0c6435f0cdd33bec0dadd3ad5e058c58b8312031",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/01-ana-menu.png",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/shots/05-savas-hud.png",
+      "head_blob": "88c13b67731745f5480fa4a9a2b2e00ec4f0743b",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/05-savas-hud.png",
+      "existing_archive_blob": "88c13b67731745f5480fa4a9a2b2e00ec4f0743b",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/05-savas-hud.png",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/shots/06-sonuc-draft.png",
+      "head_blob": "d5a0cd4c985128481533d34e59c6c4258fb383e5",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/06-sonuc-draft.png",
+      "existing_archive_blob": "d5a0cd4c985128481533d34e59c6c4258fb383e5",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/06-sonuc-draft.png",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/shots/07-komutan-perk.png",
+      "head_blob": "b169b97c88a18c0f2bc12916e4b0346d27714bfd",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/07-komutan-perk.png",
+      "existing_archive_blob": "b169b97c88a18c0f2bc12916e4b0346d27714bfd",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/shots/07-komutan-perk.png",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "Oyun tasarımı planı/design_handoff_war_room/support.js",
+      "head_blob": "d2f00df00ad96caea2912e8ef5d8fd7f1272605f",
+      "classification": "line_ending_normalized_archive",
+      "existing_archive_path": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/support.js",
+      "existing_archive_blob": "a8926fbf02c42bc0353c11f9fed13c6b7196aefa",
+      "preservation_target": "_arsiv/Oyun tasarımı planı/design_handoff_war_room/orijinaller/support.js",
+      "resolution": "keep_crlf_and_preserve_head_original"
+    },
+    {
+      "source_path": "_arsiv/binary-dumps/github.png",
+      "head_blob": "644c29ddc280c9daed401773bd4202457616d7cb",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/binary-dumps/github.png",
+      "resolution": "restore_existing_archive_path"
+    },
+    {
+      "source_path": "cizdigim-harita.txt",
+      "head_blob": "143e7ddd733661871377ccc0f2e7c4457d690cdf",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/cizdigim-harita.txt",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "docs/harita-prototip.html",
+      "head_blob": "f77058e4ab543d798f580e90e15c39fb799e6f5a",
+      "classification": "annotated_archive",
+      "existing_archive_path": "_arsiv/25-agustos/harita-prototipleri/docs-harita-prototip.html",
+      "existing_archive_blob": "201657d5f5eba2b663e6406cc98ede5b51fc485a",
+      "preservation_target": "_arsiv/25-agustos/harita-prototipleri/orijinaller/docs-harita-prototip.html",
+      "resolution": "keep_annotated_and_preserve_head_original"
+    },
+    {
+      "source_path": "gercekci-harita.html",
+      "head_blob": "8377da01c1914113ef830695c876964b7363eeca",
+      "classification": "annotated_archive",
+      "existing_archive_path": "_arsiv/25-agustos/harita-prototipleri/gercekci-harita.html",
+      "existing_archive_blob": "a44f99b0ed9a7c425dd35944e4864f7ff48b65b3",
+      "preservation_target": "_arsiv/25-agustos/harita-prototipleri/orijinaller/gercekci-harita.html",
+      "resolution": "keep_annotated_and_preserve_head_original"
+    },
+    {
+      "source_path": "harita-yonleri.html",
+      "head_blob": "083af0eaedaf3ace60fc3b5642e3759c44d7f3a5",
+      "classification": "annotated_archive",
+      "existing_archive_path": "_arsiv/25-agustos/harita-prototipleri/harita-yonleri.html",
+      "existing_archive_blob": "84aa7c7a8a8b6706cb8139b7d19d95b06e89a9de",
+      "preservation_target": "_arsiv/25-agustos/harita-prototipleri/orijinaller/harita-yonleri.html",
+      "resolution": "keep_annotated_and_preserve_head_original"
+    },
+    {
+      "source_path": "harita.png",
+      "head_blob": "428d6c8b3882076d63c10afa63ccbe2dfc7d00c5",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/harita.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "harita_orig.png",
+      "head_blob": "18c3af079a74ed0590cda60c34f37224fed21716",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/harita_orig.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "hikaye-modu-haritasi.png",
+      "head_blob": "640e4ae29961b32ae0c147d3b41bc1d12bd35298",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/hikaye-modu-haritasi.png",
+      "existing_archive_blob": "640e4ae29961b32ae0c147d3b41bc1d12bd35298",
+      "preservation_target": "_arsiv/hikaye-modu-haritasi.png",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "hologram-harita.html",
+      "head_blob": "f77058e4ab543d798f580e90e15c39fb799e6f5a",
+      "classification": "annotated_archive",
+      "existing_archive_path": "_arsiv/25-agustos/harita-prototipleri/hologram-harita.html",
+      "existing_archive_blob": "ffe89984219f2fb87237decb5c3047181db9af57",
+      "preservation_target": "_arsiv/25-agustos/harita-prototipleri/orijinaller/hologram-harita.html",
+      "resolution": "keep_annotated_and_preserve_head_original"
+    },
+    {
+      "source_path": "memory.json",
+      "head_blob": "81dbc24056c994b4ee8c57f78c8d9cc05016a9d1",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/memory.json",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "mockup/01-menu-setup.html",
+      "head_blob": "3cd269c7735d5755a36e9e8145fef36d15c9430b",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/01-menu-setup.html",
+      "existing_archive_blob": "3cd269c7735d5755a36e9e8145fef36d15c9430b",
+      "preservation_target": "_arsiv/mockup/01-menu-setup.html",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "mockup/02-battle-hud.html",
+      "head_blob": "cafb0d526b82bc5c1f0b4bf66355625d7f6a2cb5",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/02-battle-hud.html",
+      "existing_archive_blob": "cafb0d526b82bc5c1f0b4bf66355625d7f6a2cb5",
+      "preservation_target": "_arsiv/mockup/02-battle-hud.html",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "mockup/03-story-world.html",
+      "head_blob": "b6a3a2ebfdab118258aeb2a15ecc1afe9a118876",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/03-story-world.html",
+      "existing_archive_blob": "b6a3a2ebfdab118258aeb2a15ecc1afe9a118876",
+      "preservation_target": "_arsiv/mockup/03-story-world.html",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "mockup/04-conversation.html",
+      "head_blob": "757a2cd845ef58d800d24f845a74e18aa450f371",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/04-conversation.html",
+      "existing_archive_blob": "757a2cd845ef58d800d24f845a74e18aa450f371",
+      "preservation_target": "_arsiv/mockup/04-conversation.html",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "mockup/BULGULAR.md",
+      "head_blob": "3250acfb0d59f0edb58db3bce11614ae6bef8392",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/BULGULAR.md",
+      "existing_archive_blob": "3250acfb0d59f0edb58db3bce11614ae6bef8392",
+      "preservation_target": "_arsiv/mockup/BULGULAR.md",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "mockup/fixtures.js",
+      "head_blob": "90354679290b8e8400de21f991151fb29cdcdff2",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/fixtures.js",
+      "existing_archive_blob": "90354679290b8e8400de21f991151fb29cdcdff2",
+      "preservation_target": "_arsiv/mockup/fixtures.js",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "mockup/index.html",
+      "head_blob": "10a86d99f1629016891afdd6ee9cda61cd1322ef",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/index.html",
+      "existing_archive_blob": "10a86d99f1629016891afdd6ee9cda61cd1322ef",
+      "preservation_target": "_arsiv/mockup/index.html",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "mockup/lab.css",
+      "head_blob": "b37614f919c34e9eef7868b6e42d4f3478c7100f",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/lab.css",
+      "existing_archive_blob": "b37614f919c34e9eef7868b6e42d4f3478c7100f",
+      "preservation_target": "_arsiv/mockup/lab.css",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "mockup/lab.js",
+      "head_blob": "db08726c82b0bc4cb36995da90f83ff0550da980",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/lab.js",
+      "existing_archive_blob": "db08726c82b0bc4cb36995da90f83ff0550da980",
+      "preservation_target": "_arsiv/mockup/lab.js",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "mockup/story-map-visual-target-v1.png",
+      "head_blob": "04a819805022ef54c478bf1b32c0f2447981238b",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/story-map-visual-target-v1.png",
+      "existing_archive_blob": "04a819805022ef54c478bf1b32c0f2447981238b",
+      "preservation_target": "_arsiv/mockup/story-map-visual-target-v1.png",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "mockup/tokens.css",
+      "head_blob": "9f4ca90aa9cc2a55eb18f50e17d167e3e5f7a80c",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/mockup/tokens.css",
+      "existing_archive_blob": "9f4ca90aa9cc2a55eb18f50e17d167e3e5f7a80c",
+      "preservation_target": "_arsiv/mockup/tokens.css",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "pasted-1784984494121-0.png",
+      "head_blob": "9047997815f00efacc6f60e172bd320f46a89990",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/pasted-1784984494121-0.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "pasted-1784984557179-0.png",
+      "head_blob": "25cb4729a9624e4bbe66c09b6e2f648ab51118d2",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/pasted-1784984557179-0.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "pasted-1784984587137-0.png",
+      "head_blob": "94fcebc1b599bb8ea2dbf7bcc08e6cafd444119b",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/pasted-1784984587137-0.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "pasted-1784984635721-0.png",
+      "head_blob": "873c255fb18b7652cea6c55cf95f1bb439c46129",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/pasted-1784984635721-0.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "pasted-1784984653928-0.png",
+      "head_blob": "d47d81a4eb1ab9428ba60c91cede63b86fb0c57d",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/pasted-1784984653928-0.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "pasted-1784984745422-0.png",
+      "head_blob": "083883d53acd1f3e8e6231dcad93a2aaf4db9216",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/pasted-1784984745422-0.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "pasted-1784984927509-0.png",
+      "head_blob": "f780a5513c8844ca8d188fc8ea73ac68628d057d",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/pasted-1784984927509-0.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "plans/documentation-layout.md",
+      "head_blob": "d8ac525a71092aa2d8954426cea0bf0b108222c4",
+      "classification": "exact_archive",
+      "existing_archive_path": "_arsiv/plans/documentation-layout.md",
+      "existing_archive_blob": "d8ac525a71092aa2d8954426cea0bf0b108222c4",
+      "preservation_target": "_arsiv/plans/documentation-layout.md",
+      "resolution": "keep_archive_exact"
+    },
+    {
+      "source_path": "qa-runtime/kompozisyonlar.json",
+      "head_blob": "74d36e83892f9e0f6c0d18d55e26744ab7fcbc04",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-runtime/kompozisyonlar.json",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "qa-screenshots/00-source-menu.png",
+      "head_blob": "1fc557720105c772696dea6ea27a3a0fd7e3e6f0",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-screenshots/00-source-menu.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "qa-screenshots/01-menu.png",
+      "head_blob": "d9bc906f0e5b193108583f136495017158f26433",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-screenshots/01-menu.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "qa-screenshots/02-setup.png",
+      "head_blob": "240940fd179e0b1a4fa8dfd686255381f4db02c7",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-screenshots/02-setup.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "qa-screenshots/03-map.png",
+      "head_blob": "18ce07b86cd4ef12c11680c47d0efbcb6a250952",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-screenshots/03-map.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "qa-screenshots/04-deploy.png",
+      "head_blob": "3eea9db19e1c22ae3633e04b63ed51184cf26496",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-screenshots/04-deploy.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "qa-screenshots/05-battle.png",
+      "head_blob": "e7a8f1985ee2549100238ffa303fce4eb2663eb1",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-screenshots/05-battle.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "qa-screenshots/06-result.png",
+      "head_blob": "52f845e4630e3dbadfb9ac28daf8f163116a88d6",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-screenshots/06-result.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "qa-screenshots/07-commander.png",
+      "head_blob": "248ec0a4a5c7cb005e25b03d25b29b3e0bb407a0",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-screenshots/07-commander.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "qa-screenshots/responsive-760x700.png",
+      "head_blob": "336deaa1bd440e85c2891ef26abc10e26900a4c5",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-screenshots/responsive-760x700.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "qa-screenshots/wide-map-1280x800.png",
+      "head_blob": "35daf1ce18c0ead0b8240042895a056cf271345e",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/qa-screenshots/wide-map-1280x800.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "terrain.png",
+      "head_blob": "7836b83919f3635fdcd7fc285c12889f39a19dbb",
+      "classification": "missing_archive",
+      "existing_archive_path": null,
+      "existing_archive_blob": null,
+      "preservation_target": "_arsiv/25-agustos/kurtarilan-silinmisler/terrain.png",
+      "resolution": "restore_then_archive"
+    },
+    {
+      "source_path": "yeni avrupa harita",
+      "head_blob": "48a8349f52f5cfe95b34c3fe1c0e20c6e4638513",
+      "classification": "annotated_archive",
+      "existing_archive_path": "_arsiv/25-agustos/harita-prototipleri/yeni avrupa harita",
+      "existing_archive_blob": "814b29c2ffcae720ad6038796a61e7a04527046e",
+      "preservation_target": "_arsiv/25-agustos/harita-prototipleri/orijinaller/yeni avrupa harita",
+      "resolution": "keep_annotated_and_preserve_head_original"
+    }
+  ],
+  "staged_renames": [
+    {
+      "status": "R100",
+      "source_path": "scripts/pick-best.sh",
+      "target_path": "_arsiv/25-agustos/eski-egitim-scriptleri/pick-best.sh"
+    },
+    {
+      "status": "R100",
+      "source_path": "scripts/reconcile-retrain.sh",
+      "target_path": "_arsiv/25-agustos/eski-egitim-scriptleri/reconcile-retrain.sh"
+    },
+    {
+      "status": "R100",
+      "source_path": "Harita 2.5D.dc.html",
+      "target_path": "_arsiv/25-agustos/harita-prototipleri/Harita 2.5D.webp"
+    },
+    {
+      "status": "R100",
+      "source_path": "DENGE-HAM-VERI.json",
+      "target_path": "_arsiv/25-agustos/kok-eski-dosyalar/DENGE-HAM-VERI.json"
+    },
+    {
+      "status": "R100",
+      "source_path": "Pixel RTS.desktop",
+      "target_path": "_arsiv/25-agustos/kok-eski-dosyalar/Pixel RTS.desktop"
+    },
+    {
+      "status": "R100",
+      "source_path": "create_shortcut.vbs",
+      "target_path": "_arsiv/25-agustos/kok-eski-dosyalar/create_shortcut.vbs"
+    },
+    {
+      "status": "R100",
+      "source_path": "download",
+      "target_path": "_arsiv/25-agustos/kok-eski-dosyalar/download.png"
+    },
+    {
+      "status": "R100",
+      "source_path": "icons.png.bak9",
+      "target_path": "_arsiv/25-agustos/kok-eski-dosyalar/icons.png.bak9"
+    },
+    {
+      "status": "R100",
+      "source_path": "oyunu_baslat.bat",
+      "target_path": "_arsiv/25-agustos/kok-eski-dosyalar/oyunu_baslat.bat"
+    }
+  ]
+}
