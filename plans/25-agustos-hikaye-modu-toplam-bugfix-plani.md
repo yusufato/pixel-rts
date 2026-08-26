@@ -23,10 +23,12 @@ depends_on:
   - phase-38-13-meeting-closure-routing
   - phase-38-13-private-note-response
   - phase-38-13-institutional-paid-task
+  - phase-38-13-directional-relationship-result-receipts
 conflicts_with:
   - phase-38-13-meeting-closure-routing
   - phase-38-13-private-note-response
   - phase-38-13-institutional-paid-task
+  - phase-38-13-directional-relationship-result-receipts
 created: 2026-08-25
 last_touched: 2026-08-26
 ---

@@ -1,6 +1,6 @@
 ---
 id: phase-38-13-directional-relationship-result-receipts
-status: Approved # Kullanıcı 26 Ağustos 2026 tarihinde onayladı
+status: In Progress # Kullanıcı 26 Ağustos 2026 tarihinde onayladı
 owner: osman
 source: Faz 38.13 / 26 Ağustos 2026 aktif uygulama sırası
 touches:
