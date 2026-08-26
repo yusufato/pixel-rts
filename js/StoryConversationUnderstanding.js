@@ -1120,7 +1120,9 @@ function storyConversationMeetingClose(meetingCaseId, outcomeReceiptId) {
         closingTurnId: turnResult.turn.id,
         proposalIntentId: motion.proposalIntent && motion.proposalIntent.id || null,
         proposalId: null,
+        proposalActionType: null,
         proposalStatus: receipt.decision === 'ADOPTED' ? 'NOT_ROUTED' : 'NOT_APPLICABLE_REJECTED',
+        routedAt: null,
         closedAt: Number(STORY.clock) || 0,
         physicalMutation: false,
         worldMutation: false
@@ -1131,6 +1133,100 @@ function storyConversationMeetingClose(meetingCaseId, outcomeReceiptId) {
     meeting.updatedAt = closure.closedAt || meeting.updatedAt;
     return { ok: true, code: 'MEETING_CLOSED', closure: storyConversationClone(closure),
         turn: turnResult.turn, meetingCase: storyConversationClone(meeting), worldMutation: false };
+}
+
+function storyConversationMeetingClosureRoute(meetingClosureId) {
+    const ledger = storyConversationSessionEnsure();
+    const closure = ledger && ledger.meetingClosures.find(row =>
+        row.id === String(meetingClosureId));
+    if (!closure) return { ok: false, code: 'MEETING_CLOSURE_NOT_FOUND', worldMutation: false };
+    if (closure.decision !== 'ADOPTED') {
+        return { ok: false, code: 'MEETING_REJECTED_NO_PROPOSAL', worldMutation: false };
+    }
+    if (closure.proposalId || closure.status === 'CLOSED_ADOPTED_PROPOSAL_ROUTED') {
+        return { ok: false, code: 'MEETING_PROPOSAL_ALREADY_ROUTED',
+            proposalId: closure.proposalId, worldMutation: false };
+    }
+    if (closure.status !== 'CLOSED_ADOPTED_PENDING_PROPOSAL') {
+        return { ok: false, code: 'MEETING_CLOSURE_NOT_ROUTABLE', worldMutation: false };
+    }
+    const meeting = ledger.meetingCases.find(row => row.id === closure.meetingCaseId);
+    const motion = meeting && meeting.motions.find(row => row.id === closure.motionId);
+    const receipt = meeting && (meeting.outcomeReceipts || []).find(row =>
+        row.id === closure.outcomeReceiptId);
+    const intent = motion && motion.proposalIntent;
+    if (!meeting || !motion || !receipt || !intent
+        || intent.id !== closure.proposalIntentId
+        || intent.motionVersionId !== closure.motionVersionId
+        || receipt.decision !== 'ADOPTED') {
+        return { ok: false, code: 'MEETING_PROPOSAL_INTENT_INVALID', worldMutation: false };
+    }
+    const preview = typeof storyCharacterRoleInstitutionActionPreview === 'function'
+        ? storyCharacterRoleInstitutionActionPreview({
+            phase: 'PROPOSE',
+            actorId: closure.chairActorId,
+            actionType: intent.actionType,
+            targetRegionId: intent.targetRegionId
+        }) : null;
+    if (!preview || !preview.ok) {
+        return { ok: false, code: preview && preview.code || 'MEETING_PROPOSAL_ROUTE_UNAVAILABLE',
+            worldMutation: false };
+    }
+    if (preview.actorId !== intent.proposerActorId
+        || preview.route.countryId !== intent.countryId
+        || preview.route.institutionId !== intent.proposerInstitutionId
+        || preview.route.institutionType !== intent.proposerInstitutionType
+        || preview.actionType !== intent.actionType
+        || preview.targetRegionId !== intent.targetRegionId) {
+        return { ok: false, code: 'MEETING_PROPOSAL_ROUTE_STALE', worldMutation: false };
+    }
+    const result = typeof storyCharacterRoleInstitutionAction === 'function'
+        ? storyCharacterRoleInstitutionAction({
+            phase: 'PROPOSE',
+            actorId: closure.chairActorId,
+            actionType: intent.actionType,
+            targetRegionId: intent.targetRegionId
+        }) : null;
+    if (!result || !result.ok || !result.request) {
+        return { ok: false, code: result && result.code || 'MEETING_PROPOSAL_SUBMISSION_FAILED',
+            worldMutation: false };
+    }
+    closure.proposalId = result.request.id;
+    closure.proposalActionType = result.request.actionType;
+    closure.proposalStatus = 'INSTITUTION_REQUEST_CREATED';
+    closure.status = 'CLOSED_ADOPTED_PROPOSAL_ROUTED';
+    closure.routedAt = Number(STORY.clock) || 0;
+    meeting.status = closure.status;
+    meeting.updatedAt = closure.routedAt || meeting.updatedAt;
+    return { ok: true, code: 'MEETING_PROPOSAL_ROUTED',
+        closure: storyConversationClone(closure), request: storyConversationClone(result.request),
+        physicalMutation: false, worldMutation: true };
+}
+
+function storyConversationMeetingClosureTraceByProposal(proposalId) {
+    const ledger = storyConversationSessionEnsure();
+    const closure = ledger && ledger.meetingClosures.find(row =>
+        row.proposalId === String(proposalId));
+    if (!closure) return { ok: false, code: 'MEETING_PROPOSAL_TRACE_NOT_FOUND', worldMutation: false };
+    const meeting = ledger.meetingCases.find(row => row.id === closure.meetingCaseId);
+    const receipt = meeting && (meeting.outcomeReceipts || []).find(row =>
+        row.id === closure.outcomeReceiptId);
+    const request = STORY.institutions && STORY.institutions.requests
+        ? STORY.institutions.requests[closure.proposalId] : null;
+    return {
+        ok: true,
+        code: 'MEETING_PROPOSAL_TRACE',
+        proposalId: closure.proposalId,
+        meetingClosureId: closure.id,
+        outcomeReceiptId: closure.outcomeReceiptId,
+        meetingCaseId: closure.meetingCaseId,
+        motionId: closure.motionId,
+        motionVersionId: closure.motionVersionId,
+        closure: storyConversationClone(closure),
+        outcomeReceipt: storyConversationClone(receipt),
+        institutionRequest: storyConversationClone(request),
+        worldMutation: false
+    };
 }
 
 function storyConversationMeetingProposalRoutes(meetingCaseId) {
@@ -4927,7 +5023,8 @@ function storyConversationSessionValidateLedger(candidate) {
         }
         if (meeting.meetingType !== 'FORMAL_CONSULTATION'
             || !['OPEN_NO_DECISION_ADAPTER', 'CLOSED_ADOPTED_PENDING_PROPOSAL',
-                'CLOSED_REJECTED'].includes(meeting.status)) add('MEETING_CASE_STATUS', at);
+                'CLOSED_ADOPTED_PROPOSAL_ROUTED', 'CLOSED_REJECTED']
+                .includes(meeting.status)) add('MEETING_CASE_STATUS', at);
         if (!meeting.chair || !meeting.chair.actorId || !meeting.chair.institutionId
             || meeting.chair.authoritySource !== 'CANONICAL_INSTITUTION_OFFICE') {
             add('MEETING_CHAIR_AUTHORITY', `${at}.chair`);
@@ -5247,8 +5344,10 @@ function storyConversationSessionValidateLedger(candidate) {
                 || receipt.decision !== closure.decision
                 || !motion || motion.activeVersionId !== closure.motionVersionId
                 || !['ADOPTED', 'REJECTED'].includes(closure.decision)
-                || closure.status !== (closure.decision === 'ADOPTED'
-                    ? 'CLOSED_ADOPTED_PENDING_PROPOSAL' : 'CLOSED_REJECTED')
+                || !((closure.decision === 'ADOPTED'
+                    && ['CLOSED_ADOPTED_PENDING_PROPOSAL',
+                        'CLOSED_ADOPTED_PROPOSAL_ROUTED'].includes(closure.status))
+                    || (closure.decision === 'REJECTED' && closure.status === 'CLOSED_REJECTED'))
                 || meeting.status !== closure.status
                 || closure.chairActorId !== meeting.chair.actorId
                 || closure.chairInstitutionId !== meeting.chair.institutionId
@@ -5259,9 +5358,19 @@ function storyConversationSessionValidateLedger(candidate) {
                     && turn.sourceRefs.includes(closure.outcomeReceiptId))
                 || closure.proposalIntentId !== (motion.proposalIntent
                     && motion.proposalIntent.id || null)
-                || closure.proposalId !== null
-                || closure.proposalStatus !== (closure.decision === 'ADOPTED'
-                    ? 'NOT_ROUTED' : 'NOT_APPLICABLE_REJECTED')
+                || (closure.status === 'CLOSED_ADOPTED_PENDING_PROPOSAL'
+                    && (closure.proposalId !== null || closure.proposalActionType !== null
+                        || closure.proposalStatus !== 'NOT_ROUTED' || closure.routedAt !== null))
+                || (closure.status === 'CLOSED_ADOPTED_PROPOSAL_ROUTED'
+                    && (!closure.proposalId
+                        || closure.proposalActionType !== (motion.proposalIntent
+                            && motion.proposalIntent.actionType)
+                        || closure.proposalStatus !== 'INSTITUTION_REQUEST_CREATED'
+                        || !Number.isFinite(closure.routedAt)))
+                || (closure.status === 'CLOSED_REJECTED'
+                    && (closure.proposalId !== null || closure.proposalActionType !== null
+                        || closure.proposalStatus !== 'NOT_APPLICABLE_REJECTED'
+                        || closure.routedAt !== null))
                 || !Number.isFinite(closure.closedAt)
                 || closure.physicalMutation !== false || closure.worldMutation !== false;
         })) {

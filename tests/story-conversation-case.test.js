@@ -541,6 +541,46 @@ try {
         meeting.id, completedVote.outcomeReceipt.id).code, 'MEETING_ALREADY_CLOSED');
     assert.equal(runtime.api.conversationMeetingClosureGet(closedMeeting.closure.id).id,
         closedMeeting.closure.id);
+    const liveMotion = story.conversationUnderstanding.meetingCases
+        .find(row => row.id === meeting.id).motions
+        .find(row => row.id === motionProposed.motion.id);
+    const authorizedActionType = liveMotion.proposalIntent.actionType;
+    liveMotion.proposalIntent.actionType = 'REVIEW_LEGALITY';
+    const unauthorizedRouteBefore = JSON.stringify({
+        conversation: story.conversationUnderstanding,
+        institutions: story.institutions,
+        physical: physicalSnapshot()
+    });
+    assert.equal(runtime.api.conversationMeetingClosureRoute(
+        closedMeeting.closure.id).code, 'ACTOR_NOT_AUTHORIZED_TO_PROPOSE');
+    assert.equal(JSON.stringify({
+        conversation: story.conversationUnderstanding,
+        institutions: story.institutions,
+        physical: physicalSnapshot()
+    }), unauthorizedRouteBefore);
+    liveMotion.proposalIntent.actionType = authorizedActionType;
+    const physicalBeforeProposalRoute = physicalSnapshot();
+    const institutionRequestCountBefore = Object.keys(story.institutions.requests || {}).length;
+    const routedClosure = runtime.api.conversationMeetingClosureRoute(closedMeeting.closure.id);
+    assert.equal(routedClosure.ok, true);
+    assert.equal(routedClosure.closure.status, 'CLOSED_ADOPTED_PROPOSAL_ROUTED');
+    assert.equal(routedClosure.closure.proposalActionType, authorizedActionType);
+    assert.ok(routedClosure.closure.proposalId);
+    assert.equal(Object.keys(story.institutions.requests || {}).length,
+        institutionRequestCountBefore + 1);
+    assert.equal(physicalSnapshot(), physicalBeforeProposalRoute);
+    assert.equal(runtime.api.conversationMeetingClosureRoute(
+        closedMeeting.closure.id).code, 'MEETING_PROPOSAL_ALREADY_ROUTED');
+    assert.equal(Object.keys(story.institutions.requests || {}).length,
+        institutionRequestCountBefore + 1);
+    const proposalTrace = runtime.api.conversationMeetingClosureTraceByProposal(
+        routedClosure.closure.proposalId
+    );
+    assert.equal(proposalTrace.ok, true);
+    assert.equal(proposalTrace.meetingClosureId, closedMeeting.closure.id);
+    assert.equal(proposalTrace.outcomeReceiptId, completedVote.outcomeReceipt.id);
+    assert.equal(proposalTrace.motionVersionId, completedVote.motion.activeVersionId);
+    assert.equal(proposalTrace.institutionRequest.id, routedClosure.closure.proposalId);
     const adoptedClosedSnapshot = runtime.api.conversationSessionSnapshot();
     const rejectedOpenSnapshot = JSON.parse(JSON.stringify(openMeetingSnapshot));
     const rejectedMeeting = rejectedOpenSnapshot.meetingCases.find(row => row.id === meeting.id);
@@ -564,11 +604,16 @@ try {
             : runtime.api.conversationMeetingGenerateCharacterTurn(meeting.id, null);
         assert.equal(advanced.ok, true);
     }
+    const rejectedRequestCountBefore = Object.keys(story.institutions.requests || {}).length;
     const rejectedClosure = runtime.api.conversationMeetingClose(meeting.id, rejectedReceipt.id);
     assert.equal(rejectedClosure.ok, true);
     assert.equal(rejectedClosure.closure.status, 'CLOSED_REJECTED');
     assert.equal(rejectedClosure.closure.proposalStatus, 'NOT_APPLICABLE_REJECTED');
     assert.equal(rejectedClosure.closure.proposalId, null);
+    assert.equal(runtime.api.conversationMeetingClosureRoute(
+        rejectedClosure.closure.id).code, 'MEETING_REJECTED_NO_PROPOSAL');
+    assert.equal(Object.keys(story.institutions.requests || {}).length,
+        rejectedRequestCountBefore);
     assert.equal(runtime.api.conversationSessionValidate(
         runtime.api.conversationSessionSnapshot()).ok, true);
     runtime.api.conversationSessionRestore(adoptedClosedSnapshot);
