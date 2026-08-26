@@ -1315,3 +1315,10 @@
 - **What happened:** “Aynı oy=dostluk”, “karşı oy=husumet” ve “teklif reddi=ihanet” kısayolları uygulanmadı. Oy siyasal tutumdur; teklif ancak kabulden sonra taahhüttür.
 - **Evidence:** Yalnız `ADOPTED + player YES + observer YES` ortak başarı uygular. `MEETING_REJECTED`, oyuncunun YES vermemesi ve gözlemcinin YES vermemesi sıfır deltayı açıkça kaydeder; `DECLINED` ve kabul edilmemiş expiry ilişki fişi üretmez.
 - **Implication for future audits:** Karşı oy veya ret için sosyal ceza istenirse bunu mevcut oy/görev durumundan türetme. Hakaret, tehdit, çıkar çatışması, söz veya başka kaynaklı sosyal olay için ayrı semantik ve politika planı aç.
+
+## 2026-08-27 — Faz 38.13 yönlü ilişki fişi kabulü manifest onarımıyla kapandı
+- **Type:** Executed
+- **Source:** `phase-38-13-directional-relationship-result-receipts`
+- **What happened:** Harness ve sequential testte zaten bulunan `institutionalTaskBudgetProbe`, doğrulamalı görev olarak paralel manifestte kaydedildi. Böylece manifest kapsam kontrolü ilişki ve konuşma worker'larını özellik koduna ulaşmadan durdurmuyor.
+- **Evidence:** `institutionalTaskBudgetProbe`, `relationshipInterpretationProbe` ve `conversationUnderstandingProbe` tek worker ile exit `0`; `node tests/story-conversation-case.test.js` exit `0`; manifest sözdizimi ve `git diff --check` temiz.
+- **Implication for future audits:** `institutionalTaskBudgetProbe` manifest eksikliğini açık kabul borcu olarak yeniden raporlama. Faz 38.13 yönlü ilişki sonuç fişi planı `Landed`dır; genel gıda/kriz assertion'ı bu kapanış için zayıflatılmadı.
