@@ -660,6 +660,10 @@ const STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 6;
 const STORY_CONVERSATION_SESSION_ADAPTER_VERSION = 'story-conversation-session-ledger-6';
 const STORY_CONVERSATION_SESSION_LIMIT = 32;
 const STORY_CONVERSATION_TASK_OFFER_LIMIT = 64;
+const STORY_CONVERSATION_TASK_OFFER_SCHEMA_VERSION = 2;
+const STORY_CONVERSATION_TASK_OFFER_KINDS = Object.freeze([
+    'PERSONAL_CONTACT_REQUEST', 'INSTITUTIONAL_PAID_CONTACT_TASK'
+]);
 const STORY_CONVERSATION_MEETING_LIMIT = 16;
 const STORY_CONVERSATION_TURN_LIMIT = 24;
 const STORY_CONVERSATION_HISTORY_TOKEN_BUDGET = 6000;
@@ -814,7 +818,7 @@ function storyConversationTaskOfferPreview(sessionId) {
     return {
         ok: true, code: 'TASK_OFFER_PREVIEW_READY',
         preview: {
-            kind: 'CONTACT_REQUEST', issuerActorId: session.listenerActorId,
+            kind: 'PERSONAL_CONTACT_REQUEST', issuerActorId: session.listenerActorId,
             issuerName: source.listener.name, assigneeActorId: session.playerActorId,
             targetActorId: source.target.id, targetName: source.target.name,
             objectiveType: 'HOLD_CONVERSATION', actionCandidateId: source.preview.id,
@@ -848,7 +852,8 @@ function storyConversationTaskOfferCreate(sessionId) {
     const sequence = ledger.nextTaskOfferSequence++;
     const createdAt = Number(STORY.clock) || 0;
     const taskOffer = {
-        schemaVersion: 1, id: `conversation-task-offer:${sequence}`, sequence,
+        schemaVersion: STORY_CONVERSATION_TASK_OFFER_SCHEMA_VERSION,
+        id: `conversation-task-offer:${sequence}`, sequence,
         caseId: session.conversationCase.id, sessionId: session.id,
         kind: preview.preview.kind, issuerActorId: preview.preview.issuerActorId,
         issuerName: preview.preview.issuerName, assigneeActorId: preview.preview.assigneeActorId,
@@ -858,7 +863,8 @@ function storyConversationTaskOfferCreate(sessionId) {
             targetName: preview.preview.targetName, minimumConversationCount: 1,
             actionCandidateId: preview.preview.actionCandidateId
         },
-        reward: preview.preview.reward, createdAt, dueAt: createdAt + preview.preview.deadlineSeconds,
+        reward: preview.preview.reward, institutional: null,
+        createdAt, dueAt: createdAt + preview.preview.deadlineSeconds,
         status: 'OFFERED', acceptedAt: null, declinedAt: null, completedAt: null,
         completionSessionId: null, sourceTurnId: `conversation-mode:${session.id}`,
         worldMutation: false
@@ -882,6 +888,10 @@ function storyConversationTaskOfferDecision(taskOfferId, decision) {
     if (!taskOffer) return { ok: false, code: 'TASK_OFFER_NOT_FOUND', worldMutation: false };
     if (!['ACCEPT', 'DECLINE'].includes(normalized)) {
         return { ok: false, code: 'TASK_DECISION_INVALID', worldMutation: false };
+    }
+    if (taskOffer.kind === 'INSTITUTIONAL_PAID_CONTACT_TASK') {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_DECISION_UNAVAILABLE',
+            taskOffer: storyConversationClone(taskOffer), worldMutation: false };
     }
     if (taskOffer.status !== 'OFFERED') {
         return { ok: false, code: 'TASK_OFFER_NOT_OPEN', taskOffer: storyConversationClone(taskOffer), worldMutation: false };
@@ -915,7 +925,8 @@ function storyConversationTaskOfferCompleteForConversation(ledger, completedSess
     const now = Number(STORY.clock) || 0;
     const completed = [];
     for (const taskOffer of ledger.taskOffers || []) {
-        if (taskOffer.status !== 'ACCEPTED' || taskOffer.assigneeActorId !== completedSession.playerActorId
+        if (taskOffer.kind !== 'PERSONAL_CONTACT_REQUEST'
+            || taskOffer.status !== 'ACCEPTED' || taskOffer.assigneeActorId !== completedSession.playerActorId
             || taskOffer.objective.type !== 'HOLD_CONVERSATION'
             || taskOffer.objective.targetActorId !== completedSession.listenerActorId
             || taskOffer.sessionId === completedSession.id) continue;
@@ -2221,6 +2232,13 @@ function storyConversationSessionMigrateLedger(saved) {
     ledger.nextTaskOfferSequence = Number.isInteger(ledger.nextTaskOfferSequence)
         && ledger.nextTaskOfferSequence > 0 ? ledger.nextTaskOfferSequence : 1;
     if (!Array.isArray(ledger.taskOffers)) ledger.taskOffers = [];
+    for (const taskOffer of ledger.taskOffers) {
+        if (taskOffer && taskOffer.schemaVersion === 1) {
+            taskOffer.schemaVersion = STORY_CONVERSATION_TASK_OFFER_SCHEMA_VERSION;
+            if (taskOffer.kind === 'CONTACT_REQUEST') taskOffer.kind = 'PERSONAL_CONTACT_REQUEST';
+            if (!Object.prototype.hasOwnProperty.call(taskOffer, 'institutional')) taskOffer.institutional = null;
+        }
+    }
     ledger.nextMeetingSequence = Number.isInteger(ledger.nextMeetingSequence)
         && ledger.nextMeetingSequence > 0 ? ledger.nextMeetingSequence : 1;
     ledger.nextMeetingClosureSequence = Number.isInteger(ledger.nextMeetingClosureSequence)
@@ -5127,7 +5145,8 @@ function storyConversationSessionValidateLedger(candidate) {
     const taskOfferIds = new Set();
     for (const [index, taskOffer] of (candidate.taskOffers || []).entries()) {
         const at = `$.taskOffers[${index}]`;
-        if (!taskOffer || taskOffer.schemaVersion !== 1 || !taskOffer.id || taskOfferIds.has(taskOffer.id)) {
+        if (!taskOffer || taskOffer.schemaVersion !== STORY_CONVERSATION_TASK_OFFER_SCHEMA_VERSION
+            || !taskOffer.id || taskOfferIds.has(taskOffer.id)) {
             add('TASK_OFFER_ID', at);
             continue;
         }
@@ -5135,16 +5154,62 @@ function storyConversationSessionValidateLedger(candidate) {
         if (!['OFFERED', 'ACCEPTED', 'DECLINED', 'COMPLETED', 'EXPIRED'].includes(taskOffer.status)) {
             add('TASK_OFFER_STATUS', `${at}.status`);
         }
-        if (taskOffer.kind !== 'CONTACT_REQUEST' || !taskOffer.issuerActorId || !taskOffer.assigneeActorId
-            || !taskOffer.authority || taskOffer.authority.model !== 'PERSONAL_REQUEST'
-            || taskOffer.authority.sourceActorId !== taskOffer.issuerActorId
-            || taskOffer.authority.canCompel !== false) add('TASK_OFFER_AUTHORITY', at);
+        if (!STORY_CONVERSATION_TASK_OFFER_KINDS.includes(taskOffer.kind)
+            || !taskOffer.issuerActorId || !taskOffer.assigneeActorId) add('TASK_OFFER_AUTHORITY', at);
         if (!taskOffer.objective || taskOffer.objective.type !== 'HOLD_CONVERSATION'
             || !taskOffer.objective.targetActorId || taskOffer.objective.minimumConversationCount !== 1) {
             add('TASK_OFFER_OBJECTIVE', `${at}.objective`);
         }
-        if (!taskOffer.reward || taskOffer.reward.kind !== 'NONE' || taskOffer.reward.amount !== 0) {
-            add('TASK_OFFER_REWARD', `${at}.reward`);
+        if (taskOffer.kind === 'PERSONAL_CONTACT_REQUEST') {
+            if (!taskOffer.authority || taskOffer.authority.model !== 'PERSONAL_REQUEST'
+                || taskOffer.authority.sourceActorId !== taskOffer.issuerActorId
+                || taskOffer.authority.canCompel !== false) add('TASK_OFFER_AUTHORITY', at);
+            if (!taskOffer.reward || taskOffer.reward.kind !== 'NONE' || taskOffer.reward.amount !== 0) {
+                add('TASK_OFFER_REWARD', `${at}.reward`);
+            }
+            if (taskOffer.institutional !== null) add('TASK_OFFER_UNION_MIXED', `${at}.institutional`);
+        } else if (taskOffer.kind === 'INSTITUTIONAL_PAID_CONTACT_TASK') {
+            const institution = taskOffer.institutional;
+            if (!taskOffer.authority || taskOffer.authority.model !== 'INSTITUTIONAL_COMMISSION'
+                || taskOffer.authority.sourceActorId !== taskOffer.issuerActorId
+                || taskOffer.authority.canCompel !== false
+                || !institution || taskOffer.authority.institutionRequestId !== institution.institutionRequestId
+                || taskOffer.authority.institutionId !== institution.institutionId
+                || taskOffer.authority.countryId !== institution.countryId
+                || taskOffer.authority.legalBasis !== institution.legalBasis) {
+                add('TASK_OFFER_AUTHORITY', at);
+            }
+            if (!taskOffer.reward || taskOffer.reward.kind !== 'STATE_CREDIT_COMPENSATION'
+                || taskOffer.reward.amount !== 25 || taskOffer.reward.currency !== 'STATE_CREDIT') {
+                add('TASK_OFFER_REWARD', `${at}.reward`);
+            }
+            if (!institution || !institution.institutionRequestId || !institution.institutionId
+                || !/^country:\d+$/.test(String(institution.countryId || '')) || !institution.legalBasis
+                || !/^country:\d+$/.test(String(institution.payerCountryId || ''))
+                || institution.payerCommanderId == null
+                || !/^country:\d+$/.test(String(institution.payeeCountryId || ''))
+                || institution.payeeCommanderId == null
+                || institution.compensationPolicyId !== 'institutional-contact-task-v1'
+                || institution.amount !== 25 || institution.currency !== 'STATE_CREDIT'
+                || !['NOT_RESERVED', 'RESERVED', 'SETTLED', 'RELEASED'].includes(institution.paymentStatus)) {
+                add('TASK_OFFER_INSTITUTIONAL_TERMS', `${at}.institutional`);
+            } else {
+                const requiresEscrow = ['RESERVED', 'SETTLED', 'RELEASED'].includes(institution.paymentStatus);
+                if (requiresEscrow !== !!institution.escrowReservationId) {
+                    add('TASK_OFFER_INSTITUTIONAL_ESCROW', `${at}.institutional`);
+                }
+                const expectedPaymentStatus = taskOffer.status === 'OFFERED' || taskOffer.status === 'DECLINED'
+                    ? 'NOT_RESERVED' : taskOffer.status === 'ACCEPTED' ? 'RESERVED'
+                        : taskOffer.status === 'COMPLETED' ? 'SETTLED' : null;
+                if ((expectedPaymentStatus && institution.paymentStatus !== expectedPaymentStatus)
+                    || (taskOffer.status === 'EXPIRED'
+                        && !['NOT_RESERVED', 'RELEASED'].includes(institution.paymentStatus))) {
+                    add('TASK_OFFER_INSTITUTIONAL_STATE', `${at}.institutional.paymentStatus`);
+                }
+                if ((taskOffer.status === 'COMPLETED') !== !!institution.resultReceiptId) {
+                    add('TASK_OFFER_INSTITUTIONAL_RECEIPT', `${at}.institutional.resultReceiptId`);
+                }
+            }
         }
         if (!Number.isFinite(taskOffer.createdAt) || !Number.isFinite(taskOffer.dueAt)
             || taskOffer.dueAt <= taskOffer.createdAt || taskOffer.worldMutation !== false) {

@@ -68,10 +68,73 @@ try {
     runtime.dom.window.storyConversationWorkspaceClose();
     const taskCreated = runtime.api.conversationTaskOfferCreate(sessionId);
     assert.equal(taskCreated.ok, true);
+    assert.equal(taskCreated.taskOffer.schemaVersion, 2);
+    assert.equal(taskCreated.taskOffer.kind, 'PERSONAL_CONTACT_REQUEST');
     assert.equal(taskCreated.taskOffer.status, 'OFFERED');
     assert.equal(taskCreated.taskOffer.authority.model, 'PERSONAL_REQUEST');
     assert.equal(taskCreated.taskOffer.authority.canCompel, false);
     assert.equal(taskCreated.taskOffer.reward.kind, 'NONE');
+    assert.equal(taskCreated.taskOffer.institutional, null);
+    const taskUnionFixture = runtime.api.conversationSessionSnapshot();
+    const institutionalFixture = JSON.parse(JSON.stringify(taskUnionFixture));
+    const institutionalTask = institutionalFixture.taskOffers.find(row => row.id === taskCreated.taskOffer.id);
+    institutionalTask.kind = 'INSTITUTIONAL_PAID_CONTACT_TASK';
+    institutionalTask.authority = {
+        model: 'INSTITUTIONAL_COMMISSION',
+        sourceActorId: institutionalTask.issuerActorId,
+        canCompel: false,
+        institutionRequestId: 'institution-request:fixture',
+        institutionId: 'institution:country:0:executive',
+        countryId: 'country:0',
+        legalBasis: 'constitution:monarchy:commission_paid_contact_task'
+    };
+    institutionalTask.reward = {
+        kind: 'STATE_CREDIT_COMPENSATION', amount: 25, currency: 'STATE_CREDIT'
+    };
+    institutionalTask.institutional = {
+        institutionRequestId: 'institution-request:fixture',
+        institutionId: 'institution:country:0:executive',
+        countryId: 'country:0',
+        legalBasis: 'constitution:monarchy:commission_paid_contact_task',
+        payerCountryId: 'country:0', payerCommanderId: '1',
+        payeeCountryId: 'country:0', payeeCommanderId: '0',
+        compensationPolicyId: 'institutional-contact-task-v1',
+        amount: 25, currency: 'STATE_CREDIT',
+        escrowReservationId: null, paymentStatus: 'NOT_RESERVED', resultReceiptId: null
+    };
+    assert.equal(runtime.api.conversationSessionValidate(institutionalFixture).ok, true,
+        'A complete offered institutional branch must satisfy TaskOfferV2.');
+    const mixedPersonalFixture = JSON.parse(JSON.stringify(institutionalFixture));
+    const mixedPersonalTask = mixedPersonalFixture.taskOffers.find(row => row.id === taskCreated.taskOffer.id);
+    mixedPersonalTask.kind = 'PERSONAL_CONTACT_REQUEST';
+    mixedPersonalTask.authority = taskCreated.taskOffer.authority;
+    mixedPersonalTask.reward = taskCreated.taskOffer.reward;
+    assert.ok(runtime.api.conversationSessionValidate(mixedPersonalFixture).issues
+        .some(row => row.code === 'TASK_OFFER_UNION_MIXED'),
+    'A personal task cannot carry institutional payment fields.');
+    const mixedInstitutionalFixture = JSON.parse(JSON.stringify(institutionalFixture));
+    mixedInstitutionalFixture.taskOffers.find(row => row.id === taskCreated.taskOffer.id).reward = {
+        kind: 'NONE', amount: 0
+    };
+    assert.ok(runtime.api.conversationSessionValidate(mixedInstitutionalFixture).issues
+        .some(row => row.code === 'TASK_OFFER_REWARD'),
+    'An institutional task cannot use the personal no-reward branch.');
+    const legacyTaskLedger = JSON.parse(JSON.stringify(taskUnionFixture));
+    const legacyTask = legacyTaskLedger.taskOffers.find(row => row.id === taskCreated.taskOffer.id);
+    const legacyAuthority = JSON.stringify(legacyTask.authority);
+    const legacyReward = JSON.stringify(legacyTask.reward);
+    legacyTask.schemaVersion = 1;
+    legacyTask.kind = 'CONTACT_REQUEST';
+    delete legacyTask.institutional;
+    const migratedTaskLedger = runtime.api.conversationSessionMigrate(legacyTaskLedger);
+    const migratedTask = migratedTaskLedger.taskOffers.find(row => row.id === taskCreated.taskOffer.id);
+    assert.equal(migratedTask.schemaVersion, 2);
+    assert.equal(migratedTask.kind, 'PERSONAL_CONTACT_REQUEST');
+    assert.equal(JSON.stringify(migratedTask.authority), legacyAuthority);
+    assert.equal(JSON.stringify(migratedTask.reward), legacyReward);
+    assert.equal(migratedTask.institutional, null);
+    assert.equal(runtime.api.conversationSessionValidate(migratedTaskLedger).ok, true,
+        'TaskOfferV1 must migrate without inventing authority, compensation, escrow, or receipts.');
     const taskTargetActorId = taskCreated.taskOffer.objective.targetActorId;
     const taskAccepted = runtime.api.conversationTaskOfferDecision(taskCreated.taskOffer.id, 'ACCEPT');
     assert.equal(taskAccepted.ok, true);
