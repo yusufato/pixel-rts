@@ -1328,10 +1328,25 @@ function storyTalkConversationMeetingHtml(session) {
         .map(row => `<option value="${esc(row.actorId)}">${esc(row.name)}</option>`).join('');
     const privateRecipients = meeting.participants.filter(row => row.actorId !== session.playerActorId)
         .map(row => `<option value="${esc(row.actorId)}">${esc(row.name)}</option>`).join('');
-    const privateNotes = (meeting.privateNotes || []).filter(note => note.authorActorId === session.playerActorId)
-        .map(note => `<article><header><b>ÖZEL NOT</b><span>${esc((meeting.participants.find(row =>
-            row.actorId === note.recipientActorId) || {}).name || note.recipientActorId)}</span></header>`
-            + `<p>${esc(note.text)}</p></article>`).join('');
+    const privateNoteRows = meeting.privateNotes || [];
+    const privateNotes = privateNoteRows.filter(note =>
+        note.kind === 'PLAYER_NOTE' && note.authorActorId === session.playerActorId)
+        .map(note => {
+            const recipientName = (meeting.participants.find(row =>
+                row.actorId === note.recipientActorId) || {}).name || note.recipientActorId;
+            const reply = privateNoteRows.find(row =>
+                row.kind === 'CHARACTER_REPLY' && row.replyToPrivateNoteId === note.id);
+            const canReply = meetingOpen && !reply && currentSpeaker
+                && currentSpeaker.actorId === note.recipientActorId;
+            return `<article class="conversation-meeting-private-thread"><header><b>SENİN ÖZEL NOTUN</b><span>${esc(recipientName)}</span></header>`
+                + `<p>${esc(note.text)}</p><small>YALNIZ SEN VE ${esc(recipientName)} · KAMUSAL TUTANAK DIŞI</small>`
+                + (reply ? `<div class="conversation-meeting-private-reply"><header><b>${esc(recipientName)} YANITLADI</b><span>İKİLİ KANAL</span></header>`
+                    + `<p>${esc(reply.text)}</p><small>KENDİ KAYNAK SINIRI · KARAR, EMİR VEYA TAAHHÜT DEĞİL</small></div>`
+                    : canReply
+                        ? `<button class="story-btn" data-conversation-meeting-private-reply="${esc(note.id)}" data-meeting-id="${esc(meeting.id)}">KARAKTERİN ÖZEL YANITINI AL</button>`
+                        : '<small>YANIT İÇİN MUHATABIN SÖZ SIRASI BEKLENİYOR</small>')
+                + '</article>';
+        }).join('');
     const motionStatusLabels = {
         PENDING_CHAIR_REVIEW: 'BAŞKAN İNCELEMESİ BEKLİYOR',
         IN_ORDER: 'USULE UYGUN', OUT_OF_ORDER: 'GÜNDEM DIŞI'
@@ -1424,12 +1439,15 @@ function storyTalkConversationMeetingHtml(session) {
         + `<div class="conversation-meeting-floor"><span>SÖZ SIRASI</span><b>${esc(currentSpeaker && currentSpeaker.name || 'Bilinmiyor')}</b>`
         + `<small>${meeting.currentSpeakerIndex + 1} / ${meeting.speakingOrderActorIds.length}</small></div>`
         + transcript + turnControl + closureControl
-        + (meetingOpen ? `<details class="conversation-meeting-private"><summary>İKİLİ ÖZEL NOT</summary>`
+        + ((meetingOpen || privateNotes) ? `<details class="conversation-meeting-private"><summary>İKİLİ ÖZEL NOT</summary>`
         + `<p>Bu not kamusal tutanağa girmez; yalnız sen ve seçtiğin katılımcı görebilir.</p>`
         + (privateNotes ? `<div class="conversation-meeting-private-list">${privateNotes}</div>` : '')
-        + `<select data-conversation-meeting-private-recipient><option value="">MUHATAP SEÇ</option>${privateRecipients}</select>`
-        + `<textarea data-conversation-meeting-private-text maxlength="600" rows="2" placeholder="Seçilen kişiye özel not yaz..."></textarea>`
-        + `<button class="story-btn" data-conversation-meeting-private-send="${esc(meeting.id)}">ÖZEL NOTU GÖNDER</button></details>` : '')
+        + (meetingOpen
+            ? `<select data-conversation-meeting-private-recipient><option value="">MUHATAP SEÇ</option>${privateRecipients}</select>`
+                + `<textarea data-conversation-meeting-private-text maxlength="600" rows="2" placeholder="Seçilen kişiye özel not yaz..."></textarea>`
+                + `<button class="story-btn" data-conversation-meeting-private-send="${esc(meeting.id)}">ÖZEL NOTU GÖNDER</button>`
+            : '<small>TOPLANTI KAPANDI · ÖZEL YAZIŞMA YALNIZ OKUNABİLİR</small>')
+        + '</details>' : '')
         + `<section class="conversation-meeting-motions"><header>ÖNERGELER</header>`
         + (motions ? `<div class="conversation-meeting-motion-list">${motions}</div>` : '<p>Henüz önerge sunulmadı.</p>')
         + (meetingOpen ? `<select data-conversation-meeting-motion-route><option value="">KURUMSAL TEKLİF ROTASI SEÇ</option>${proposalRouteOptions}</select>`
@@ -2315,6 +2333,21 @@ function storyConversationWorkspaceHandleClick(event) {
         );
         storyFlash(result && result.ok ? 'İkili not yalnız seçilen katılımcının görünümüne işlendi.'
             : `Özel not kaydedilemedi: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
+    const meetingPrivateReply = event.target.closest('[data-conversation-meeting-private-reply]');
+    if (meetingPrivateReply && typeof storyConversationMeetingPrivateNoteRespond === 'function') {
+        if (meetingPrivateReply.disabled) return;
+        meetingPrivateReply.disabled = true;
+        const result = storyConversationMeetingPrivateNoteRespond(
+            meetingPrivateReply.dataset.meetingId,
+            meetingPrivateReply.dataset.conversationMeetingPrivateReply
+        );
+        storyFlash(result && result.ok
+            ? 'Karakter kendi görünür bilgi sınırı içinde özel yanıt verdi.'
+            : `Özel yanıt üretilemedi: ${result && result.code || 'UNKNOWN'}`);
         if (result && result.ok && typeof storySave === 'function') storySave();
         storyConversationWorkspaceRender();
         return;

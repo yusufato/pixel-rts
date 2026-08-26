@@ -264,6 +264,9 @@ try {
         meeting.id, privateNoteResult.privateNote.id).code,
     'MEETING_PRIVATE_NOTE_ALREADY_ANSWERED');
     assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()), beforeDuplicatePrivateReply);
+    const uiReplyRoot = runtime.api.conversationMeetingSendPrivateNote(meeting.id,
+        opened.session.listenerActorId, 'Bu ikinci not için yalnız ikili ve kaynaklı bir yanıt bekliyorum.');
+    assert.equal(uiReplyRoot.ok, true);
     const meetingAfterNote = runtime.api.conversationMeetingGet(meeting.id);
     assert.equal(JSON.stringify(meetingAfterNote.visibilityMatrix
         .filter(row => row.visiblePrivateNoteIds.includes(privateNoteResult.privateNote.id))
@@ -278,12 +281,27 @@ try {
     assert.ok(runtime.dom.window.document.querySelector(
         '[data-conversation-meeting-character-turn], [data-conversation-meeting-player-send]'));
     assert.equal(runtime.dom.window.document.querySelectorAll('.conversation-meeting-transcript article').length, 8);
+    const privateReplyButton = runtime.dom.window.document.querySelector(
+        `[data-conversation-meeting-private-reply="${uiReplyRoot.privateNote.id}"]`
+    );
+    assert.ok(privateReplyButton, 'Yanıtsız notun gerçek alıcısı sıradaysa özel yanıt düğmesi görünmeli.');
+    runtime.dom.window.storyConversationWorkspaceHandleClick({ target: privateReplyButton });
+    runtime.dom.window.storyConversationWorkspaceHandleClick({ target: privateReplyButton });
+    assert.equal(runtime.api.conversationMeetingGet(meeting.id).privateNotes.filter(note =>
+        note.kind === 'CHARACTER_REPLY'
+        && note.replyToPrivateNoteId === uiReplyRoot.privateNote.id).length, 1);
+    assert.equal(runtime.dom.window.document.querySelector(
+        `[data-conversation-meeting-private-reply="${uiReplyRoot.privateNote.id}"]`), null);
+    assert.equal(runtime.dom.window.document.querySelectorAll(
+        '.conversation-meeting-private-reply').length, 2);
     const meetingUiText = runtime.dom.window.document.getElementById('conversation-workspace-modal').textContent;
-    assert.doesNotMatch(meetingUiText, /OPEN_NO_DECISION_ADAPTER|KNOWN_PUBLIC_PROFILE/);
+    assert.doesNotMatch(meetingUiText,
+        /OPEN_NO_DECISION_ADAPTER|KNOWN_PUBLIC_PROFILE|PLAYER_NOTE|CHARACTER_REPLY/);
     assert.match(meetingUiText, /ÖNERGE İNCELEMESİ AÇIK · OYLAMA KAPALI|DOĞRULANMIŞ KAMUSAL PROFİL/);
     assert.match(meetingUiText, /KAYNAKLI GÖRÜŞ · KURUMSAL KAYIT · 91% GÜVEN/);
     assert.match(meetingUiText, /TUTUM · (DESTEKLİYOR|DESTEĞE YAKIN)/);
     assert.match(meetingUiText, /Kaynak planının ayrıntısını toplantıdan sonra ikili ele alalım/);
+    assert.match(meetingUiText, /KENDİ KAYNAK SINIRI · KARAR, EMİR VEYA TAAHHÜT DEĞİL/);
     runtime.dom.window.storyConversationWorkspaceClose();
 
     assert.equal(runtime.api.conversationMeetingMotionPropose(meeting.id, 'kısa').code,
@@ -651,6 +669,10 @@ try {
         '[data-conversation-meeting-motion-propose]'), null);
     assert.equal(runtime.dom.window.document.querySelector(
         '[data-conversation-meeting-motion-review], [data-conversation-meeting-motion-respond], [data-conversation-motion-vote-open], [data-conversation-motion-vote], [data-conversation-motion-intent-set]'), null);
+    assert.ok(runtime.dom.window.document.querySelector('.conversation-meeting-private-list'));
+    assert.equal(runtime.dom.window.document.querySelector(
+        '[data-conversation-meeting-private-reply]'), null);
+    assert.match(routedUiText, /TOPLANTI KAPANDI · ÖZEL YAZIŞMA YALNIZ OKUNABİLİR/);
     runtime.dom.window.storyConversationWorkspaceClose();
     const adoptedClosedSnapshot = runtime.api.conversationSessionSnapshot();
     const rejectedOpenSnapshot = JSON.parse(JSON.stringify(openMeetingSnapshot));
