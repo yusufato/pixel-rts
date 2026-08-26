@@ -8,6 +8,7 @@ touches:
   - js/StoryConversationUnderstanding.js
   - js/Talks.js
   - tools/story-sim-harness.js
+  - tools/story-test-manifest.js
   - tests/story-conversation-case.test.js
   - tests/story-world.test.js
   - docs/story/plans/HIKAYE_MODU_KATMANLI_DUNYA_SIMULASYONU_PLANI.md
@@ -331,7 +332,9 @@ için yaklaşık **7–9 kişi-gün**dür.
   `Story test manifest mismatch: missing=[institutionalTaskBudgetProbe]`.
 - `institutionalTaskBudgetProbe`, `tests/story-world.test.js` ve harness'te
   bulunuyor fakat `tools/story-test-manifest.js` içinde kayıtlı değil. Manifest
-  dosyası bu planın `touches` kapsamına dahil olmadığından sessizce değiştirilmedi.
+  dosyası başlangıçta bu planın `touches` kapsamına dahil olmadığından sessizce
+  değiştirilmedi. Kullanıcı 27 Ağustos 2026 tarihinde dar manifest düzeltmesini
+  açıkça onayladı; kapsam yalnız eksik görev kaydıyla genişletildi.
 - Genel dünya testi gözlemsel olarak bilinen gıda erişimi assertion'ında durdu;
   kullanıcının krizli/kıtlık yaşayabilen dünya kararı gereği eşik zayıflatılmadı.
 - Adım 9'un bütün hedefli kapıları geçmediği için plan `In Progress` kalır;
