@@ -184,6 +184,23 @@ function verifyInstitutionalTaskOfferDecisions() {
         assert.equal(taskStory.commander.res.points, playerBeforeBlockedSettlement,
             'A failed escrow gate must not credit the player or mark the task completed.');
         taskEscrowAccount['ASSET:TASK_ESCROW'] = taskEscrowBeforeTamper;
+        const payerBeforeExpiry = payerCommander.res.points;
+        const escrowBeforeExpiry = taskEscrowAccount['ASSET:TASK_ESCROW'];
+        taskStory.clock = blockedSettlementTask.dueAt + 1;
+        assert.ok(taskRuntime.api.conversationTaskOfferTick() >= 1);
+        assert.equal(blockedSettlementTask.status, 'EXPIRED');
+        assert.equal(blockedSettlementTask.institutional.paymentStatus, 'RELEASED');
+        assert.equal(payerCommander.res.points, payerBeforeExpiry + 25);
+        assert.equal(taskEscrowAccount['ASSET:TASK_ESCROW'], escrowBeforeExpiry - 25);
+        const duplicateExpiryBefore = JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger(),
+            payerPoints: payerCommander.res.points
+        });
+        assert.equal(taskRuntime.api.conversationTaskOfferTick(), 0);
+        assert.equal(JSON.stringify({
+            conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger(),
+            payerPoints: payerCommander.res.points
+        }), duplicateExpiryBefore, 'Repeated expiry ticks must not release escrow twice.');
 
         const unauthorized = taskDirectory.publicCharacters.find(row => {
             const parts = row.id.split(':');
@@ -203,6 +220,66 @@ function verifyInstitutionalTaskOfferDecisions() {
             conversation: taskRuntime.api.conversationSessionSnapshot(), institutions: taskRuntime.api.institutionLedger(),
             budget: taskRuntime.api.budgetLedger()
         }), unauthorizedBefore, 'A non-office title must not mutate any ledger.');
+
+        const persistedOfferedSession = openTaskSession(issuerActorId);
+        assert.equal(taskRuntime.api.conversationInstitutionalTaskOfferCreate(persistedOfferedSession).ok, true);
+        const persistedAcceptedSession = openTaskSession(issuerActorId);
+        const persistedAccepted = taskRuntime.api.conversationInstitutionalTaskOfferCreate(persistedAcceptedSession);
+        assert.equal(taskRuntime.api.conversationTaskOfferDecision(
+            persistedAccepted.taskOffer.id, 'ACCEPT').ok, true);
+        const assertTaskTamperRejected = mutate => {
+            const candidate = taskRuntime.api.conversationSessionSnapshot();
+            mutate(candidate);
+            assert.equal(taskRuntime.api.conversationSessionValidate(candidate).ok, false);
+            return candidate;
+        };
+        const findPersistedAccepted = candidate => candidate.taskOffers.find(row =>
+            row.id === persistedAccepted.taskOffer.id);
+        assertTaskTamperRejected(candidate => {
+            findPersistedAccepted(candidate).institutional.institutionId = 'institution:country:0:executive';
+        });
+        assertTaskTamperRejected(candidate => {
+            findPersistedAccepted(candidate).issuerActorId = unauthorized.id;
+        });
+        assertTaskTamperRejected(candidate => {
+            findPersistedAccepted(candidate).institutional.payeeCommanderId = payerCommanderId;
+        });
+        assertTaskTamperRejected(candidate => {
+            findPersistedAccepted(candidate).institutional.amount = 26;
+        });
+        const correlationTamper = assertTaskTamperRejected(candidate => {
+            findPersistedAccepted(candidate).institutional.correlationId = 'conversation-task-offer:forged';
+        });
+        assertTaskTamperRejected(candidate => {
+            findPersistedAccepted(candidate).institutional.escrowReservationId = 'budget-settlement:forged';
+        });
+        assertTaskTamperRejected(candidate => {
+            const completed = candidate.taskOffers.find(row => row.id === created.taskOffer.id);
+            completed.completionSessionId = persistedAcceptedSession;
+        });
+        taskRuntime.api.saveNow();
+        assert.equal(taskRuntime.api.saveStatus().ok, true);
+        const savedRaw = taskRuntime.api.savedRaw();
+        const savedPayload = JSON.parse(savedRaw);
+        const restoredTaskRuntime = createRuntime(3813003);
+        try {
+            restoredTaskRuntime.api.putSavedRaw(savedRaw);
+            assert.equal(restoredTaskRuntime.api.loadNow(), true);
+            assert.equal(JSON.stringify(restoredTaskRuntime.api.conversationSessionSnapshot()),
+                JSON.stringify(savedPayload.conversationUnderstanding),
+                'Restore must preserve offered, accepted, completed, declined, and expired task records exactly.');
+            assert.equal(JSON.stringify(restoredTaskRuntime.api.budgetLedger()),
+                JSON.stringify(savedPayload.stateBudget),
+                'Restore must not settle or release institutional task payments.');
+            assert.equal(restoredTaskRuntime.api.conversationSessionValidate(
+                restoredTaskRuntime.api.conversationSessionSnapshot()).ok, true);
+            assert.equal(restoredTaskRuntime.api.validateBudgetLedger(
+                restoredTaskRuntime.api.budgetLedger(), { checkWalletMirrors: true }).ok, true);
+            assert.equal(restoredTaskRuntime.api.conversationSessionRestore(correlationTamper).taskOffers.length, 0,
+                'Restore must reject a tampered institutional payment link instead of accepting it.');
+        } finally {
+            restoredTaskRuntime.dom.window.close();
+        }
 
         assert.equal(taskRuntime.api.conversationSessionValidate(taskRuntime.api.conversationSessionSnapshot()).ok, true);
         assert.equal(taskRuntime.api.validateInstitutionLedger(taskRuntime.api.institutionLedger()).ok, true);

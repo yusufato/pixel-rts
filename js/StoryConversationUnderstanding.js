@@ -1147,10 +1147,44 @@ function storyConversationTaskOfferTick() {
     const now = Number(STORY.clock) || 0;
     let expired = 0;
     for (const taskOffer of ledger.taskOffers || []) {
-        if (['OFFERED', 'ACCEPTED'].includes(taskOffer.status) && now > taskOffer.dueAt) {
+        if (!['OFFERED', 'ACCEPTED'].includes(taskOffer.status) || now <= taskOffer.dueAt) continue;
+        if (taskOffer.kind !== 'INSTITUTIONAL_PAID_CONTACT_TASK') {
             taskOffer.status = 'EXPIRED';
             expired++;
+            continue;
         }
+        if (taskOffer.status === 'OFFERED') {
+            taskOffer.status = 'EXPIRED';
+            expired++;
+            continue;
+        }
+        const payment = storyConversationInstitutionalTaskPaymentSpec(taskOffer);
+        if (!payment.ok || taskOffer.institutional.paymentStatus !== 'RESERVED'
+            || !taskOffer.institutional.escrowReservationId) continue;
+        const canonical = typeof storyBudgetReserveInstitutionalTaskPayment === 'function'
+            ? storyBudgetReserveInstitutionalTaskPayment(payment.spec)
+            : { ok: false, code: 'INSTITUTIONAL_TASK_BUDGET_REQUIRED' };
+        if (!canonical.ok || canonical.reservationId !== taskOffer.institutional.escrowReservationId) continue;
+        const budgetSnapshot = storyConversationClone(STORY.stateBudget);
+        const payer = storyConversationTaskCommanderAccount(taskOffer.issuerActorId);
+        const payerPoints = payer && Number(payer.commander.res && payer.commander.res.points) || 0;
+        const previousTask = storyConversationClone(taskOffer);
+        const released = typeof storyBudgetReleaseInstitutionalTaskPayment === 'function'
+            ? storyBudgetReleaseInstitutionalTaskPayment(
+                taskOffer.institutional.escrowReservationId, 'TASK_EXPIRED')
+            : { ok: false, code: 'INSTITUTIONAL_TASK_BUDGET_REQUIRED' };
+        if (!released.ok) continue;
+        taskOffer.institutional.paymentStatus = 'RELEASED';
+        taskOffer.status = 'EXPIRED';
+        const validation = storyConversationSessionValidateLedger(ledger);
+        if (!validation.ok) {
+            STORY.stateBudget = budgetSnapshot;
+            if (payer && payer.commander && payer.commander.res) payer.commander.res.points = payerPoints;
+            Object.keys(taskOffer).forEach(key => delete taskOffer[key]);
+            Object.assign(taskOffer, previousTask);
+            continue;
+        }
+        expired++;
     }
     return expired;
 }
@@ -5508,6 +5542,23 @@ function storyConversationSessionValidateLedger(candidate) {
                 const requiresEscrow = ['RESERVED', 'SETTLED', 'RELEASED'].includes(institution.paymentStatus);
                 if (requiresEscrow !== !!institution.escrowReservationId) {
                     add('TASK_OFFER_INSTITUTIONAL_ESCROW', `${at}.institutional`);
+                }
+                const linkedSettlement = requiresEscrow && STORY.stateBudget
+                    ? (STORY.stateBudget.settlements || []).find(row =>
+                        row.id === institution.escrowReservationId) : null;
+                const expectedSettlementStatus = institution.paymentStatus === 'RESERVED' ? 'RESERVED'
+                    : institution.paymentStatus === 'SETTLED' ? 'SETTLED'
+                        : institution.paymentStatus === 'RELEASED' ? 'RELEASED' : null;
+                if (requiresEscrow && (!linkedSettlement
+                    || linkedSettlement.status !== expectedSettlementStatus
+                    || linkedSettlement.correlationId !== institution.correlationId
+                    || linkedSettlement.payerCountryId !== institution.payerCountryId
+                    || String(linkedSettlement.payerCommanderId) !== String(institution.payerCommanderId)
+                    || linkedSettlement.payeeCountryId !== institution.payeeCountryId
+                    || String(linkedSettlement.payeeCommanderId) !== String(institution.payeeCommanderId)
+                    || linkedSettlement.amount !== institution.amount
+                    || linkedSettlement.currency !== institution.currency)) {
+                    add('TASK_OFFER_INSTITUTIONAL_PAYMENT_LINK', `${at}.institutional`);
                 }
                 const expectedPaymentStatus = taskOffer.status === 'OFFERED' || taskOffer.status === 'DECLINED'
                     ? 'NOT_RESERVED' : taskOffer.status === 'ACCEPTED' ? 'RESERVED'
