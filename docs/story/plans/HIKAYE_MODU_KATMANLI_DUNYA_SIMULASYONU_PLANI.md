@@ -7,9 +7,9 @@ canonical: true
 
 # PIXEL RTS — Hikâye Modu Katmanlı Dünya Simülasyonu Ana Planı
 
-**Belge sürümü:** 1.76
+**Belge sürümü:** 1.77
 **Kapsam:** Yalnızca hikâye modu  
-**Durum:** Faz 0–38.7 kabul edildi; Faz 38.8–38.13 kısmi dikeyler taşıyor. Güncel tek aktif dilim Faz 38.13'ün toplantı kapanışı ve yetkili uygulama yönlendirmesidir; Faz 39 henüz başlamadı.
+**Durum:** Faz 0–38.7 kabul edildi; Faz 38.8–38.13 kısmi dikeyler taşıyor. Güncel tek aktif dilim Faz 38.13'ün kurumsal/ücretli görev sözleşmesidir; Faz 39 henüz başlamadı.
 **Ölçek:** Uzun vadeli, onlarca bağımlı faz  
 **Ana ilke:** Her faz tek başına ölçülebilir, geri alınabilir ve oynanabilir bir çıktı üretmeden sonraki faza geçilmez.
 **Oynanabilirlik kapısı:** Yalnız veri, tablo, bildirim veya salt-okunur görünüm üreten katman tamamlanmış oyun özelliği sayılmaz. Oyuncu en az bir yetkili ve bedelli eylemle dünyaya müdahale edebilmeli; karakter bulunan alanlarda bu eylem isimli karakter, ilişki, söz, karşılık veya çatışma üzerinden kurulmalı ve sonucu kanonik dünya/olay defterine yazılmalıdır. Arayüz henüz var olmayan hedefli etkileşimi varmış gibi gösteremez.
@@ -32,6 +32,15 @@ sürüm ve sonuç makbuzuyla geçti. Bu kanıt Faz 38.13'ü tamamlamaz: toplant�
 kapanışı, yetkili domain uygulama yönlendirmesi, karakterin özel nota yanıtı,
 kurumsal görev ve yönlü ilişki sonuç fişleri açık kalır. Faz 39 bu mini zincir
 kapanmadan aktif sayılamaz.
+
+**1.77 değişikliği:** Faz 38.13'ün ikili özel not kanalı karakter yanıtıyla
+tamamlandı. Şema-6 `PLAYER_NOTE → CHARACTER_REPLY` bağı, yanıt anındaki kamusal
+tur kaynakları ve görünürlük politikasıyla doğrulanıyor. Karakter yalnız kök
+notu, gündemi, kendisine görünür kamusal turları ve kendi uygun
+`PUBLIC / INSTITUTIONAL` ActorBelief kaydını okuyabiliyor; başka özel not,
+`PRIVATE/SECRET` inanç ve ham dünya yanıt dışında kalıyor. Birleşik kabul
+`37` kamusal turu değiştirmeden `5` özel kayıt ve `2` karakter yanıtı
+üretti. Sıradaki Faz 38.13 dilimi kurumsal/ücretli görevdir.
 
 **1.4 değişikliği:** Arayüz, simülasyon planından türetilen ayrı bir bilgi mimarisi olarak tanımlandı; oyuncu bilgi filtresi, şehir/yönetim/sohbet ve tüm alan çalışma ekranları, kademeli veri sunumu, bağlamsal navigasyon ve uçtan uca UI kabul fazları eklendi.
 
@@ -4655,9 +4664,31 @@ izi doğruladı. UI yalnız başkan sırasında kapanış sunar; terminal toplan
 konuşma/önerge/oy kontrollerini kapatır ve “teklif ≠ onay/uygulama” sınırını
 Türkçe gösterir.
 
-Sıradaki borç karakterden gelen özel nota kaynak ve görünürlük sınırı içinde
-yanıt üretmektir. Kurumsal/ücretli görev ve toplantının yönlü ilişki fişleri de
-hâlâ açıktır.
+**On dördüncü dikey — görünürlük-korumalı ikili özel not yanıtı:**
+`MeetingCaseV1.privateNotes` şema-2 kayıtları artık değiştirilemez
+`PLAYER_NOTE` kökü ile ayrı `CHARACTER_REPLY` çocuğunu ayırır. Yanıt yazarı
+istemciden alınmaz; kök notun gerçek alıcısıdır ve yalnız o karakterin kamusal
+söz sırasında çalışır. Özel yanıt kamusal `turns` dizisini ve
+`currentSpeakerIndex` değerini değiştirmez. Kök başına tek çocuk vardır;
+yanıta yanıt, ikinci çocuk, ters taraf ve tahrif edilmiş kaynak reddedilir.
+
+Yanıt bağlamı bütün `privateNotes` dizisini okumaz. Yalnız yanıtlanan kök not,
+gündem, alıcının görünürlük satırındaki yanıt anına kadar oluşmuş kamusal turlar
+ve alıcının kendi `PUBLIC / INSTITUTIONAL` ActorBelief kaydı kullanılır.
+Oyuncu notu doğrulanmış gerçek veya mekanik emir sayılmaz. Başka ikili kanalın
+tuzak metni, `PRIVATE/SECRET` inanç ve yanıttan sonra oluşmuş kamusal tur
+kaynak/metin/DOM içine giremez. UI oyuncu notu ile karakter yanıtını aynı ikili
+dizide gösterir; yanıtı karar, emir veya taahhüt diye sunmaz. Kapalı toplantıda
+geçmiş yazışma salt-okunur kalır.
+
+Şema-5 göçü eski notları yalnız kanıtlanmış oyuncu kökü olarak taşır ve tarihsel
+yanıt uydurmaz. Birleşik test `37` kamusal tur sabitken `5` özel kayıt ve
+`2` karakter yanıtını; yanlış sıra/çift yanıt sıfır farkını, üçüncü taraf
+izolasyonunu, şema-5→6 göçünü, tahrif reddini ve açık/kapalı save-load
+devamlılığını doğruladı.
+
+Sıradaki borç kurumsal/ücretli görevi gerçek yetki, bedel ve sonuç makbuzuyla
+kurmaktır. Toplantının yönlü ilişki fişleri de hâlâ açıktır.
 
 **Dördüncü dikey — sıra kontrollü çok taraflı transkript ve görünürlük matrisi:**
 Toplantı artık yalnız katılımcı listesi değildir. En çok `40` turluk döngü,
@@ -4683,10 +4714,11 @@ Bu yükseltme aktif Faz 38.5'i baştan yazdırmaz. Önce sohbetten sonuca zorunl
 ve kanonik Faz 38.9 → Faz 29 teklif yönlendirmesine kadar doğrulandı. Çift
 kapanış/yönlendirme reddi, yetkisiz rotada sıfır dünya farkı, açık ve kapanmış
 toplantı save/load devamlılığı ile teklif kimliğinden sonuç makbuzuna geri iz
-çalışıyor. Sıradaki tek uygulama dilimi, karakterin ikili özel nota yalnız kendi
-görünür bağlamı içinde yanıt vermesidir. Kurumsal/ücretli görev ve yönlü ilişki
-fişleri sonraki ayrı Faz 38.13 dilimleridir; Faz 39'a geçiş bunlar kapanmadan
-ilan edilmez.
+çalışıyor. İkili özel not yanıtı da yalnız kök not + alıcı görünür kamusal
+bağlam + alıcının uygun ActorBelief kaydıyla tamamlandı; kamusal tur ve dünya
+değerleri değişmedi. Sıradaki tek uygulama dilimi kurumsal/ücretli görevdir.
+Yönlü ilişki fişleri sonraki ayrı Faz 38.13 dilimidir; Faz 39'a geçiş bunlar
+kapanmadan ilan edilmez.
 
 ---
 

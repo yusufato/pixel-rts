@@ -1266,3 +1266,17 @@
 - **What happened:** `closeMeeting(meetingId, actionType)` yaklaşımı uygulanmadı; oylanan sanayi önergesinin kapanışta savaş ilanı gibi ilgisiz bir eyleme bağlanmasına mekanik engel yoktu.
 - **Evidence:** Mevcut önerge metni doğal dil, Faz 29 girişi kapalı `actionType` kataloğudur. Uygulanan `InstitutionProposalIntentV1` eylem/ülke/kurum/hedef kapsamını aktif önerge sürümüne oylama öncesi mühürler ve revizyonda sıfırlar.
 - **Implication for future audits:** Toplantı sonucundan LLM, anahtar sözcük veya kapanış payload'u ile eylem türü türetme. Yeni alan rotaları oylama öncesi kanonik preview ve sürüm bağı olmadan executable yapılmamalıdır.
+
+## 2026-08-26 — Faz 38.13 ikili özel not yanıtı görünürlük sınırına bağlandı
+- **Type:** Executed
+- **Source:** `phase-38-13-private-note-response`
+- **What happened:** Oyuncu kök notu ile karakter yanıtı şema-6 içinde ayrı ve tekil bilateral kayıtlar oldu. Yanıt yazarı kök notun gerçek alıcısından türetiliyor; yalnız alıcı söz sırasındayken kök not, görünür kamusal turlar ve alıcının uygun ActorBelief kaydıyla deterministik yanıt veriyor.
+- **Evidence:** `node tests/story-conversation-case.test.js` başarılı; 4 katılımcı, 37 kamusal tur, 5 özel kayıt, 2 karakter yanıtı, yanlış sıra/çift yanıt sıfır farkı, üçüncü taraf ve PRIVATE inanç izolasyonu, şema-5→6 göçü, tahrif reddi ve açık/kapalı save-load doğrulandı.
+- **Implication for future audits:** Karakterin ikili özel nota yanıtını açık Faz 38.13 borcu olarak yeniden raporlama. Yanıt kamusal tur, karar, emir, taahhüt, ilişki etkisi veya dünya mutasyonu değildir; sıradaki dilim kurumsal/ücretli görevdir.
+
+## 2026-08-26 — Bütün özel not defterini karakter yanıt bağlamına vermek reddedildi
+- **Type:** Rejected
+- **Source:** `phase-38-13-private-note-response` plan çürütmesi
+- **What happened:** Yanıt üreticisine `meeting.privateNotes` dizisinin tamamını verme yaklaşımı uygulanmadı; aynı dizide farklı ikili kanallar bulunduğu için görünürlük matrisi atlanarak üçüncü taraf sırrı sızabilirdi.
+- **Evidence:** Uygulanan context builder yalnız seçilen `PLAYER_NOTE` kökünü alıyor; kamusal turları alıcının görünürlük satırı ve yanıt zamanı ile kesiştiriyor. Ayrı kanaldaki `UCUNCU_TARAF_GIZLI_TUZAK` metni yanıt ve sourceRefs içinde bulunmadı.
+- **Implication for future audits:** “Kendi özel bağlamı” ifadesini bütün erişilebilir özel geçmişi otomatik okuma yetkisi sayma. Çok-notlu özel hafıza ayrı sahiplik, amaç ve bütçe planı olmadan eklenmemelidir.
