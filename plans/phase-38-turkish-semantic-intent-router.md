@@ -319,3 +319,15 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   epistemik durum `28`, hedef `27`, konu/predicate `22`, devamlılık `22`, ana
   speech-act `21`, istenen sonuç `15` ve yanlış OOD kapısı `11`. Bu sayılar
   öncelik kanıtıdır; tek başına kök neden veya model kabulü değildir.
+
+### 27 Ağustos 2026 — Codex tekil inceleme partisi 3
+
+- Altı gözlenmiş oyuncu turu ve on dört model üretimi aday bağlamı, anlatım
+  bozukluğu ve bütün kapalı eksenleriyle ayrı ayrı incelendi. Yazım/dilbilgisi
+  bozuk fakat anlaşılır sorular OOD yapılmadı; ekonomik rapor, kurumsal suçlama,
+  konu değişimi, onarım, görev isteği ve genel dünya bildirimi ayrıştırıldı.
+- Toplam `60/200` prototip gold oldu. Kısmi baseline macro-F1 `0,354760`, ECE
+  `0,2415`, tam çerçeve eşleşmesi `2/60` oldu. Hata ailelerinde hedef `44`,
+  epistemik durum `41`, speech-act `37`, predicate `31`, yanlış OOD `26` ölçüldü.
+- Bu genişleyen kısmi corpus model seçimi değildir. Prototip kapısına `140`, ürün
+  kapısına `940` tekil inceleme kalmıştır.

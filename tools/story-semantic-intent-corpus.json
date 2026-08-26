@@ -1785,6 +1785,28 @@
     },
     {
       "id": "semantic-intent:5947db35f07733d5",
+      "adjudication": {
+        "id": "semantic-intent:5947db35f07733d5",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "GREETING",
+          "communicativeFunction": "GREET",
+          "surfaceForm": "FRAGMENT",
+          "predicate": "IDENTITY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Adla hitap edilen doğrudan selamlaşma; karakter muhatabı belirliyor, başka amaç taşımıyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "selamlar [KARAKTER]",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:c930f5bc0f07e7b02051239a2d1f8109720788cbad3dd6d9cd29cad532e65cf5",
@@ -1797,6 +1819,28 @@
     },
     {
       "id": "semantic-intent:5924de05b5965766",
+      "adjudication": {
+        "id": "semantic-intent:5924de05b5965766",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "WORLD",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "PAST",
+          "epistemicStatus": "HEARSAY",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Enerji sıkıntısını geçmişte duyulmuş, doğrulanmamış ekonomik dünya bilgisi olarak bildiriyor; eylem istemiyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "enerji konusunda sıkıntılar duydum",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:e95fab5d9f28db7c57c336b4fa7d2c8fde84a917120f4387f1d8ab606c728a28",
@@ -1814,6 +1858,30 @@
     },
     {
       "id": "semantic-intent:c21a7de5cf5d711e",
+      "adjudication": {
+        "id": "semantic-intent:c21a7de5cf5d711e",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "secondarySpeechActs": [
+            "ASK_INFORMATION"
+          ],
+          "outOfDomain": false
+        },
+        "notes": "Oyuncu kendisine verilebilecek iş olup olmadığını sorarak görev/eylem talep ediyor; varlık sorusu ikincil.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "benim çalışabileceğim bir şey var mı",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:9ecb846a65c33cb64dd123ed04b5e34f549b57519c1cff50c2ca399c74d497a9",
@@ -1835,6 +1903,28 @@
     },
     {
       "id": "semantic-intent:cbd9515714a3fd98",
+      "adjudication": {
+        "id": "semantic-intent:cbd9515714a3fd98",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Dilbilgisi bozuk olsa da dinleyicinin işini soran açık soru; yazım hatası anlamı OOD yapmıyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "işinizin nedir",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:0738c5a38ca7f12e97f8166c690b6662ce576bdedbc3d32206d814ca8f37de3b",
@@ -1852,6 +1942,28 @@
     },
     {
       "id": "semantic-intent:2972e1d3ec08db44",
+      "adjudication": {
+        "id": "semantic-intent:2972e1d3ec08db44",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "REPAIR",
+          "surfaceForm": "FRAGMENT",
+          "predicate": "UNSPECIFIED",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "REPAIR",
+          "requestedOutcome": "INFORMATION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Önceki açıklamayı anlamadığını bildirerek dinleyiciden açıklama isteyen bağlamsal onarım.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "anlamadım",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:d654622a7334fa9bfdab8e7694d08ecb8d5d81987f1cc6fab71794d0e85f01b2",
@@ -1873,6 +1985,28 @@
     },
     {
       "id": "semantic-intent:c103f0eda3ff9060",
+      "adjudication": {
+        "id": "semantic-intent:c103f0eda3ff9060",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "FRAGMENT",
+          "predicate": "UNSPECIFIED",
+          "target": "UNSPECIFIED",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "ANSWER",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Önceki tura verilen kısa kabul/konuşma alındısı; yeni konu veya mekanik istek taşımıyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "peki",
       "sourceType": "OBSERVED_PLAYER",
       "sourceId": "sha256:0a32b647a47eb2f66f9bb06bcfce5689b6a2982680d611b2948721497503cc62",
@@ -1898,6 +2032,28 @@
     },
     {
       "id": "semantic-intent:bb38bed5369ff872",
+      "adjudication": {
+        "id": "semantic-intent:bb38bed5369ff872",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Tuhaf sözcük seçimine rağmen kredi limitleri hakkındaki kurumsal görüşme/duruşmayı ekonomik durum olarak bildiriyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Kredi limitleri üzerinde biraz duruşma var.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0492",
@@ -1910,6 +2066,28 @@
     },
     {
       "id": "semantic-intent:d45fac8a184d1fbc",
+      "adjudication": {
+        "id": "semantic-intent:d45fac8a184d1fbc",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CORRECT_STATEMENT",
+          "communicativeFunction": "CORRECT",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "ORGANIZATION",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Toplantı içeriğinin eksik olduğunu kesin biçimde düzelten/eleştiren kurumsal bildirim.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu toplantıda bazı önemli noktalar eksik.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0372",
@@ -1922,6 +2100,30 @@
     },
     {
       "id": "semantic-intent:13dc06f008dd78d9",
+      "adjudication": {
+        "id": "semantic-intent:13dc06f008dd78d9",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ACCUSE",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "ORGANIZATION",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "secondarySpeechActs": [
+            "REPORT_ECONOMIC"
+          ],
+          "outOfDomain": false
+        },
+        "notes": "Hükümet bütçesinde yetkisiz harcama yapıldığını ileri süren kurumsal suçlama; ekonomik rapor ikincil.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu bütçe, hükümetin yetkisi dışında harcamalar yapılıyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0972",
@@ -1934,6 +2136,28 @@
     },
     {
       "id": "semantic-intent:110e9b2f1db8f8b0",
+      "adjudication": {
+        "id": "semantic-intent:110e9b2f1db8f8b0",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "WORLD",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Mevcut bir yatırım fırsatını ekonomik durum olarak bildiriyor; teklif veya eylem isteği yok.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Yeni bir yatırım fırsatı var.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0572",
@@ -1946,6 +2170,28 @@
     },
     {
       "id": "semantic-intent:3978ea49933f575b",
+      "adjudication": {
+        "id": "semantic-intent:3978ea49933f575b",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "ORGANIZATION",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Belirli bütçedeki aşırı harcamayı olumsuz ekonomik rapor olarak bildiriyor; fail belirtilmediği için suçlama ana eylem değil.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "bu bütçede çok fazla para harcanıyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0172",
@@ -1958,6 +2204,28 @@
     },
     {
       "id": "semantic-intent:0f09a6e3b6c127e1",
+      "adjudication": {
+        "id": "semantic-intent:0f09a6e3b6c127e1",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ACCUSE",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "OPINION",
+          "target": "ORGANIZATION",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Yönetimin bazı kararlarını kuşkulu/karanlık gösteren kurumsal suçlama; görünüş kipi kesinlik iddiasını yumuşatıyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Yönetimdeki bazı kararlar biraz karanlık görünüyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0392",
@@ -1970,6 +2238,28 @@
     },
     {
       "id": "semantic-intent:5bc70d4648e3bc75",
+      "adjudication": {
+        "id": "semantic-intent:5bc70d4648e3bc75",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CORRECT_STATEMENT",
+          "communicativeFunction": "CORRECT",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "ORGANIZATION",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Haber kapsamındaki eksikliği kesin bir düzeltme/eleştiri olarak bildiriyor; özel medya predicate'i katalogda yok.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Son haberlerde bazı önemli haberler eksik.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0772",
@@ -1982,6 +2272,28 @@
     },
     {
       "id": "semantic-intent:655dd66fd2492dd0",
+      "adjudication": {
+        "id": "semantic-intent:655dd66fd2492dd0",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "LOCATION",
+          "target": "WORLD",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "PAST",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Nüfus göç eğilimini gözlemlediğini bildiriyor; katalogda demografi raporu olmadığı için genel dünya bildirimi, OOD değil.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu dönemde nüfusun göç yönündeki bir trend olduğunu fark ettim.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0892",
@@ -1994,6 +2306,28 @@
     },
     {
       "id": "semantic-intent:4248c1d6446cd430",
+      "adjudication": {
+        "id": "semantic-intent:4248c1d6446cd430",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "FRAGMENT",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Eksik özneli parça dinleyicinin görevinin bitişe yakın olduğunu bildiriyor; yeni görev veya talep üretmiyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "görevin bitimine çok yakın.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0872",
@@ -2006,6 +2340,28 @@
     },
     {
       "id": "semantic-intent:9610a222ea702af5",
+      "adjudication": {
+        "id": "semantic-intent:9610a222ea702af5",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "TECHNOLOGY",
+          "target": "WORLD",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "PAST",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Bilimsel keşfi geçmiş dünya bilgisi olarak anlatıyor; mekanik araştırma isteği veya doğrulanmış oyun olgusu üretmiyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Yeni bir bilim insanı, toprakların son derece eski olduğunu keşfetti.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0272",
@@ -2018,6 +2374,28 @@
     },
     {
       "id": "semantic-intent:b16b3ba177ff5a5c",
+      "adjudication": {
+        "id": "semantic-intent:b16b3ba177ff5a5c",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "PAST",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Açık konu değişiminden sonra şirketin yatırım fırsatı ve geçmiş banka başvurusunu ekonomik rapor olarak bildiriyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu arada banka konusuna geçelim. Şirketimiz yeni bir yatırım fırsatı buldu ve onu değerlendirmek için bankaya başvurduk.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0387",
@@ -2030,6 +2408,28 @@
     },
     {
       "id": "semantic-intent:caf8c24f11af9f7d",
+      "adjudication": {
+        "id": "semantic-intent:caf8c24f11af9f7d",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_MILITARY",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "MILITARY",
+          "target": "WORLD",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Açık konu değişimiyle güncel fakat belirsiz bir istihbarat durumunu askerî rapor olarak açıyor; ayrıntı uydurulmuyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu arada istihbarat konusuna geçelim. En son istihbaratlarla ilgili bir durum var.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0987",
@@ -2042,6 +2442,28 @@
     },
     {
       "id": "semantic-intent:7ba872be68244ad4",
+      "adjudication": {
+        "id": "semantic-intent:7ba872be68244ad4",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "WORK",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Dilbilgisi uyuşmazlığına rağmen şirket adına yeni proje başlatma isteği; gelecek eylemi açan talep.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu arada iş konusuna geçelim. Şirketimiz yeni bir proje başlatmak istiyoruz.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0687",
@@ -2054,6 +2476,28 @@
     },
     {
       "id": "semantic-intent:e3c3020b45469281",
+      "adjudication": {
+        "id": "semantic-intent:e3c3020b45469281",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "TECHNOLOGY",
+          "target": "WORLD",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "PAST",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Araştırma konusuna geçip yakın geçmişteki bulguları genel bilimsel bildirim olarak anlatıyor; eylem istemiyor.",
+        "reviewedAt": "2026-08-27T02:02:40.752+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu arada araştırma konusuna geçelim. Son zamanlarda birçok ilginç bulgu ortaya çıktı.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0087",

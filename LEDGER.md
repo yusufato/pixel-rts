@@ -1362,3 +1362,9 @@
 - **What happened:** Deterministik baseline'ın yalnız ana speech-act'i değil bütün `SemanticFrameV2` eksenleri gold etiketlerle karşılaştırıldı.
 - **Evidence:** Tam çerçeve eşleşmesi `2/40` (`%5`); epistemik durum `28`, hedef `27`, predicate `22`, devamlılık `22`, speech-act `21`, istenen sonuç `15`, yanlış OOD `11` hata. Macro-F1 `0,3830492424`, ECE `0,2455` değişmedi.
 - **Implication for future audits:** Genel başarı oranıyla yetinme; düzeltmeleri bu ailelerdeki family-split holdout değişimiyle değerlendir ve bu 40 kayıtla model seçme.
+## 2026-08-27 — Codex tekil semantik incelemesi 60 gold kayda ulaştı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 1 / Codex partisi 3
+- **What happened:** Altı gözlenmiş oyuncu turu ve on dört model üretimi aday tek tek etiketlendi; toplam 60 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu. Dilbilgisi bozuk fakat anlaşılır oyun dili otomatik OOD sayılmadı.
+- **Evidence:** Corpus doğrulaması exit `0`; kısmi baseline macro-F1 `0,3547602089`, ECE `0,2415`, tam çerçeve `2/60`; hedef `44`, epistemik durum `41`, speech-act `37`, predicate `31`, yanlış OOD `26` hata. Sayaç `60/200`.
+- **Implication for future audits:** İlk 60 kaydı tamamlanmış Codex gold kabul et; fakat genişleyen hata sayısını motor gerilemesi diye yorumlama ve 200 kapısı dolmadan model karşılaştırmasına başlama.
