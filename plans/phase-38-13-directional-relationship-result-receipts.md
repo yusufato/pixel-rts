@@ -29,7 +29,7 @@ conflicts_with:
   - bugfix-story-invalid-battle-target-guard
   - electron-story-lifecycle-acceptance
 created: 2026-08-26
-last_touched: 2026-08-26
+last_touched: 2026-08-27
 ---
 
 # Faz 38.13 — Yönlü İlişki Sonuç Fişleri
@@ -320,3 +320,20 @@ için yaklaşık **7–9 kişi-gün**dür.
 - **Çürütülen yaklaşım:** Paket yeşil olsun diye eşiği düşürmek veya atlamak.
 - **Karar:** Eşik değişmez; bu dilim hedefli ilişki/konuşma problarıyla geçer.
 - **Risk:** Sonraki assertion'lar ayrı işçilerle doğrulanır.
+
+## 7) 27 Ağustos 2026 yürütme durumu — yarım kalan kabul
+
+- Adım 1–8 tamamlandı ve ayrı geri alınabilir commit'lere bölündü.
+- `node tests/story-conversation-case.test.js` geçti. İlişki yorumu ve konuşma
+  anlama probları harness üzerinden doğrudan çağrıldığında geçti.
+- Planlanan iki worker komutu özellik koduna ulaşmadan aynı önceden var olan
+  manifest tutarsızlığında duruyor:
+  `Story test manifest mismatch: missing=[institutionalTaskBudgetProbe]`.
+- `institutionalTaskBudgetProbe`, `tests/story-world.test.js` ve harness'te
+  bulunuyor fakat `tools/story-test-manifest.js` içinde kayıtlı değil. Manifest
+  dosyası bu planın `touches` kapsamına dahil olmadığından sessizce değiştirilmedi.
+- Genel dünya testi gözlemsel olarak bilinen gıda erişimi assertion'ında durdu;
+  kullanıcının krizli/kıtlık yaşayabilen dünya kararı gereği eşik zayıflatılmadı.
+- Adım 9'un bütün hedefli kapıları geçmediği için plan `In Progress` kalır;
+  `Landed` yapılmaz. Kapanış için ayrı, dar manifest uyum düzeltmesi ve iki worker
+  komutunun yeniden çalıştırılması gerekir.

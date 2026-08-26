@@ -2,7 +2,7 @@
 
 **Oluşturulma:** 31 Temmuz 2026  
 **Amaç:** Proje dışından gelen teknik/tasarım analizlerini ana planın kesin kararı veya uygulanmış gerçekleriyle karıştırmadan, kaynak ve zaman bağlamıyla kalıcı olarak saklamak.  
-**Kapsam:** Dünya simülasyonu–taktik savaş köprüsü ile serbest metin/LLM mimarisi hakkında iletilen iki analiz.
+**Kapsam:** Dünya simülasyonu–taktik savaş köprüsü ile serbest metin/LLM mimarisi hakkında iletilen üç analiz.
 
 ## Kayıt yöntemi
 
@@ -85,6 +85,7 @@ Dış öneri ana plana kendiliğinden hükmetmez. Güncel kod ve QA kanıtıyla 
 |---|---|---|---|---|
 | EXT-001 | `attachments/806d0640-3104-44de-b052-9523dafeec2f/pasted-text.txt` | Dünya simülasyonu, savaş köprüsü, ekonomik kırmızı sinyaller ve faz riski | 31.07.2026 | `recorded` |
 | EXT-002 | `attachments/eca39cc6-f832-4dbe-9f2a-7ee4313b0cd0/pasted-text.txt` | Serbest metin NLU, LLM görev ayrımı, belirsizlik ve bellek maliyeti | 31.07.2026 | `recorded` |
+| EXT-003 | Kullanıcının YouTube videosundan uyarlayıp ilettiği özet; video URL'si verilmedi | Çokdilli embedding, eylem sınıflandırma, deterministik karar ve LLM seslendirmesi | 27.08.2026 | `candidate` |
 
 ---
 
@@ -1007,3 +1008,65 @@ Tanı artık ülke toplamının gerçekten kullanılabilir olup olmadığını d
 - Boreal ve kurak bölgeler için 32 ek işlevsel yapı üretildi; tek iklim hücresine düşme borcu atlas/seçici seviyesinde kapandı. Ancak mevcut iklim sınıfı gerçek coğrafi iklim kaynağı değildir: `ly` bantları ve liman bayrağı yaklaşık vekildir.
 - Bu ayrım özellikle Adana canlı karesinde görünür oldu. Kurak atlas doğru çalışmasına rağmen Adana'nın mevcut normalize koordinatı `DRY` eşiğini geçmedi. Şehir adına özel istisna yazılmadı; doğru çözüm altıgen/şehir iklim verisini kanonik kaynak olarak bağlamaktır.
 - Katalog `144` kayda ulaştı ve tam altyapı paketi geçti. Performans ve tek koşudaki ikinci statik katman artışı açık tutuldu; varlık sayısındaki artış başarının tek ölçütü değildir.
+
+---
+
+## EXT-003 — Çokdilli embedding ile Türkçe niyet yönlendirme
+
+### Kaynak iddiası
+
+Kullanıcının aktardığı yaklaşım oyuncu metnini hafif bir embedding modeliyle
+vektörleştirip kapalı eylem örneklerine kosinüs yakınlığıyla eşler; mekanik
+kararı kod verir, LLM yalnız sonuç cümlesini seslendirir. Çok sayıdaki karakter
+tek tek promptlanmak yerine arketip, kişilik, aidiyet ve kısa durum belleğiyle
+parametrik ele alınır.
+
+### Yerel kanıt ve uyarlama
+
+- Mekanik otoritenin LLM'de olmaması mevcut mimariyle uyumludur.
+  `SemanticFrameV2` zaten dünya gerçeği, sayı, yetki veya komut üretemez;
+  doğrulanmış kapalı anlam eksenleri ve deterministik domain kapıları kullanır.
+- Asıl açık, doğal Türkçe varyantları kök/eşanlam kataloglarına sığdırmaktır.
+  Embedding bu çerçeveyi değiştiren karar motoru değil, ona aday sunan yeni bir
+  `SEMANTIC_CANDIDATE` kaynağı olmalıdır.
+- `all-MiniLM-L6-v2` ve `bge-small-en-v1.5` resmî model kartlarında İngilizce
+  modellerdir; Türkçe kabulü ölçülmeden aday yapılamaz. Resmî kartında 384 boyut,
+  12 katman ve çokdilli eğitim belirten `multilingual-e5-small` ilk benchmark
+  adayı olabilir; isim hiçbir koşulda kabul kanıtı değildir.
+- En yakın tek sınıf otomatik eylem değildir. Mutlak güven, birinci–ikinci aday
+  marjı, alan olgunluğu, olumsuzluk/varsayım, varlık ve slot çözümü ile yüksek
+  riskli eylem teyidi birlikte geçmelidir. Aksi sonuç `UNKNOWN` veya açık
+  netleştirme sorusudur.
+- İlk dilimde MLP reddedilir. Eğitim verisi, sürümleme ve kalibrasyon borcu
+  doğurmadan önce prototip embedding + kosinüs yaklaşımının gerçek Türkçe
+  corpus üzerinde bilgi kazancı kanıtlanmalıdır.
+- Dört arketip, kanonik karakter gerçeği değildir. Mevcut kimlik, rol, hedef,
+  yönlü ilişki, ActorBelief, hafıza, makam ve aktivasyon düzeyi korunur. Arketip
+  yalnız aday eleme/önbellek anahtarı olabilir. “Son üç etkileşim bayrağı” kalıcı
+  hafızanın yerine geçmez; sahiplik ve konu filtresinden geçen sınırlı recall
+  görünümü olabilir.
+- Sabit `itibar + açgözlülük - sadakat + para` formülü yeni kişilik eksenleri ve
+  doğrudan ilişki deltası uydurur. Karar mevcut kanonik özelliklerden, yetkiden,
+  gerçek bütçeden, ilişki defterinden, ActorBelief ve hedeflerden türemeli;
+  sonuç mevcut domain ve ilişki makbuzlarına yazılmalıdır.
+
+### Karar durumu
+
+`candidate`. Mimari ilke kabul edilmeye değer; model seçimi, eşikler, corpus ve
+çalışma zamanı henüz onaylanmış değildir. Uygulama planı
+`plans/phase-38-turkish-semantic-intent-router.md` içinde Draft'tır.
+
+### Kabul kapısı
+
+- Kör ve insan etiketli Türkçe corpus; ekli biçimler, yazım hatası, argo,
+  olumsuzluk, varsayım, ironi, çoklu niyet, eksik cümle, zamir ve takip turu
+  ailelerini kapsar.
+- Eylem başına macro-F1/recall yanında yüksek riskli yanlış kabul, OOD ret,
+  top-1/top-2 marjı ve kalibrasyon ölçülür. Yüksek riskli yanlış pozitif sıfır
+  olmadan mekanik preflight açılamaz.
+- Embedding kapalı veya model yokken mevcut deterministik yol çalışır. Aynı
+  kabul edilmiş aday aynı seed ve bağlamda aynı mekanik sonucu üretir.
+- Model oyuncu metni, aday kimlikleri ve skor dışında dünya defteri, gizli
+  ActorBelief, ham ilişki veya yetki verisi görmez.
+- CPU p50/p95, soğuk yükleme, RAM ve paket boyutu gerçek Electron EXE'de
+  ölçülür; “birkaç milisaniye” varsayımı kanıt sayılmaz.
