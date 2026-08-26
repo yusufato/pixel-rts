@@ -1,6 +1,6 @@
 ---
 id: phase-38-turkish-semantic-intent-router
-status: Draft
+status: Approved # Kullanıcı 27 Ağustos 2026 tarihinde onayladı
 owner: osman
 source: EXT-003 / Kullanıcının 27 Ağustos 2026 embedding önerisi
 touches:
@@ -38,15 +38,19 @@ Oyuncunun doğal Türkçesi mevcut kök/eşanlam kurallarına sığmadığında 
 `UNKNOWN`, yanlış söylem türü veya genel onarım cevabına düşebiliyor. Çözüm
 LLM'e mekanik karar yetkisi vermek değildir. Hafif, çokdilli embedding katmanı
 yalnız kapalı `SemanticFrameV2` ve speech-act adaylarını sıralar; mevcut
-deterministik çerçeve slot, varlık, olumsuzluk, yetki, bütçe, domain olgunluğu ve
-teyit kapılarını işletir. LLM yalnız kabul edilmiş sonucu isteğe bağlı seslendirir.
+deterministik çerçeve oyundaki bütün kapalı seçim türlerini ve domain
+sözleşmelerini doğrular. Varlık, miktar, olumsuzluk, yetki ve bütçe bunların
+yalnız örnekleridir; hedef, kapsam, zaman, kaynak, kanıt, ilişki, makam, rol,
+gizlilik, risk, yürütücü ve diğer kanonik alanlar katalog büyüdükçe aynı kapıya
+girer. LLM yalnız kabul edilmiş sonucu isteğe bağlı seslendirir.
 
 **Done:** Gerçek oyuncu dili üzerinde mevcut tabana göre ölçülmüş Türkçe anlama
 artışı vardır; bilinmeyen ve yüksek riskli sözler güvenli biçimde durur;
 embedding/LLM kapalıyken mekanik oyun eşdeğer kalır; hiçbir model eylem, hedef,
 miktar, yetki, sonuç veya ilişki deltası yazamaz.
 
-**Durum:** İnsan onayı bekleyen Draft. Bu kayıt uygulama yetkisi değildir.
+**Durum:** Kullanıcı 27 Ağustos 2026 tarihinde kapsamı genişleten iki düzeltmeyle
+onayladı. Uygulama, `depends_on` planı Landed olduktan sonra başlayabilir.
 
 ## 2) Önerilen kapalı zincir
 
@@ -55,13 +59,18 @@ miktar, yetki, sonuç veya ilişki deltası yazamaz.
 2. Ayrı yerel süreç çokdilli embedding üretir. Model yoksa mevcut deterministik
    `SemanticFrameV2` yolu değişmeden çalışır.
 3. Vektör yalnız sürümlü kapalı örnek kataloğundaki anlam adaylarıyla
-   karşılaştırılır. Çıktı en çok üç aday, benzerlik ve katalog sürümüdür.
+   karşılaştırılır. Çıktı sabit üçle sınırlandırılmaz; corpus kalibrasyonu,
+   belirsizlik marjı ve CPU/bellek bütçesiyle seçilen kapalı `top-K` aday,
+   benzerlik ve katalog sürümüdür. `K` ölçülmeden ürün sabiti yapılmaz.
 4. Mutlak skor veya top-1/top-2 marjı düşükse `UNKNOWN/CLARIFY`; model zorla
    eylem seçmez.
-5. Mevcut semantik çerçeve iletişim işlevi, konu, hedef, olumsuzluk, zaman,
-   epistemik durum, devamlılık ve istenen sonucu doğrular.
-6. Varlık/slot çözümü yalnız kanonik kamusal dizin ve oyuncunun erişilebilir
-   bağlamından yapılır. Model para, kişi, şirket, ülke veya görev uyduramaz.
+5. Mevcut semantik çerçeve ve domain adaptörleri iletişim işlevi, konu, hedef,
+   olumsuzluk, zaman, epistemik durum, devamlılık, istenen sonuç ve oyundaki
+   diğer bütün kapalı seçim alanlarını doğrular. Yeni bir domain alanı katalog ve
+   validator kaydı olmadan embedding yolundan çalıştırılamaz.
+6. Varlık/slot ve diğer seçim çözümü yalnız kanonik kamusal dizin, oyuncunun
+   erişilebilir bağlamı ve ilgili domain sözleşmesinden yapılır. Model para,
+   kişi, şirket, ülke, görev, kapsam, makam, kaynak veya sonuç uyduramaz.
 7. Rüşvet, tehdit, savaş, ödeme, görev, sır paylaşımı ve kurumsal emir gibi
    etkili adaylar açık domain preflight ve oyuncu teyidi olmadan çalışmaz.
 8. Deterministik motor sonucu ve makbuzu üretir. İlişki değişimi yalnız mevcut
@@ -105,7 +114,7 @@ miktar, yetki, sonuç veya ilişki deltası yazamaz.
 |---|---|---|---|
 | 1 | Gerçek Türkçe tabanı ölç | Kör corpus, insan etiketi, mevcut hata matrisi | `test(story): establish Turkish intent baseline` |
 | 2 | Model/runtime spike | İki aday, EXE CPU/RAM/latans/paket ölçümü; ürün bağı yok | `test(story): benchmark local multilingual embeddings` |
-| 3 | Kapalı katalog ve yönlendirici | Sürümlü prototipler, top-3, skor/marj, OOD ret | `feat(story): add bounded semantic intent candidates` |
+| 3 | Kapalı katalog ve yönlendirici | Sürümlü prototipler, ölçülmüş top-K, skor/marj, OOD ret | `feat(story): add bounded semantic intent candidates` |
 | 4 | SemanticFrameV2 birleşimi | Aday doğrulama, çoklu niyet ve netleştirme | `feat(story): validate embedding candidates through semantic frames` |
 | 5 | Yüksek risk teyidi | Domain preflight, slot/yetki/bütçe ve açık oyuncu onayı | `feat(story): gate consequential language behind confirmation` |
 | 6 | Sonuç seslendirmesi | LLM yalnız kapalı sonuç zarfı; şablon fallback | `feat(story): voice validated conversation outcomes` |
@@ -124,6 +133,9 @@ miktar, yetki, sonuç veya ilişki deltası yazamaz.
   adversarial aileleri zorunludur.
 - Başarı yalnız accuracy değildir: macro-F1, sınıf recall, OOD yanlış kabul,
   top-1/top-2 marjı, expected calibration error ve domain hata matrisi ölçülür.
+- `K`; recall artışı, yanlış kabul, gecikme ve bellek eğrisi birlikte ölçülerek
+  seçilir. Üç aday yetersizse büyütülür; büyüyen listenin oyuncuya veya mekanik
+  yürütücüye filtresiz aktarılması yasaktır.
 - Rüşvet, tehdit, ödeme, savaş, görev, sır ve kurumsal emir sınıflarında mekanik
   yanlış pozitif `0`; teyitsiz dünya mutasyonu `0`; uydurma varlık/slot `0`dır.
 - Çokdilli yönlendirici kör testte mevcut deterministik tabanın macro-F1'ını en
@@ -166,6 +178,13 @@ değerler mevcut kanonik kayıtlardan sınırlı doldurulur.
 Embedding genel niyet adayı için uygundur; `5000`, hedef kişi, ülke, şirket,
 para birimi ve olumsuzluk gibi icra slotlarını garanti etmez. Slotlar
 deterministik parser+dizin+teyit yolunda kalır.
+
+### Beş örnek doğrulama alanını bütün oyun sanmak
+
+Varlık, miktar, olumsuzluk, yetki ve bütçe kapının anlatım örnekleridir; oyun
+onlarca domain seçimi taşır. Sabit beş alanlı validator yeni domainleri sessizce
+atlanmış veya güvensiz bırakır. Katalog her yürütülebilir adayın istediği kapalı
+alan şemasını ve validator sürümünü taşır; bilinmeyen alan executable olamaz.
 
 ## 8) Durma koşulları
 
