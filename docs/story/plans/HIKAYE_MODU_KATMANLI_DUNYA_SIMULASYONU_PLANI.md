@@ -4708,8 +4708,40 @@ yapar; başarısız ödeme/iade terminal durum yazmaz. Restore yan etkisizdir;
 kayıtları birebir korunur. UI kişisel ve kurumsal kartı ayırır; teknik hesap ve
 işlem kimliklerini göstermez.
 
-Şirket bütçeli görevler ve toplantının yönlü ilişki fişleri hâlâ ayrı açık
-borçtur. Devlet kurumu görevini yeniden açık Faz 38.13 dilimi sayma.
+Şirket bütçeli görevler bu dikeyin kapsamı değildir. Devlet kurumu görevini
+yeniden açık Faz 38.13 dilimi sayma.
+
+**Altıncı dikey — kaynaklı ve yönlü ilişki sonuç fişleri:**
+İlişki defteri şema-2 `RelationshipResultReceiptV1` kayıtlarının tek sahibidir;
+konuşma şema-7, `TaskOfferV3` ve `MeetingOutcomeReceiptV2` yalnız bu fişlere
+kaynaklı çapraz referans taşır. Yön daima sonucu yorumlayan karakterden oyuncuya
+gider. Oyuncunun karaktere bakışı, ters kenar ve üçüncü aktör kenarları otomatik
+değişmez. İstemci, UI ve doğal dil delta seçemez; kapalı politika tablosu mevcut
+güven, saygı ve husumet eksenlerini kullanır.
+
+Kabul edilmiş kişisel veya kurumsal görevin tamamlanması `trust +250`,
+`respect +150`, `hostility -100`; kabul edilmiş görevin süre aşımı sırasıyla
+`-600`, `-250`, `+350` uygular. Teklif reddi ve kabul edilmemiş teklifin süre
+aşımı taahhüt ihlali değildir ve sosyal fiş üretmez. Kurumsal tamamlamada ödeme,
+görev ve sosyal sonuç aynı rollback sınırındadır; ödeme makbuzu ilişki fişinin
+yerine geçmez.
+
+Toplantı oyları tek başına ilişki sonucu değildir. Yalnız kabul edilmiş oyuncu
+önergesinde oyuncu ile gözlemcinin güncel sürüme birlikte `YES` vermesi ortak
+başarıdır ve `trust +180`, `respect +160`, `hostility -80` uygular. Diğer her
+oyuncu dışı katılımcı için `MEETING_REJECTED`, `PLAYER_VOTE_NOT_YES` veya
+`OBSERVER_VOTE_NOT_YES` gerekçeli `NO_CHANGE` fişi yazılır. Bütün katılımcı
+fişleri yalnız gerçek başkan kapanışında hep birlikte yazılır veya tamamı geri
+alınır.
+
+Aynı kaynak+yorumlayan+hedef idempotenttir. Aynı çift ve yorum ailesi 300 dünya
+saniyesi soğuma taşır; soğumadaki gerçek sonuç `NO_CHANGE / COOLDOWN_ACTIVE`
+olarak denetlenebilir kalır. Görev ve toplantı aileleri birbirinin soğumasını
+tüketmez. Fişler önce/sonra değerleri, ilişki kenarı sürümleri, kaynak, karar,
+yön ve fiziksel-mutasyon yokluğu ile doğrulanır. Şema-1 ilişki ve şema-6 konuşma
+kayıtları geçmişe fiş uydurmadan göçer; restore sonucu yeniden uygulamaz. UI
+yalnız oyuncunun taraf olduğu insan-okunur sonucu gösterir; ham BPS, iç kimlik,
+soğuma anahtarı veya gizli kenar sızdırmaz.
 
 **Dördüncü dikey — sıra kontrollü çok taraflı transkript ve görünürlük matrisi:**
 Toplantı artık yalnız katılımcı listesi değildir. En çok `40` turluk döngü,
@@ -4739,9 +4771,11 @@ toplantı save/load devamlılığı ile teklif kimliğinden sonuç makbuzuna ger
 bağlam + alıcının uygun ActorBelief kaydıyla tamamlandı; kamusal tur ve dünya
 değerleri değişmedi. Yetkili/bedelli devlet görevi de gerçek Silahlı Kuvvetler
 makamı, komutan alt hesabı, kurum isteği, bütçe escrow'u, tek ödeme/iade ve
-`InstitutionalTaskReceiptV1` zinciriyle tamamlandı. Şirket bütçeli görevler bu
-dikey kapsamında değildir. Sıradaki Faz 38.13 uygulama dilimi yönlü ilişki
-fişleridir; Faz 39 bunlar kapanmadan aktif ilan edilmez.
+`InstitutionalTaskReceiptV1` zinciriyle tamamlandı. Görev ve toplantı sonuçları
+da şema-2 ilişki defterinin kaynaklı, yönlü ve soğumalı sonuç fişlerine bağlandı;
+konuşma şema-7 yalnız fiş kimliklerini taşır. Şirket bütçeli görevler bu dikey
+kapsamında değildir. Faz 38.13 kalan birleşik kabul borçları nedeniyle
+`partial`, Faz 39 ise pasiftir.
 
 ---
 

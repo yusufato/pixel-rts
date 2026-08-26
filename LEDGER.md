@@ -1301,3 +1301,17 @@
 - **What happened:** Görev kartına yalnız `reward.amount` yazıp tamamlamada başarı metni gösterme yaklaşımı uygulanmadı. Konuşma defteri para yaratmıyor; ücret kanonik devlet bütçesinin ayrı `ASSET:TASK_ESCROW` hesabında reserve/release/settle yaşam döngüsüyle ilerliyor.
 - **Evidence:** Kabulden önce payer komutan nakdi 25 azalırken görev escrow'u 25 arttı; tamamlama oyuncu komutanına 25 aktardı; ret sıfır bütçe farkı, süre aşımı aynı payer'a tek iade ve restore sıfır yan etki verdi. Makbuz bütçe payer/payee transaction kimlikleriyle çapraz doğrulanıyor.
 - **Implication for future audits:** UI ödülü, konuşma durumu veya serbest metin ödeme kanıtı değildir. Ekonomik sonuç için kanonik defter, dengeli işlem, idempotency anahtarı ve doğrulanmış sonuç makbuzu zorunludur.
+
+## 2026-08-26 — Faz 38.13 görev ve toplantı sonuçları yönlü ilişki fişlerine bağlandı
+- **Type:** Executed
+- **Source:** `phase-38-13-directional-relationship-result-receipts`
+- **What happened:** İlişki defteri şema-2 kaynaklı sonuç fişlerinin tek sahibi oldu; konuşma şema-7 görev ve toplantı sonucuna yalnız fiş kimliklerini bağladı. Kabul edilmiş görev başarısı/ihlali veren karakterden oyuncuya, kabul edilmiş önergedeki çift YES ortak başarısı ilgili katılımcıdan oyuncuya uygulanıyor. Diğer toplantı sonuçları gerekçeli `NO_CHANGE`; teklif reddi ve kabul edilmemiş expiry sosyal sonuçsuzdur.
+- **Evidence:** `node tests/story-conversation-case.test.js` görev ve toplantı başarı/ret yollarında ters kenar nötrlüğü, duplicate, 300 saniye aile soğuması, atomik rollback, tahrif reddi, restore tekrar-uygulamama ve bilgi filtreli DOM özetlerini geçti. İlişki şema-1 ve konuşma şema-6 göçleri tarihsel sonuç uydurmadı.
+- **Implication for future audits:** Ödeme, görev, toplantı ve ilişki makbuzlarını aynı kayıt sayma. Sosyal sonucu ilişki defterindeki kaynak+yön+politika fişiyle doğrula; konuşma referansını veya UI metnini mutasyon kanıtı kabul etme.
+
+## 2026-08-26 — Oy ve teklif durumundan otomatik dostluk veya ihanet türetmek reddedildi
+- **Type:** Rejected
+- **Source:** `phase-38-13-directional-relationship-result-receipts` plan çürütmesi
+- **What happened:** “Aynı oy=dostluk”, “karşı oy=husumet” ve “teklif reddi=ihanet” kısayolları uygulanmadı. Oy siyasal tutumdur; teklif ancak kabulden sonra taahhüttür.
+- **Evidence:** Yalnız `ADOPTED + player YES + observer YES` ortak başarı uygular. `MEETING_REJECTED`, oyuncunun YES vermemesi ve gözlemcinin YES vermemesi sıfır deltayı açıkça kaydeder; `DECLINED` ve kabul edilmemiş expiry ilişki fişi üretmez.
+- **Implication for future audits:** Karşı oy veya ret için sosyal ceza istenirse bunu mevcut oy/görev durumundan türetme. Hakaret, tehdit, çıkar çatışması, söz veya başka kaynaklı sosyal olay için ayrı semantik ve politika planı aç.
