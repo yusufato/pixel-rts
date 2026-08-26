@@ -1257,6 +1257,14 @@ function createRuntime(seed) {
             budgetSettleNegotiatedPayment: (reservationId, details) => (
                 storyBudgetSettleNegotiatedPayment(reservationId, details)
             ),
+            budgetReserveInstitutionalTaskPayment: spec => storyBudgetReserveInstitutionalTaskPayment(spec),
+            budgetReleaseInstitutionalTaskPayment: (reservationId, reason) => (
+                storyBudgetReleaseInstitutionalTaskPayment(reservationId, reason)
+            ),
+            budgetSettleInstitutionalTaskPayment: (reservationId, spec) => (
+                storyBudgetSettleInstitutionalTaskPayment(reservationId, spec)
+            ),
+            migrateBudgetLedger: ledger => storyBudgetMigrateLedger(ledger),
             budgetInvalidCase: kind => {
                 const candidate = storyBudgetClone(STORY.stateBudget);
                 const countryId = Object.keys(candidate.countries)[0];
@@ -7303,6 +7311,172 @@ function probeStateBudget(seed = 2032) {
             pointDelta: round(on.final.totalResources.points - off.final.totalResources.points)
         }
     };
+}
+
+function probeInstitutionalTaskBudget(seed = 2032) {
+    const runtime = createRuntime(seed >>> 0);
+    let savedRaw;
+    let main;
+    try {
+        runtime.api.newCampaign({
+            seed, playerStateId: 0, abundance: 1, doctrine: 'combined', fog: true,
+            featureFlags: { 'economy.saleSettlement': false }
+        });
+        const story = runtime.api.state();
+        const ownCommanders = [story.commander].concat(story.states[0].gov.commanders);
+        const foreignCommanders = story.states[1].gov.commanders;
+        const payment = (correlationId, payerStateId, payerCommander, payeeStateId, payeeCommander, amount) => ({
+            correlationId,
+            payerCountryId: `country:${payerStateId}`,
+            payerCommanderId: payerCommander.id,
+            payeeCountryId: `country:${payeeStateId}`,
+            payeeCommanderId: payeeCommander.id,
+            amount,
+            currency: 'STATE_CREDIT'
+        });
+        const snapshot = () => JSON.stringify({
+            budget: runtime.api.budgetLedger(),
+            own: ownCommanders.map(row => [row.id, row.res && row.res.points]),
+            foreign: foreignCommanders.map(row => [row.id, row.res && row.res.points])
+        });
+
+        const legacyLedger = runtime.api.budgetLedger();
+        legacyLedger.schemaVersion = 1;
+        legacyLedger.adapterVersion = 'story-state-budget-ledger-1';
+        legacyLedger.policyHash = 'fnv1a32:e86e7ccd';
+        for (const country of Object.values(legacyLedger.countries)) {
+            delete country.accounts['ASSET:TASK_ESCROW'];
+            delete country.totals.institutionalTaskPaid;
+            delete country.totals.institutionalTaskReceived;
+        }
+        const migratedLegacy = runtime.api.migrateBudgetLedger(legacyLedger);
+        const migratedValidation = runtime.api.validateBudgetLedger(migratedLegacy);
+        const corruptLegacy = JSON.parse(JSON.stringify(legacyLedger));
+        corruptLegacy.policyHash = 'fnv1a32:badc0ffe';
+        const rejectedLegacy = runtime.api.migrateBudgetLedger(corruptLegacy);
+
+        const sameSpec = payment('institutional-task-budget:same', 0, ownCommanders[1], 0, ownCommanders[0], 25);
+        const sameBefore = {
+            payer: ownCommanders[1].res.points,
+            payee: ownCommanders[0].res.points,
+            country: runtime.api.budgetCountryView('country:0')
+        };
+        const sameReserved = runtime.api.budgetReserveInstitutionalTaskPayment(sameSpec);
+        const sameDuring = {
+            payer: ownCommanders[1].res.points,
+            payee: ownCommanders[0].res.points,
+            country: runtime.api.budgetCountryView('country:0')
+        };
+        const sameReserveDuplicate = runtime.api.budgetReserveInstitutionalTaskPayment(sameSpec);
+        const sameConflict = runtime.api.budgetReserveInstitutionalTaskPayment(Object.assign({}, sameSpec, { amount: 26 }));
+        const sameSettled = runtime.api.budgetSettleInstitutionalTaskPayment(sameReserved.reservationId, sameSpec);
+        const sameSettleDuplicate = runtime.api.budgetSettleInstitutionalTaskPayment(sameReserved.reservationId, sameSpec);
+        const sameAfter = {
+            payer: ownCommanders[1].res.points,
+            payee: ownCommanders[0].res.points,
+            country: runtime.api.budgetCountryView('country:0')
+        };
+
+        const releaseSpec = payment('institutional-task-budget:release', 0, ownCommanders[2], 0, ownCommanders[0], 15);
+        const releaseBefore = {
+            payer: ownCommanders[2].res.points,
+            country: runtime.api.budgetCountryView('country:0')
+        };
+        const releaseReserved = runtime.api.budgetReserveInstitutionalTaskPayment(releaseSpec);
+        const released = runtime.api.budgetReleaseInstitutionalTaskPayment(releaseReserved.reservationId, 'TASK_EXPIRED');
+        const releaseDuplicate = runtime.api.budgetReleaseInstitutionalTaskPayment(releaseReserved.reservationId, 'TASK_EXPIRED');
+        const releaseAfter = {
+            payer: ownCommanders[2].res.points,
+            country: runtime.api.budgetCountryView('country:0')
+        };
+
+        const insufficientSpec = payment('institutional-task-budget:insufficient', 0, ownCommanders[3], 0, ownCommanders[0], 999999);
+        const insufficientBefore = snapshot();
+        const insufficient = runtime.api.budgetReserveInstitutionalTaskPayment(insufficientSpec);
+        const insufficientAfter = snapshot();
+        const extraInputBefore = snapshot();
+        const extraInput = runtime.api.budgetReserveInstitutionalTaskPayment(Object.assign({}, insufficientSpec, {
+            correlationId: 'institutional-task-budget:extra-input', institutionId: 'forged'
+        }));
+        const extraInputAfter = snapshot();
+
+        const crossSpec = payment('institutional-task-budget:cross', 1, foreignCommanders[0], 0, ownCommanders[0], 25);
+        const crossBefore = {
+            payer: foreignCommanders[0].res.points,
+            payee: ownCommanders[0].res.points,
+            payerCountry: runtime.api.budgetCountryView('country:1'),
+            payeeCountry: runtime.api.budgetCountryView('country:0'),
+            totalCash: runtime.api.budgetSummary().totalCash
+        };
+        const crossReserved = runtime.api.budgetReserveInstitutionalTaskPayment(crossSpec);
+        const crossSettled = runtime.api.budgetSettleInstitutionalTaskPayment(crossReserved.reservationId, crossSpec);
+        const crossSettleDuplicate = runtime.api.budgetSettleInstitutionalTaskPayment(crossReserved.reservationId, crossSpec);
+        const crossAfter = {
+            payer: foreignCommanders[0].res.points,
+            payee: ownCommanders[0].res.points,
+            payerCountry: runtime.api.budgetCountryView('country:1'),
+            payeeCountry: runtime.api.budgetCountryView('country:0'),
+            totalCash: runtime.api.budgetSummary().totalCash
+        };
+
+        const pendingSpec = payment('institutional-task-budget:pending-save', 0, ownCommanders[4], 0, ownCommanders[0], 12);
+        const pending = runtime.api.budgetReserveInstitutionalTaskPayment(pendingSpec);
+        const validLedger = runtime.api.budgetLedger();
+        const escrowTamper = JSON.parse(JSON.stringify(validLedger));
+        escrowTamper.countries['country:0'].accounts['ASSET:TASK_ESCROW'] += 1;
+        const partyTamper = JSON.parse(JSON.stringify(validLedger));
+        partyTamper.settlements.find(row => row.id === pending.reservationId).payerCommanderId = 'forged';
+        runtime.api.saveNow();
+        savedRaw = runtime.api.savedRaw();
+        main = {
+            same: { before: sameBefore, reserved: sameReserved, during: sameDuring,
+                reserveDuplicate: sameReserveDuplicate, conflict: sameConflict,
+                settled: sameSettled, settleDuplicate: sameSettleDuplicate, after: sameAfter },
+            release: { before: releaseBefore, reserved: releaseReserved, released,
+                duplicate: releaseDuplicate, financialExact:
+                    releaseBefore.payer === releaseAfter.payer
+                    && releaseBefore.country.cash === releaseAfter.country.cash
+                    && releaseBefore.country.taskEscrow === releaseAfter.country.taskEscrow },
+            insufficient: { result: insufficient, exact: insufficientBefore === insufficientAfter },
+            extraInput: { result: extraInput, exact: extraInputBefore === extraInputAfter },
+            cross: { before: crossBefore, reserved: crossReserved, settled: crossSettled,
+                settleDuplicate: crossSettleDuplicate, after: crossAfter },
+            pending,
+            validation: runtime.api.validateBudgetLedger(validLedger, { checkWalletMirrors: true }),
+            invalid: {
+                escrow: runtime.api.validateBudgetLedger(escrowTamper, { checkWalletMirrors: true }),
+                party: runtime.api.validateBudgetLedger(partyTamper, { checkWalletMirrors: true })
+            },
+            migration: {
+                validation: migratedValidation,
+                schemaVersion: migratedLegacy.schemaVersion,
+                settlementCountPreserved: migratedLegacy.settlements.length === legacyLedger.settlements.length,
+                taskAccountsZero: Object.values(migratedLegacy.countries).every(
+                    row => row.accounts['ASSET:TASK_ESCROW'] === 0),
+                corruptRejected: runtime.api.validateBudgetLedger(rejectedLegacy).ok === false
+            }
+        };
+    } finally {
+        runtime.dom.window.close();
+    }
+
+    const restoredRuntime = createRuntime(seed >>> 0);
+    let restored;
+    try {
+        restoredRuntime.api.putSavedRaw(savedRaw);
+        const loaded = restoredRuntime.api.loadNow();
+        const savedBudget = JSON.parse(savedRaw).stateBudget;
+        restored = {
+            loaded,
+            validation: restoredRuntime.api.validateBudgetLedger(
+                restoredRuntime.api.budgetLedger(), { checkWalletMirrors: true }
+            ),
+            exact: JSON.stringify(restoredRuntime.api.budgetLedger()) === JSON.stringify(savedBudget)
+        };
+    } finally {
+        restoredRuntime.dom.window.close();
+    }
+    return { main, restored };
 }
 
 function probeCompaniesBanks(seed = 2032) {
@@ -19123,6 +19297,7 @@ module.exports = {
     probeDomesticDistributionContract,
     probeMarketPrices,
     probeStateBudget,
+    probeInstitutionalTaskBudget,
     probeCompaniesBanks,
     probeProductionUnitEconomics,
     probeSaleSettlement,

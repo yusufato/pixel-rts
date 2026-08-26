@@ -6,8 +6,13 @@
 //  sifir toplamli journal postings uretir. Sessiz negatif bakiye yoktur.
 // ============================================================================
 
-const STORY_BUDGET_SCHEMA_VERSION = 1;
-const STORY_BUDGET_ADAPTER_VERSION = 'story-state-budget-ledger-1';
+const STORY_BUDGET_SCHEMA_VERSION = 2;
+const STORY_BUDGET_ADAPTER_VERSION = 'story-state-budget-ledger-2';
+const STORY_BUDGET_LEGACY_SCHEMA = Object.freeze({
+    schemaVersion: 1,
+    adapterVersion: 'story-state-budget-ledger-1',
+    policyHash: 'fnv1a32:e86e7ccd'
+});
 const STORY_BUDGET_JOURNAL_LIMIT = 1400;
 const STORY_BUDGET_SETTLEMENT_SCALE = 0.01;
 const STORY_BUDGET_POLICY = Object.freeze({
@@ -20,7 +25,9 @@ const STORY_BUDGET_POLICY = Object.freeze({
     debtCeilingRevenueMultipleBps: 25000,
     minimumDebtCeiling: 1200,
     defaultMissedDays: 60,
-    journalLimit: STORY_BUDGET_JOURNAL_LIMIT
+    journalLimit: STORY_BUDGET_JOURNAL_LIMIT,
+    taskEscrowAccount: 'ASSET:TASK_ESCROW',
+    institutionalTaskSettlementKind: 'INSTITUTIONAL_TASK_ESCROW'
 });
 const STORY_BUDGET_POLICY_HASH = typeof storyProductionHash === 'function'
     ? storyProductionHash({
@@ -86,6 +93,7 @@ function storyBudgetCountryCreate(st) {
         accounts: {
             'ASSET:CASH': openingCash,
             'ASSET:TRADE_ESCROW': 0,
+            'ASSET:TASK_ESCROW': 0,
             'LIABILITY:DEBT': 0,
             'EQUITY:OPENING': -openingCash,
             'CONTRA:MONEY_ISSUED': 0
@@ -112,6 +120,8 @@ function storyBudgetCountryCreate(st) {
             moneyIssued: 0,
             tradePaid: 0,
             tradeReceived: 0,
+            institutionalTaskPaid: 0,
+            institutionalTaskReceived: 0,
             rejectedSpending: 0
         },
         recent: {
@@ -178,13 +188,14 @@ function storyBudgetValidate(ledger, options) {
             add('BUDGET_COUNTRY_MISSING', `$.countries.${countryId}`, 'Ulke butcesi eksik.');
             continue;
         }
-        for (const account of ['ASSET:CASH', 'ASSET:TRADE_ESCROW', 'LIABILITY:DEBT', 'CONTRA:MONEY_ISSUED']) {
+        for (const account of ['ASSET:CASH', 'ASSET:TRADE_ESCROW', 'ASSET:TASK_ESCROW', 'LIABILITY:DEBT', 'CONTRA:MONEY_ISSUED']) {
             if (!Number.isFinite(Number(country.accounts && country.accounts[account]))) {
                 add('BUDGET_ACCOUNT_INVALID', `$.countries.${countryId}.accounts.${account}`, 'Hesap bakiyesi sonlu olmali.');
             }
         }
         if (Number(country.accounts['ASSET:CASH']) < -1e-6) add('BUDGET_NEGATIVE_CASH', `$.countries.${countryId}.accounts.ASSET:CASH`, 'Nakit negatif olamaz.');
         if (Number(country.accounts['ASSET:TRADE_ESCROW']) < -1e-6) add('BUDGET_NEGATIVE_ESCROW', `$.countries.${countryId}.accounts.ASSET:TRADE_ESCROW`, 'Bloke nakit negatif olamaz.');
+        if (Number(country.accounts['ASSET:TASK_ESCROW']) < -1e-6) add('BUDGET_NEGATIVE_TASK_ESCROW', `$.countries.${countryId}.accounts.ASSET:TASK_ESCROW`, 'Gorev bloke nakdi negatif olamaz.');
         for (let i = 0; i < (country.journal || []).length; i++) {
             const tx = country.journal[i];
             const total = (tx.postings || []).reduce((sum, posting) => sum + Number(posting.amount || 0), 0);
@@ -202,7 +213,9 @@ function storyBudgetValidate(ledger, options) {
         }
     }
     const activeEscrow = {};
+    const activeTaskEscrow = {};
     const activeCompanyEscrow = {};
+    const taskCorrelations = new Set();
     for (let i = 0; i < ledger.settlements.length; i++) {
         const settlement = ledger.settlements[i];
         const at = `$.settlements[${i}]`;
@@ -213,11 +226,43 @@ function storyBudgetValidate(ledger, options) {
         if (!Number.isFinite(Number(settlement.amount)) || Number(settlement.amount) < 0) {
             add('BUDGET_SETTLEMENT_AMOUNT', `${at}.amount`, 'Uzlasma tutari negatif olmayan sonlu sayi olmali.');
         }
+        if (settlement.kind === STORY_BUDGET_POLICY.institutionalTaskSettlementKind) {
+            const payerState = storyBudgetState(settlement.payerCountryId);
+            const payeeState = storyBudgetState(settlement.payeeCountryId);
+            const payerCommander = storyBudgetCommander(payerState, settlement.payerCommanderId);
+            const payeeCommander = storyBudgetCommander(payeeState, settlement.payeeCommanderId);
+            const payerPendingPlayer = options.allowPendingPlayerCommander === true
+                && payerState && payerState.isPlayer && String(settlement.payerCommanderId) === '0';
+            const payeePendingPlayer = options.allowPendingPlayerCommander === true
+                && payeeState && payeeState.isPlayer && String(settlement.payeeCommanderId) === '0';
+            if (!settlement.correlationId || taskCorrelations.has(settlement.correlationId)) {
+                add('BUDGET_TASK_CORRELATION', `${at}.correlationId`, 'Gorev escrow correlation kimligi tekil olmali.');
+            } else taskCorrelations.add(settlement.correlationId);
+            if (!payerState || !payeeState
+                || (!payerCommander && !payerPendingPlayer)
+                || (!payeeCommander && !payeePendingPlayer)) {
+                add('BUDGET_TASK_PARTY', at, 'Gorev escrow taraflari gercek devlet ve komutan hesaplari olmali.');
+            }
+            if (settlement.payerCountryId === settlement.payeeCountryId
+                && settlement.payerCommanderId === settlement.payeeCommanderId) {
+                add('BUDGET_TASK_SELF_PAYMENT', at, 'Ayni komutan kendi gorev odemesinin iki tarafi olamaz.');
+            }
+            if (!(Number(settlement.amount) > 0) || settlement.currency !== STORY_BUDGET_POLICY.currency) {
+                add('BUDGET_TASK_TERMS', at, 'Gorev escrow tutari pozitif ve devlet kredisi olmali.');
+            }
+            if (!settlement.reserveTransactionId) {
+                add('BUDGET_TASK_RESERVE_RECEIPT', `${at}.reserveTransactionId`, 'Gorev escrow rezervasyon fisi zorunlu.');
+            }
+        }
         if (settlement.status === 'RESERVED') {
             if (settlement.payerType === 'COMPANY' && settlement.buyerCompanyId) {
                 activeCompanyEscrow[settlement.buyerCompanyId] = storyBudgetRound(
                     (activeCompanyEscrow[settlement.buyerCompanyId] || 0)
                         + Number(settlement.amount || 0)
+                );
+            } else if (settlement.kind === STORY_BUDGET_POLICY.institutionalTaskSettlementKind) {
+                activeTaskEscrow[settlement.payerCountryId] = storyBudgetRound(
+                    (activeTaskEscrow[settlement.payerCountryId] || 0) + Number(settlement.amount || 0)
                 );
             } else {
                 activeEscrow[settlement.buyerCountryId] = storyBudgetRound(
@@ -231,6 +276,11 @@ function storyBudgetValidate(ledger, options) {
         const active = storyBudgetRound(activeEscrow[countryId] || 0);
         if (Math.abs(booked - active) > 1e-4) {
             add('BUDGET_ESCROW_MISMATCH', `$.countries.${countryId}.accounts.ASSET:TRADE_ESCROW`, `Bloke hesap ${booked}, aktif uzlasma ${active}.`);
+        }
+        const taskBooked = storyBudgetRound(country.accounts['ASSET:TASK_ESCROW']);
+        const taskActive = storyBudgetRound(activeTaskEscrow[countryId] || 0);
+        if (Math.abs(taskBooked - taskActive) > 1e-4) {
+            add('BUDGET_TASK_ESCROW_MISMATCH', `$.countries.${countryId}.accounts.ASSET:TASK_ESCROW`, `Gorev bloke hesabi ${taskBooked}, aktif uzlasma ${taskActive}.`);
         }
     }
     if (typeof storyCompanyById === 'function') {
@@ -275,8 +325,8 @@ function storyBudgetRestore(saved) {
         backfilled: true,
         warnings: ['Kayit devlet butcesi tasimiyordu; mevcut komutan cuzdanlarindan acilis bakiyesi kuruldu.']
     });
-    const candidate = storyBudgetClone(saved);
-    const validation = storyBudgetValidate(candidate);
+    const candidate = storyBudgetMigrateLedger(saved);
+    const validation = storyBudgetValidate(candidate, { allowPendingPlayerCommander: true });
     if (!validation.ok) return storyBudgetReset({
         backfilled: true,
         restoredFromInvalidLedger: true,
@@ -285,6 +335,29 @@ function storyBudgetRestore(saved) {
     });
     STORY.stateBudget = candidate;
     return STORY.stateBudget;
+}
+
+function storyBudgetMigrateLedger(saved) {
+    const ledger = storyBudgetClone(saved);
+    if (!ledger || typeof ledger !== 'object') return ledger;
+    const legacy = ledger.schemaVersion === STORY_BUDGET_LEGACY_SCHEMA.schemaVersion
+        && ledger.adapterVersion === STORY_BUDGET_LEGACY_SCHEMA.adapterVersion
+        && ledger.policyHash === STORY_BUDGET_LEGACY_SCHEMA.policyHash;
+    if (!legacy) return ledger;
+    ledger.schemaVersion = STORY_BUDGET_SCHEMA_VERSION;
+    ledger.adapterVersion = STORY_BUDGET_ADAPTER_VERSION;
+    ledger.policyHash = STORY_BUDGET_POLICY_HASH;
+    for (const country of Object.values(ledger.countries || {})) {
+        if (!country.accounts || typeof country.accounts !== 'object') country.accounts = {};
+        country.accounts['ASSET:TASK_ESCROW'] = 0;
+        if (!country.totals || typeof country.totals !== 'object') country.totals = {};
+        country.totals.institutionalTaskPaid = Number(country.totals.institutionalTaskPaid) || 0;
+        country.totals.institutionalTaskReceived = Number(country.totals.institutionalTaskReceived) || 0;
+    }
+    if (!ledger.diagnostics || typeof ledger.diagnostics !== 'object') ledger.diagnostics = {};
+    if (!Array.isArray(ledger.diagnostics.warnings)) ledger.diagnostics.warnings = [];
+    ledger.diagnostics.warnings.push('Butce sema-1 kaydi gecmise gorev escrow hareketi uydurulmadan sema-2 hesap planina tasindi.');
+    return ledger;
 }
 
 function storyBudgetEnsure() {
@@ -296,6 +369,11 @@ function storyBudgetEnsure() {
 function storyBudgetCountry(value) {
     const ledger = storyBudgetEnsure();
     return ledger && ledger.countries[storyBudgetCountryId(value)];
+}
+
+function storyBudgetCommander(st, commanderId) {
+    const id = commanderId == null ? '' : String(commanderId).trim();
+    return id ? storyBudgetCommanders(st).find(commander => String(commander.id) === id) || null : null;
 }
 
 function storyBudgetSyncMirror(st) {
@@ -483,6 +561,248 @@ function storyBudgetCountryTransfer(fromStateOrId, toStateOrId, amount, source, 
         return { ok: false, code: 'TRANSFER_CREDIT_FAILED' };
     }
     return { ok: true, amount: value, settlementId };
+}
+
+function storyBudgetInstitutionalTaskSpec(spec) {
+    spec = spec || {};
+    const allowed = new Set([
+        'correlationId', 'payerCountryId', 'payerCommanderId',
+        'payeeCountryId', 'payeeCommanderId', 'amount', 'currency'
+    ]);
+    if (Object.keys(spec).some(key => !allowed.has(key))) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_INPUT_NOT_ALLOWED' };
+    }
+    const correlationId = String(spec.correlationId || '').trim();
+    const payerCountryId = String(spec.payerCountryId || '').trim();
+    const payerCommanderId = spec.payerCommanderId == null ? '' : String(spec.payerCommanderId).trim();
+    const payeeCountryId = String(spec.payeeCountryId || '').trim();
+    const payeeCommanderId = spec.payeeCommanderId == null ? '' : String(spec.payeeCommanderId).trim();
+    const rawAmount = Number(spec.amount);
+    const amount = storyBudgetRound(rawAmount);
+    const currency = String(spec.currency || '').trim();
+    if (!correlationId || !/^country:\d+$/.test(payerCountryId)
+        || !/^country:\d+$/.test(payeeCountryId) || !payerCommanderId || !payeeCommanderId
+        || !Number.isFinite(rawAmount) || amount <= 0 || currency !== STORY_BUDGET_POLICY.currency) {
+        return { ok: false, code: 'INVALID_INSTITUTIONAL_TASK_PAYMENT' };
+    }
+    if (payerCountryId === payeeCountryId && payerCommanderId === payeeCommanderId) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_SELF_PAYMENT' };
+    }
+    const payerState = storyBudgetState(payerCountryId);
+    const payeeState = storyBudgetState(payeeCountryId);
+    const payerCommander = storyBudgetCommander(payerState, payerCommanderId);
+    const payeeCommander = storyBudgetCommander(payeeState, payeeCommanderId);
+    if (!payerState || !payeeState || !payerCommander || !payeeCommander) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_PARTY_MISSING' };
+    }
+    return {
+        ok: true,
+        value: {
+            correlationId, payerCountryId, payerCommanderId,
+            payeeCountryId, payeeCommanderId, amount, currency,
+            payerState, payeeState, payerCommander, payeeCommander
+        }
+    };
+}
+
+function storyBudgetInstitutionalTaskExact(settlement, value) {
+    return settlement.correlationId === value.correlationId
+        && settlement.payerCountryId === value.payerCountryId
+        && settlement.payerCommanderId === value.payerCommanderId
+        && settlement.payeeCountryId === value.payeeCountryId
+        && settlement.payeeCommanderId === value.payeeCommanderId
+        && Math.abs(Number(settlement.amount) - value.amount) <= 1e-6
+        && settlement.currency === value.currency;
+}
+
+function storyBudgetReserveInstitutionalTaskPayment(spec) {
+    const ledger = storyBudgetEnsure();
+    if (!ledger) return { ok: false, code: 'BUDGET_DISABLED' };
+    const normalized = storyBudgetInstitutionalTaskSpec(spec);
+    if (!normalized.ok) return normalized;
+    const value = normalized.value;
+    const existing = ledger.settlements.find(row => (
+        row.kind === STORY_BUDGET_POLICY.institutionalTaskSettlementKind
+        && row.correlationId === value.correlationId
+    ));
+    if (existing) {
+        if (!storyBudgetInstitutionalTaskExact(existing, value)) {
+            return { ok: false, code: 'INSTITUTIONAL_TASK_IDEMPOTENCY_CONFLICT' };
+        }
+        return {
+            ok: true,
+            code: `INSTITUTIONAL_TASK_ALREADY_${existing.status}`,
+            duplicate: true,
+            reservationId: existing.id,
+            settlement: storyBudgetClone(existing)
+        };
+    }
+    const payerBudget = storyBudgetCountry(value.payerState);
+    const payerCash = Number(value.payerCommander.res && value.payerCommander.res.points) || 0;
+    if (!payerBudget || payerCash + 1e-6 < value.amount
+        || Number(payerBudget.accounts['ASSET:CASH']) + 1e-6 < value.amount) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_INSUFFICIENT_CASH', available: storyBudgetRound(payerCash), required: value.amount };
+    }
+    const countrySnapshot = storyBudgetClone(payerBudget);
+    const payerPoints = payerCash;
+    if (!storyBudgetRemoveCash(value.payerState, value.amount, {
+        commander: value.payerCommander,
+        commanderOnly: true
+    })) return { ok: false, code: 'INSTITUTIONAL_TASK_DEBIT_FAILED' };
+    const nextSequence = ledger.settlementSequence + 1;
+    const reservationId = `budget-settlement:${nextSequence}`;
+    const posted = storyBudgetPost(payerBudget, 'institutional.task.reserve', [
+        { account: STORY_BUDGET_POLICY.taskEscrowAccount, amount: value.amount },
+        { account: 'ASSET:CASH', amount: -value.amount }
+    ], { correlationId: value.correlationId, settlementId: reservationId });
+    if (!posted.ok) {
+        value.payerCommander.res.points = payerPoints;
+        ledger.countries[value.payerCountryId] = countrySnapshot;
+        storyBudgetSyncMirror(value.payerState);
+        return { ok: false, code: posted.code || 'INSTITUTIONAL_TASK_RESERVE_POST_FAILED', rolledBack: true };
+    }
+    ledger.settlementSequence = nextSequence;
+    const settlement = {
+        id: reservationId,
+        kind: STORY_BUDGET_POLICY.institutionalTaskSettlementKind,
+        status: 'RESERVED',
+        payerType: 'STATE_COMMANDER',
+        payeeType: 'STATE_COMMANDER',
+        correlationId: value.correlationId,
+        payerCountryId: value.payerCountryId,
+        payerCommanderId: value.payerCommanderId,
+        payeeCountryId: value.payeeCountryId,
+        payeeCommanderId: value.payeeCommanderId,
+        amount: value.amount,
+        currency: value.currency,
+        reserveTransactionId: posted.transaction.id,
+        payerTransactionId: null,
+        payeeTransactionId: null,
+        releaseTransactionId: null,
+        reservedAt: storyBudgetRound(STORY.clock),
+        settledAt: null,
+        releasedAt: null,
+        releaseReason: null
+    };
+    ledger.settlements.push(settlement);
+    storyBudgetTrimSettlements(ledger);
+    storyBudgetSyncMirror(value.payerState);
+    return { ok: true, code: 'INSTITUTIONAL_TASK_RESERVED', duplicate: false,
+        reservationId, settlement: storyBudgetClone(settlement), transaction: posted.transaction };
+}
+
+function storyBudgetReleaseInstitutionalTaskPayment(reservationId, reason) {
+    const ledger = storyBudgetEnsure();
+    const settlement = ledger && ledger.settlements.find(row => (
+        row.id === String(reservationId || '')
+        && row.kind === STORY_BUDGET_POLICY.institutionalTaskSettlementKind
+    ));
+    if (!settlement) return { ok: false, code: 'INSTITUTIONAL_TASK_PAYMENT_NOT_FOUND' };
+    if (settlement.status === 'RELEASED') return { ok: true, code: 'INSTITUTIONAL_TASK_ALREADY_RELEASED', duplicate: true,
+        settlement: storyBudgetClone(settlement) };
+    if (settlement.status !== 'RESERVED') return { ok: false, code: 'INSTITUTIONAL_TASK_PAYMENT_NOT_RESERVED' };
+    const payerState = storyBudgetState(settlement.payerCountryId);
+    const payerCommander = storyBudgetCommander(payerState, settlement.payerCommanderId);
+    const payerBudget = payerState && storyBudgetCountry(payerState);
+    if (!payerBudget || !payerCommander) return { ok: false, code: 'INSTITUTIONAL_TASK_PAYER_MISSING' };
+    if (Number(payerBudget.accounts[STORY_BUDGET_POLICY.taskEscrowAccount]) + 1e-6 < settlement.amount) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_ESCROW_MISSING' };
+    }
+    const countrySnapshot = storyBudgetClone(payerBudget);
+    const payerPoints = Number(payerCommander.res && payerCommander.res.points) || 0;
+    if (!storyBudgetDistributeCredit(payerState, settlement.amount, { commander: payerCommander })) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_RELEASE_TARGET_MISSING' };
+    }
+    const posted = storyBudgetPost(payerBudget, 'institutional.task.release', [
+        { account: 'ASSET:CASH', amount: settlement.amount },
+        { account: STORY_BUDGET_POLICY.taskEscrowAccount, amount: -settlement.amount }
+    ], { correlationId: settlement.correlationId, settlementId: settlement.id });
+    if (!posted.ok) {
+        payerCommander.res.points = payerPoints;
+        ledger.countries[settlement.payerCountryId] = countrySnapshot;
+        storyBudgetSyncMirror(payerState);
+        return { ok: false, code: posted.code || 'INSTITUTIONAL_TASK_RELEASE_POST_FAILED', rolledBack: true };
+    }
+    settlement.status = 'RELEASED';
+    settlement.releasedAt = storyBudgetRound(STORY.clock);
+    settlement.releaseReason = String(reason || 'TASK_CANCELLED');
+    settlement.releaseTransactionId = posted.transaction.id;
+    storyBudgetSyncMirror(payerState);
+    return { ok: true, code: 'INSTITUTIONAL_TASK_RELEASED', duplicate: false,
+        settlement: storyBudgetClone(settlement), transaction: posted.transaction };
+}
+
+function storyBudgetSettleInstitutionalTaskPayment(reservationId, spec) {
+    const ledger = storyBudgetEnsure();
+    const settlement = ledger && ledger.settlements.find(row => (
+        row.id === String(reservationId || '')
+        && row.kind === STORY_BUDGET_POLICY.institutionalTaskSettlementKind
+    ));
+    if (!settlement) return { ok: false, code: 'INSTITUTIONAL_TASK_PAYMENT_NOT_FOUND' };
+    const normalized = storyBudgetInstitutionalTaskSpec(spec);
+    if (!normalized.ok) return normalized;
+    if (!storyBudgetInstitutionalTaskExact(settlement, normalized.value)) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_IDEMPOTENCY_CONFLICT' };
+    }
+    if (settlement.status === 'SETTLED') return { ok: true, code: 'INSTITUTIONAL_TASK_ALREADY_SETTLED', duplicate: true,
+        settlement: storyBudgetClone(settlement) };
+    if (settlement.status !== 'RESERVED') return { ok: false, code: 'INSTITUTIONAL_TASK_PAYMENT_NOT_RESERVED' };
+    const value = normalized.value;
+    const payerBudget = storyBudgetCountry(value.payerState);
+    const payeeBudget = storyBudgetCountry(value.payeeState);
+    if (!payerBudget || !payeeBudget
+        || Number(payerBudget.accounts[STORY_BUDGET_POLICY.taskEscrowAccount]) + 1e-6 < value.amount) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_ESCROW_MISSING' };
+    }
+    const payerSnapshot = storyBudgetClone(payerBudget);
+    const payeeSnapshot = value.payerCountryId === value.payeeCountryId ? null : storyBudgetClone(payeeBudget);
+    const payeePoints = Number(value.payeeCommander.res && value.payeeCommander.res.points) || 0;
+    if (!storyBudgetDistributeCredit(value.payeeState, value.amount, { commander: value.payeeCommander })) {
+        return { ok: false, code: 'INSTITUTIONAL_TASK_PAYEE_MISSING' };
+    }
+    let payerPosted;
+    let payeePosted;
+    if (value.payerCountryId === value.payeeCountryId) {
+        payerPosted = storyBudgetPost(payerBudget, 'institutional.task.settle.internal', [
+            { account: 'ASSET:CASH', amount: value.amount },
+            { account: STORY_BUDGET_POLICY.taskEscrowAccount, amount: -value.amount }
+        ], { correlationId: value.correlationId, settlementId: settlement.id });
+        payeePosted = payerPosted;
+    } else {
+        payerPosted = storyBudgetPost(payerBudget, 'institutional.task.settle.out', [
+            { account: 'EXPENSE:INSTITUTIONAL_TASK', amount: value.amount },
+            { account: STORY_BUDGET_POLICY.taskEscrowAccount, amount: -value.amount }
+        ], { correlationId: value.correlationId, settlementId: settlement.id });
+        payeePosted = payerPosted.ok ? storyBudgetPost(payeeBudget, 'institutional.task.settle.in', [
+            { account: 'ASSET:CASH', amount: value.amount },
+            { account: 'REVENUE:INSTITUTIONAL_TASK_COMPENSATION', amount: -value.amount }
+        ], { correlationId: value.correlationId, settlementId: settlement.id }) : payerPosted;
+    }
+    if (!payerPosted.ok || !payeePosted.ok) {
+        value.payeeCommander.res.points = payeePoints;
+        ledger.countries[value.payerCountryId] = payerSnapshot;
+        if (payeeSnapshot) ledger.countries[value.payeeCountryId] = payeeSnapshot;
+        storyBudgetSyncMirror(value.payerState);
+        if (value.payeeState !== value.payerState) storyBudgetSyncMirror(value.payeeState);
+        return { ok: false, code: 'INSTITUTIONAL_TASK_SETTLEMENT_POST_FAILED', rolledBack: true };
+    }
+    if (value.payerCountryId !== value.payeeCountryId) {
+        payerBudget.totals.expense = storyBudgetRound(payerBudget.totals.expense + value.amount);
+        payerBudget.recent.expense = storyBudgetRound(payerBudget.recent.expense + value.amount);
+        payerBudget.totals.institutionalTaskPaid = storyBudgetRound(payerBudget.totals.institutionalTaskPaid + value.amount);
+        payeeBudget.totals.revenue = storyBudgetRound(payeeBudget.totals.revenue + value.amount);
+        payeeBudget.recent.revenue = storyBudgetRound(payeeBudget.recent.revenue + value.amount);
+        payeeBudget.totals.institutionalTaskReceived = storyBudgetRound(payeeBudget.totals.institutionalTaskReceived + value.amount);
+    }
+    settlement.status = 'SETTLED';
+    settlement.settledAt = storyBudgetRound(STORY.clock);
+    settlement.payerTransactionId = payerPosted.transaction.id;
+    settlement.payeeTransactionId = payeePosted.transaction.id;
+    storyBudgetSyncMirror(value.payerState);
+    if (value.payeeState !== value.payerState) storyBudgetSyncMirror(value.payeeState);
+    return { ok: true, code: 'INSTITUTIONAL_TASK_SETTLED', duplicate: false,
+        settlement: storyBudgetClone(settlement), payerTransaction: payerPosted.transaction,
+        payeeTransaction: payeePosted.transaction };
 }
 
 function storyBudgetDebtCeiling(country) {
@@ -1154,6 +1474,7 @@ function storyBudgetCountryView(value) {
         status: country.status,
         cash: storyBudgetRound(country.accounts['ASSET:CASH']),
         tradeEscrow: storyBudgetRound(country.accounts['ASSET:TRADE_ESCROW']),
+        taskEscrow: storyBudgetRound(country.accounts['ASSET:TASK_ESCROW']),
         debt: storyBudgetRound(Math.max(0, -Number(country.accounts['LIABILITY:DEBT']) || 0)),
         moneyIssued: storyBudgetRound(Math.max(0, -Number(country.accounts['CONTRA:MONEY_ISSUED']) || 0)),
         debtCeiling: storyBudgetDebtCeiling(country),
@@ -1185,6 +1506,7 @@ function storyBudgetSummary() {
         countryCount: countries.length,
         totalCash: storyBudgetRound(countries.reduce((sum, item) => sum + Number(item.accounts['ASSET:CASH'] || 0), 0)),
         totalEscrow: storyBudgetRound(countries.reduce((sum, item) => sum + Number(item.accounts['ASSET:TRADE_ESCROW'] || 0), 0)),
+        totalTaskEscrow: storyBudgetRound(countries.reduce((sum, item) => sum + Number(item.accounts['ASSET:TASK_ESCROW'] || 0), 0)),
         companyTradeEscrow: storyBudgetRound(companyTradeEscrow),
         totalDebt: storyBudgetRound(countries.reduce((sum, item) => sum + Math.max(0, -Number(item.accounts['LIABILITY:DEBT'] || 0)), 0)),
         totalMoneyIssued: storyBudgetRound(countries.reduce((sum, item) => sum + Math.max(0, -Number(item.accounts['CONTRA:MONEY_ISSUED'] || 0)), 0)),
@@ -1193,7 +1515,10 @@ function storyBudgetSummary() {
         companyFundedReservations: ledger.settlements.filter(
             item => item.status === 'RESERVED' && item.payerType === 'COMPANY'
         ).length,
-        settledTrades: ledger.settlements.filter(item => item.status === 'SETTLED').length,
+        settledTrades: ledger.settlements.filter(item => item.status === 'SETTLED'
+            && item.kind !== STORY_BUDGET_POLICY.institutionalTaskSettlementKind).length,
+        settledInstitutionalTasks: ledger.settlements.filter(item => item.status === 'SETTLED'
+            && item.kind === STORY_BUDGET_POLICY.institutionalTaskSettlementKind).length,
         diagnostics: storyBudgetClone(ledger.diagnostics)
     };
 }

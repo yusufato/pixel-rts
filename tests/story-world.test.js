@@ -28,6 +28,7 @@ const {
     probeDomesticDistributionContract,
     probeMarketPrices,
     probeStateBudget,
+    probeInstitutionalTaskBudget,
     probeCompaniesBanks,
     probeProductionUnitEconomics,
     probeSaleSettlement,
@@ -1374,6 +1375,77 @@ function run() {
     assert.equal(budgetProbe.disabled.summary.disabled, true, 'Bütçe motoru özellik bayrağıyla kapanabilmeli.');
     assert.equal(budgetProbe.disabled.ledger, null, 'Kapalı bütçe motoru sahte hesap üretmemeli.');
     assert.equal(budgetProbe.ab.changed, true, 'Bütçe açık/kapalı A/B koşusu gerçek mali sınır farkı üretmeli.');
+
+    const institutionalTaskBudgetProbe = storyTestResult('institutionalTaskBudgetProbe', probeInstitutionalTaskBudget);
+    assert.equal(institutionalTaskBudgetProbe.main.same.reserved.ok, true,
+        'Same-country task compensation must reserve from the exact payer commander.');
+    assert.equal(institutionalTaskBudgetProbe.main.same.during.payer,
+        institutionalTaskBudgetProbe.main.same.before.payer - 25,
+        'Reservation must debit only the exact payer commander by the policy amount.');
+    assert.equal(institutionalTaskBudgetProbe.main.same.during.country.taskEscrow, 25,
+        'Institutional task escrow must remain separate from trade escrow.');
+    assert.equal(institutionalTaskBudgetProbe.main.same.after.country.cash,
+        institutionalTaskBudgetProbe.main.same.before.country.cash,
+        'Same-country settlement must preserve aggregate country cash.');
+    assert.equal(institutionalTaskBudgetProbe.main.same.after.payee,
+        institutionalTaskBudgetProbe.main.same.before.payee + 25,
+        'Same-country settlement must credit the exact payee commander.');
+    assert.equal(institutionalTaskBudgetProbe.main.same.reserveDuplicate.duplicate, true,
+        'Repeated reservation must not create a second escrow movement.');
+    assert.equal(institutionalTaskBudgetProbe.main.same.conflict.code,
+        'INSTITUTIONAL_TASK_IDEMPOTENCY_CONFLICT',
+        'A correlation id cannot be reused with different payment terms.');
+    assert.equal(institutionalTaskBudgetProbe.main.same.settleDuplicate.duplicate, true,
+        'Repeated settlement must not create a second payment.');
+    assert.equal(institutionalTaskBudgetProbe.main.release.financialExact, true,
+        'Release must restore payer cash while preserving an audit receipt.');
+    assert.equal(institutionalTaskBudgetProbe.main.release.duplicate.duplicate, true,
+        'Repeated release must not create a second credit.');
+    assert.equal(institutionalTaskBudgetProbe.main.insufficient.result.code,
+        'INSTITUTIONAL_TASK_INSUFFICIENT_CASH',
+        'Insufficient exact payer funds must fail closed.');
+    assert.equal(institutionalTaskBudgetProbe.main.insufficient.exact, true,
+        'Insufficient funds must leave budget and commander ledgers unchanged.');
+    assert.equal(institutionalTaskBudgetProbe.main.extraInput.result.code,
+        'INSTITUTIONAL_TASK_INPUT_NOT_ALLOWED',
+        'Clients cannot add hidden fields to the closed task payment contract.');
+    assert.equal(institutionalTaskBudgetProbe.main.extraInput.exact, true,
+        'Closed-input rejection must leave all financial state unchanged.');
+    assert.equal(institutionalTaskBudgetProbe.main.cross.after.payerCountry.cash,
+        institutionalTaskBudgetProbe.main.cross.before.payerCountry.cash - 25,
+        'Cross-country settlement must debit payer-country cash.');
+    assert.equal(institutionalTaskBudgetProbe.main.cross.after.payeeCountry.cash,
+        institutionalTaskBudgetProbe.main.cross.before.payeeCountry.cash + 25,
+        'Cross-country settlement must credit payee-country cash.');
+    assert.equal(institutionalTaskBudgetProbe.main.cross.after.totalCash,
+        institutionalTaskBudgetProbe.main.cross.before.totalCash,
+        'Cross-country settlement must preserve total state credit.');
+    assert.equal(institutionalTaskBudgetProbe.main.cross.settleDuplicate.duplicate, true,
+        'Repeated cross-country settlement must not pay twice.');
+    assert.equal(institutionalTaskBudgetProbe.main.validation.ok, true,
+        'Task payments must preserve journals, wallet mirrors, and escrow reconciliation.');
+    assert.ok(institutionalTaskBudgetProbe.main.invalid.escrow.issues.some(
+        issue => issue.code === 'BUDGET_TASK_ESCROW_MISMATCH'),
+    'Validator must reject task escrow that differs from active reservations.');
+    assert.ok(institutionalTaskBudgetProbe.main.invalid.party.issues.some(
+        issue => issue.code === 'BUDGET_TASK_PARTY'),
+    'Validator must reject a forged payer commander.');
+    assert.equal(institutionalTaskBudgetProbe.main.migration.validation.ok, true,
+        'Exact schema-1 budgets must migrate losslessly to schema 2.');
+    assert.equal(institutionalTaskBudgetProbe.main.migration.schemaVersion, 2,
+        'Migrated budget ledgers must use schema 2.');
+    assert.equal(institutionalTaskBudgetProbe.main.migration.settlementCountPreserved, true,
+        'Migration must not invent historical institutional task settlements.');
+    assert.equal(institutionalTaskBudgetProbe.main.migration.taskAccountsZero, true,
+        'Legacy countries must receive zero-valued task escrow accounts.');
+    assert.equal(institutionalTaskBudgetProbe.main.migration.corruptRejected, true,
+        'Unknown legacy policy hashes must not use the safe migration path.');
+    assert.equal(institutionalTaskBudgetProbe.restored.loaded, true,
+        'A save with active task escrow must load.');
+    assert.equal(institutionalTaskBudgetProbe.restored.validation.ok, true,
+        'Restored active task escrow must preserve wallet and settlement reconciliation.');
+    assert.equal(institutionalTaskBudgetProbe.restored.exact, true,
+        'Restore must preserve active task escrow without a second financial movement.');
 
     const companyProbe = storyTestResult('companyProbe', probeCompaniesBanks);
     assert.equal(companyProbe.main.validation.ok, true,
