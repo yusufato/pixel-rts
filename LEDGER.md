@@ -1280,3 +1280,24 @@
 - **What happened:** Yanıt üreticisine `meeting.privateNotes` dizisinin tamamını verme yaklaşımı uygulanmadı; aynı dizide farklı ikili kanallar bulunduğu için görünürlük matrisi atlanarak üçüncü taraf sırrı sızabilirdi.
 - **Evidence:** Uygulanan context builder yalnız seçilen `PLAYER_NOTE` kökünü alıyor; kamusal turları alıcının görünürlük satırı ve yanıt zamanı ile kesiştiriyor. Ayrı kanaldaki `UCUNCU_TARAF_GIZLI_TUZAK` metni yanıt ve sourceRefs içinde bulunmadı.
 - **Implication for future audits:** “Kendi özel bağlamı” ifadesini bütün erişilebilir özel geçmişi otomatik okuma yetkisi sayma. Çok-notlu özel hafıza ayrı sahiplik, amaç ve bütçe planı olmadan eklenmemelidir.
+
+## 2026-08-26 — Faz 38.13 devlet kurumu görevi gerçek yetki, escrow ve sonuç makbuzuyla kapandı
+- **Type:** Executed
+- **Source:** `phase-38-13-institutional-paid-task`
+- **What happened:** Ödülsüz kişisel görev korunurken ayrı `INSTITUTIONAL_PAID_CONTACT_TASK` dalı eklendi. Yalnız kanonik Silahlı Kuvvetler makamının gerçek karakter office holder'ı aynı gerçek komutan bütçe hesabına eşlendiğinde kurum isteği yürütülüyor; kabul escrow ayırıyor, hedef görüşme tek ödeme ve `InstitutionalTaskReceiptV1`, süre aşımı tek iade üretiyor.
+- **Evidence:** `node tests/story-conversation-case.test.js` kabul/ret, offer-time ve accept-time yetersiz bakiye, çift kabul/tamamlama/tick, bozuk escrow, kurum/actor/party/tutar/correlation/reservation/completion/receipt tahrifi, gerçek DOM tıklaması ve `OFFERED / ACCEPTED+RESERVED / COMPLETED+SETTLED / EXPIRED+RELEASED` save-load birebirliğini geçti. Kurum ve bütçe hedefli probları geçerli kaldı.
+- **Implication for future audits:** Devlet kurumu ücretli görevini açık Faz 38.13 borcu diye yeniden raporlama. Şirket bütçeli görev ayrı muhasebe planıdır; sıradaki Faz 38.13 dilimi yönlü ilişki sonuç fişleridir.
+
+## 2026-08-26 — Görünen yürütme unvanını ödeme hesabına çevirmek reddedildi
+- **Type:** Rejected
+- **Source:** `phase-38-13-institutional-paid-task` iptal ölçütü ve runtime makam→hesap probu
+- **What happened:** Başkan kimliği gerçek yürütme makam sahibi olsa da `character:<ülke>:president` hiçbir komutan alt hesabına karşılık gelmedi. Rastgele devlet komutanını başkanın payer'ı saymak yerine commission rotası gerçek karakter+komutan eşleşmesi bulunan Silahlı Kuvvetler makamına daraltıldı.
+- **Evidence:** Sekiz ülkede başkan commission grant'i gerçek makam verdi fakat commander eşleşmesi yoktu; sekiz Silahlı Kuvvetler office holder'ı `CANONICAL_COMMANDER` ve exact komutan hesabıydı. Önceki şema-2 yürütme commission kayıtları sahte payer uydurulmadan `CANCELLED / PAYER_COMMANDER_BINDING_UNAVAILABLE` olarak göçtü.
+- **Implication for future audits:** Rol, unvan veya kurum üyeliğini kişisel ödeme hesabı sayma. Ücretli eylemde actor→ledger-owner eşlemesi birebir kanıtlanmıyorsa teklif üretme.
+
+## 2026-08-26 — Konuşma reward alanını ödeme saymak reddedildi
+- **Type:** Rejected
+- **Source:** `phase-38-13-institutional-paid-task` ekonomik bütünlük çürütmesi
+- **What happened:** Görev kartına yalnız `reward.amount` yazıp tamamlamada başarı metni gösterme yaklaşımı uygulanmadı. Konuşma defteri para yaratmıyor; ücret kanonik devlet bütçesinin ayrı `ASSET:TASK_ESCROW` hesabında reserve/release/settle yaşam döngüsüyle ilerliyor.
+- **Evidence:** Kabulden önce payer komutan nakdi 25 azalırken görev escrow'u 25 arttı; tamamlama oyuncu komutanına 25 aktardı; ret sıfır bütçe farkı, süre aşımı aynı payer'a tek iade ve restore sıfır yan etki verdi. Makbuz bütçe payer/payee transaction kimlikleriyle çapraz doğrulanıyor.
+- **Implication for future audits:** UI ödülü, konuşma durumu veya serbest metin ödeme kanıtı değildir. Ekonomik sonuç için kanonik defter, dengeli işlem, idempotency anahtarı ve doğrulanmış sonuç makbuzu zorunludur.

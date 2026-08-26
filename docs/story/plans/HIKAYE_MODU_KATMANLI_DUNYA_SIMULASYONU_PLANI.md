@@ -4687,8 +4687,29 @@ yanıt uydurmaz. Birleşik test `37` kamusal tur sabitken `5` özel kayıt ve
 izolasyonunu, şema-5→6 göçünü, tahrif reddini ve açık/kapalı save-load
 devamlılığını doğruladı.
 
-Sıradaki borç kurumsal/ücretli görevi gerçek yetki, bedel ve sonuç makbuzuyla
-kurmaktır. Toplantının yönlü ilişki fişleri de hâlâ açıktır.
+**Beşinci dikey — yetkili, bedelli ve makbuzlu devlet görevi:**
+`TaskOfferV2`, mevcut ödülsüz `PERSONAL_CONTACT_REQUEST` dalını değiştirmeden
+ayrı `INSTITUTIONAL_PAID_CONTACT_TASK` dalı taşır. Kurumsal teklif yalnız
+`TASKS_JOBS` kipinde, konuşma muhatabı kanonik Silahlı Kuvvetler makamının
+gerçek `CHARACTER` office holder'ı ve aynı aktör gerçek bir komutan bütçe alt
+hesabı olduğunda açılır. Ayrı `COMMISSION_PAID_CONTACT_TASK` rotası gerçek
+Faz 29 isteğini `AUTHORIZED → EXECUTED` geçirir; görünen unvan, başkan profili,
+başka kurum grant'i veya istemci payload'u yetki ve payer üretemez.
+
+Sabit `25 STATE_CREDIT` teklif anında hareket etmez. Kabul, görev veren gerçek
+komutan hesabından `ASSET:TASK_ESCROW` rezervasyonu başarıyla yapılmadan
+`ACCEPTED` yazmaz; ret para hareketi üretmez. Doğru hedefle ayrı görüşme önce
+escrow settlement'ını oyuncunun gerçek `STORY.commander` hesabına geçirir,
+sonra kurum isteği, kaynak/tamamlama oturumları, reservation, payer/payee işlem
+kimlikleri, tutar ve para birimini bağlayan `InstitutionalTaskReceiptV1` ile
+`COMPLETED` olur. Süre aşımı kabul edilmiş görevde önce aynı payer'a tek iade
+yapar; başarısız ödeme/iade terminal durum yazmaz. Restore yan etkisizdir;
+`OFFERED`, `ACCEPTED+RESERVED`, `COMPLETED+SETTLED` ve `EXPIRED+RELEASED`
+kayıtları birebir korunur. UI kişisel ve kurumsal kartı ayırır; teknik hesap ve
+işlem kimliklerini göstermez.
+
+Şirket bütçeli görevler ve toplantının yönlü ilişki fişleri hâlâ ayrı açık
+borçtur. Devlet kurumu görevini yeniden açık Faz 38.13 dilimi sayma.
 
 **Dördüncü dikey — sıra kontrollü çok taraflı transkript ve görünürlük matrisi:**
 Toplantı artık yalnız katılımcı listesi değildir. En çok `40` turluk döngü,
@@ -4716,9 +4737,11 @@ kapanış/yönlendirme reddi, yetkisiz rotada sıfır dünya farkı, açık ve k
 toplantı save/load devamlılığı ile teklif kimliğinden sonuç makbuzuna geri iz
 çalışıyor. İkili özel not yanıtı da yalnız kök not + alıcı görünür kamusal
 bağlam + alıcının uygun ActorBelief kaydıyla tamamlandı; kamusal tur ve dünya
-değerleri değişmedi. Sıradaki tek uygulama dilimi kurumsal/ücretli görevdir.
-Yönlü ilişki fişleri sonraki ayrı Faz 38.13 dilimidir; Faz 39'a geçiş bunlar
-kapanmadan ilan edilmez.
+değerleri değişmedi. Yetkili/bedelli devlet görevi de gerçek Silahlı Kuvvetler
+makamı, komutan alt hesabı, kurum isteği, bütçe escrow'u, tek ödeme/iade ve
+`InstitutionalTaskReceiptV1` zinciriyle tamamlandı. Şirket bütçeli görevler bu
+dikey kapsamında değildir. Sıradaki Faz 38.13 uygulama dilimi yönlü ilişki
+fişleridir; Faz 39 bunlar kapanmadan aktif ilan edilmez.
 
 ---
 
