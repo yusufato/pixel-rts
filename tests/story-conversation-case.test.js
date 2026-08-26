@@ -529,6 +529,9 @@ try {
             : runtime.api.conversationMeetingGenerateCharacterTurn(meeting.id, null);
         assert.equal(advanced.ok, true);
     }
+    runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
+    assert.ok(runtime.dom.window.document.querySelector('[data-conversation-meeting-close]'));
+    runtime.dom.window.storyConversationWorkspaceClose();
     const closedMeeting = runtime.api.conversationMeetingClose(
         meeting.id, completedVote.outcomeReceipt.id
     );
@@ -561,11 +564,17 @@ try {
     liveMotion.proposalIntent.actionType = authorizedActionType;
     const physicalBeforeProposalRoute = physicalSnapshot();
     const institutionRequestCountBefore = Object.keys(story.institutions.requests || {}).length;
-    const routedClosure = runtime.api.conversationMeetingClosureRoute(closedMeeting.closure.id);
-    assert.equal(routedClosure.ok, true);
-    assert.equal(routedClosure.closure.status, 'CLOSED_ADOPTED_PROPOSAL_ROUTED');
-    assert.equal(routedClosure.closure.proposalActionType, authorizedActionType);
-    assert.ok(routedClosure.closure.proposalId);
+    runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
+    const routeClosureButton = runtime.dom.window.document.querySelector(
+        '[data-conversation-meeting-route-closure]'
+    );
+    assert.ok(routeClosureButton);
+    runtime.dom.window.storyConversationWorkspaceHandleClick({ target: routeClosureButton });
+    runtime.dom.window.storyConversationWorkspaceHandleClick({ target: routeClosureButton });
+    const routedClosure = runtime.api.conversationMeetingClosureGet(closedMeeting.closure.id);
+    assert.equal(routedClosure.status, 'CLOSED_ADOPTED_PROPOSAL_ROUTED');
+    assert.equal(routedClosure.proposalActionType, authorizedActionType);
+    assert.ok(routedClosure.proposalId);
     assert.equal(Object.keys(story.institutions.requests || {}).length,
         institutionRequestCountBefore + 1);
     assert.equal(physicalSnapshot(), physicalBeforeProposalRoute);
@@ -574,13 +583,22 @@ try {
     assert.equal(Object.keys(story.institutions.requests || {}).length,
         institutionRequestCountBefore + 1);
     const proposalTrace = runtime.api.conversationMeetingClosureTraceByProposal(
-        routedClosure.closure.proposalId
+        routedClosure.proposalId
     );
     assert.equal(proposalTrace.ok, true);
     assert.equal(proposalTrace.meetingClosureId, closedMeeting.closure.id);
     assert.equal(proposalTrace.outcomeReceiptId, completedVote.outcomeReceipt.id);
     assert.equal(proposalTrace.motionVersionId, completedVote.motion.activeVersionId);
-    assert.equal(proposalTrace.institutionRequest.id, routedClosure.closure.proposalId);
+    assert.equal(proposalTrace.institutionRequest.id, routedClosure.proposalId);
+    const routedUiText = runtime.dom.window.document
+        .getElementById('conversation-workspace-modal').textContent;
+    assert.match(routedUiText, /TEKLİF KAYDI · HENÜZ ONAY VEYA UYGULAMA DEĞİL/);
+    assert.match(routedUiText, new RegExp(routedClosure.proposalId));
+    assert.equal(runtime.dom.window.document.querySelector(
+        '[data-conversation-meeting-motion-propose]'), null);
+    assert.equal(runtime.dom.window.document.querySelector(
+        '[data-conversation-meeting-motion-review], [data-conversation-meeting-motion-respond], [data-conversation-motion-vote-open], [data-conversation-motion-vote], [data-conversation-motion-intent-set]'), null);
+    runtime.dom.window.storyConversationWorkspaceClose();
     const adoptedClosedSnapshot = runtime.api.conversationSessionSnapshot();
     const rejectedOpenSnapshot = JSON.parse(JSON.stringify(openMeetingSnapshot));
     const rejectedMeeting = rejectedOpenSnapshot.meetingCases.find(row => row.id === meeting.id);

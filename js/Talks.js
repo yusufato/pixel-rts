@@ -1294,6 +1294,9 @@ function storyTalkConversationMeetingHtml(session) {
         + `<textarea data-conversation-meeting-agenda maxlength="240" rows="3" `
         + `placeholder="Örn: Sanayi yatırımı için kurumlar arası sorumluluk ve kaynak planı"></textarea>`
         + `<button class="story-btn" data-conversation-meeting-create="${esc(session.id)}">TOPLANTI DOSYASINI AÇ</button></section>`;
+    const closure = meeting.closureId && typeof storyConversationMeetingClosureGet === 'function'
+        ? storyConversationMeetingClosureGet(meeting.closureId) : null;
+    const meetingOpen = meeting.status === 'OPEN_NO_DECISION_ADAPTER';
     const currentSpeaker = meeting.participants.find(row =>
         row.actorId === meeting.speakingOrderActorIds[meeting.currentSpeakerIndex]);
     const proposalRouteResult = typeof storyConversationMeetingProposalRoutes === 'function'
@@ -1343,15 +1346,15 @@ function storyTalkConversationMeetingHtml(session) {
         const responses = (motion.responses || []).map(response => `<div class="conversation-meeting-motion-response ${
             esc(response.kind.toLowerCase())}"><div><b>${esc((meeting.participants.find(row => row.actorId === response.actorId) || {}).name || response.actorId)}</b>`
             + `<span>${esc(responseLabels[response.kind] || response.kind)} · ${esc(responseStatusLabels[response.status] || response.status)}</span></div>`
-            + (response.kind === 'AMENDMENT_REQUEST' && response.status === 'OPEN'
+            + (meetingOpen && response.kind === 'AMENDMENT_REQUEST' && response.status === 'OPEN'
                 && currentSpeaker.actorId === session.playerActorId
                 ? `<textarea data-conversation-amendment-input="${esc(response.id)}" maxlength="600" rows="2" placeholder="Talebi kabul edeceksen güncellenmiş önerge metnini yaz..."></textarea>`
                     + `<footer><button class="story-btn" data-conversation-amendment-decision="ACCEPT" data-response-id="${esc(response.id)}" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">KABUL ET VE YENİ SÜRÜM OLUŞTUR</button>`
                     + `<button class="story-btn" data-conversation-amendment-decision="REJECT" data-response-id="${esc(response.id)}" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">REDDET</button></footer>` : '')
-            + (response.kind === 'OBJECTION' && response.status === 'OPEN'
+            + (meetingOpen && response.kind === 'OBJECTION' && response.status === 'OPEN'
                 && currentSpeaker.actorId === session.playerActorId
                 ? `<button class="story-btn" data-conversation-objection-refer="${esc(response.id)}" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">BAŞKANA SEVK ET</button>` : '')
-            + (response.kind === 'OBJECTION' && response.status === 'REFERRED_TO_CHAIR'
+            + (meetingOpen && response.kind === 'OBJECTION' && response.status === 'REFERRED_TO_CHAIR'
                 && currentSpeaker.actorId === meeting.chair.actorId
                 ? `<button class="story-btn" data-conversation-objection-rule="${esc(response.id)}" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">İTİRAZ USUL KARARINI VER</button>` : '')
             + `</div>`).join('');
@@ -1365,7 +1368,7 @@ function storyTalkConversationMeetingHtml(session) {
         const voteRows = motionVotes.map(vote => `<div class="conversation-meeting-vote"><b>${esc((meeting.participants.find(row => row.actorId === vote.actorId) || {}).name || vote.actorId)}</b><span>${esc(voteChoiceLabels[vote.choice] || vote.choice)}</span></div>`).join('');
         const receipt = (meeting.outcomeReceipts || []).find(row => row.id === motion.outcomeReceiptId);
         const proposalIntent = motion.proposalIntent;
-        const voteControl = motion.voting && motion.voting.status === 'OPEN' && !currentVoted
+        const voteControl = meetingOpen && motion.voting && motion.voting.status === 'OPEN' && !currentVoted
             ? (currentSpeaker.actorId === session.playerActorId
                 ? `<div class="conversation-meeting-vote-control"><b>OYUNU KULLAN</b><button class="story-btn" data-conversation-motion-vote="YES" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">KABUL</button><button class="story-btn" data-conversation-motion-vote="NO" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">RET</button><button class="story-btn" data-conversation-motion-vote="ABSTAIN" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">ÇEKİMSER</button></div>`
                 : `<button class="story-btn" data-conversation-motion-vote="AUTO" data-motion-id="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">KARAKTERİN OYUNU KAYDET</button>`)
@@ -1374,49 +1377,65 @@ function storyTalkConversationMeetingHtml(session) {
             + `<header><b>ÖNERGE ${motion.sequence} · SÜRÜM ${(motion.versions || []).length}</b><span>${esc(motionStatusLabels[motion.status] || motion.status)}</span></header>`
             + `<p>${esc(motion.text)}</p>${responses}`
             + (proposalIntent ? `<div class="conversation-meeting-proposal-intent"><b>KURUMSAL TEKLİF NİYETİ</b><span>${esc(STORY_TALK_INSTITUTION_ACTION_LABELS[proposalIntent.actionType] || proposalIntent.actionType)}</span><small>OYLANAN SÜRÜME BAĞLI · HENÜZ KURUM İSTEĞİ DEĞİL</small></div>`
-                : (!motion.voting && motion.status !== 'OUT_OF_ORDER'
+                : (meetingOpen && !motion.voting && motion.status !== 'OUT_OF_ORDER'
                     ? `<div class="conversation-meeting-proposal-intent"><select data-conversation-motion-intent-route="${esc(motion.id)}"><option value="">KURUMSAL TEKLİF ROTASI SEÇ</option>${proposalRouteOptions}</select><button class="story-btn" data-conversation-motion-intent-set="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">ROTAYI GÜNCEL SÜRÜME BAĞLA</button></div>`
                     : ''))
             + (motion.voting ? `<div class="conversation-meeting-votes"><b>OYLAMA · ${motion.voting.status === 'COMPLETED' ? 'TAMAMLANDI' : 'AÇIK'}</b>${voteRows}</div>` : '')
             + (receipt ? `<div class="conversation-meeting-outcome"><b>${receipt.decision === 'ADOPTED' ? 'ÖNERGE KABUL EDİLDİ' : 'ÖNERGE REDDEDİLDİ'}</b><span>Kabul ${receipt.tally.yes} · Ret ${receipt.tally.no} · Çekimser ${receipt.tally.abstain}</span><small>TOPLANTI SONUÇ KAYDI · DÜNYAYA HENÜZ UYGULANMADI</small></div>` : '')
-            + (motion.status === 'PENDING_CHAIR_REVIEW' && currentSpeaker.actorId === meeting.chair.actorId
+            + (meetingOpen && motion.status === 'PENDING_CHAIR_REVIEW'
+                && currentSpeaker.actorId === meeting.chair.actorId
                 ? `<button class="story-btn" data-conversation-meeting-motion-review="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">BAŞKAN İNCELEMESİNİ YAP</button>` : '')
-            + (motion.status === 'IN_ORDER' && currentSpeaker.actorId !== session.playerActorId && !currentResponded
+            + (meetingOpen && motion.status === 'IN_ORDER'
+                && currentSpeaker.actorId !== session.playerActorId && !currentResponded
                 && !motion.voting
                 ? `<button class="story-btn" data-conversation-meeting-motion-respond="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">KARAKTERİN TEPKİSİNİ KAYDET</button>` : '')
-            + (motion.status === 'IN_ORDER' && !motion.voting && !openProcedureDebt
+            + (meetingOpen && motion.status === 'IN_ORDER' && !motion.voting && !openProcedureDebt
                 && currentSpeaker.actorId === meeting.chair.actorId
                 ? `<button class="story-btn" data-conversation-motion-vote-open="${esc(motion.id)}" data-meeting-id="${esc(meeting.id)}">OYLAMAYI AÇ</button>` : '')
             + voteControl
             + `</article>`;
     }).join('');
-    const turnControl = playerTurn
+    const turnControl = !meetingOpen ? '' : (playerTurn
         ? `<div class="conversation-meeting-turn-control"><label>SÖZ SENDE</label>`
             + `<select data-conversation-meeting-addressee><option value="">TÜM TOPLANTIYA</option>${addresseeOptions}</select>`
             + `<textarea data-conversation-meeting-player-turn maxlength="1200" rows="3" placeholder="Toplantıya söylemek istediğini yaz..."></textarea>`
             + `<button class="story-btn" data-conversation-meeting-player-send="${esc(meeting.id)}">SÖZÜNÜ KAYDET</button></div>`
         : `<div class="conversation-meeting-turn-control"><label>${esc(currentSpeaker && currentSpeaker.name || 'KARAKTER')} KONUŞACAK</label>`
             + `<select data-conversation-meeting-addressee><option value="">TÜM TOPLANTIYA</option>${addresseeOptions}</select>`
-            + `<button class="story-btn" data-conversation-meeting-character-turn="${esc(meeting.id)}">KARAKTERİN SÖZÜNÜ AL</button></div>`;
+            + `<button class="story-btn" data-conversation-meeting-character-turn="${esc(meeting.id)}">KARAKTERİN SÖZÜNÜ AL</button></div>`);
     const hasOpenVote = (meeting.motions || []).some(motion => motion.voting && motion.voting.status === 'OPEN');
-    return `<section class="conversation-meeting active"><header><span>RESMÎ TOPLANTI</span><small>${hasOpenVote ? 'OYLAMA AÇIK' : 'ÖNERGE VE USUL İŞLEMLERİ'}</small></header>`
+    const latestOutcome = (meeting.outcomeReceipts || [])[meeting.outcomeReceipts.length - 1];
+    const closureControl = closure
+        ? `<section class="conversation-meeting-closure"><header><b>TOPLANTI KAPANDI</b><span>${closure.decision === 'ADOPTED' ? 'ÖNERGE KABUL EDİLDİ' : 'ÖNERGE REDDEDİLDİ'}</span></header>`
+            + (closure.status === 'CLOSED_ADOPTED_PENDING_PROPOSAL'
+                ? `<p>Kapanış tutanağı hazır; kurum teklifi henüz oluşturulmadı.</p><button class="story-btn" data-conversation-meeting-route-closure="${esc(closure.id)}">KURUMA TEKLİF OLARAK YÖNLENDİR</button>`
+                : closure.status === 'CLOSED_ADOPTED_PROPOSAL_ROUTED'
+                    ? `<p>Kurum isteği oluşturuldu: <b>${esc(closure.proposalId)}</b></p><small>TEKLİF KAYDI · HENÜZ ONAY VEYA UYGULAMA DEĞİL</small>`
+                    : '<p>Ret sonucu kayda geçti; kurum teklifi oluşturulmadı.</p><small>DÜNYA ETKİSİ YOK</small>')
+            + '</section>'
+        : (meetingOpen && latestOutcome && currentSpeaker
+            && currentSpeaker.actorId === meeting.chair.actorId
+            ? `<section class="conversation-meeting-closure"><p>Başkan sonuç makbuzunu ayrı kapanış tutanağına bağlayabilir.</p><button class="story-btn" data-conversation-meeting-close="${esc(meeting.id)}" data-outcome-receipt-id="${esc(latestOutcome.id)}">TOPLANTIYI KAPAT VE YETKİLİ KURUMA TEKLİF ET</button></section>`
+            : '');
+    return `<section class="conversation-meeting active"><header><span>RESMÎ TOPLANTI</span><small>${closure ? 'KAPANIŞ TUTANAĞI' : (hasOpenVote ? 'OYLAMA AÇIK' : 'ÖNERGE VE USUL İŞLEMLERİ')}</small></header>`
         + `<div class="conversation-meeting-agenda"><b>GÜNDEM</b><p>${esc(meeting.agendaItems[0].title)}</p></div>`
         + `<div class="conversation-meeting-chair"><span>BAŞKAN</span><b>${esc(meeting.chair.name)}</b>`
         + `<small>${esc(STORY_TALK_INSTITUTION_LABELS[meeting.chair.institutionType] || meeting.chair.institutionType)} · KANONİK MAKAM</small></div>`
         + `<div class="conversation-meeting-floor"><span>SÖZ SIRASI</span><b>${esc(currentSpeaker && currentSpeaker.name || 'Bilinmiyor')}</b>`
         + `<small>${meeting.currentSpeakerIndex + 1} / ${meeting.speakingOrderActorIds.length}</small></div>`
-        + transcript + turnControl
-        + `<details class="conversation-meeting-private"><summary>İKİLİ ÖZEL NOT</summary>`
+        + transcript + turnControl + closureControl
+        + (meetingOpen ? `<details class="conversation-meeting-private"><summary>İKİLİ ÖZEL NOT</summary>`
         + `<p>Bu not kamusal tutanağa girmez; yalnız sen ve seçtiğin katılımcı görebilir.</p>`
         + (privateNotes ? `<div class="conversation-meeting-private-list">${privateNotes}</div>` : '')
         + `<select data-conversation-meeting-private-recipient><option value="">MUHATAP SEÇ</option>${privateRecipients}</select>`
         + `<textarea data-conversation-meeting-private-text maxlength="600" rows="2" placeholder="Seçilen kişiye özel not yaz..."></textarea>`
-        + `<button class="story-btn" data-conversation-meeting-private-send="${esc(meeting.id)}">ÖZEL NOTU GÖNDER</button></details>`
+        + `<button class="story-btn" data-conversation-meeting-private-send="${esc(meeting.id)}">ÖZEL NOTU GÖNDER</button></details>` : '')
         + `<section class="conversation-meeting-motions"><header>ÖNERGELER</header>`
         + (motions ? `<div class="conversation-meeting-motion-list">${motions}</div>` : '<p>Henüz önerge sunulmadı.</p>')
-        + `<select data-conversation-meeting-motion-route><option value="">KURUMSAL TEKLİF ROTASI SEÇ</option>${proposalRouteOptions}</select>`
-        + `<textarea data-conversation-meeting-motion-text maxlength="600" rows="2" placeholder="Gündeme bağlı, uygulanabilir önerge metni yaz..."></textarea>`
-        + `<button class="story-btn" data-conversation-meeting-motion-propose="${esc(meeting.id)}">ÖNERGE SUN</button></section>`
+        + (meetingOpen ? `<select data-conversation-meeting-motion-route><option value="">KURUMSAL TEKLİF ROTASI SEÇ</option>${proposalRouteOptions}</select>`
+            + `<textarea data-conversation-meeting-motion-text maxlength="600" rows="2" placeholder="Gündeme bağlı, uygulanabilir önerge metni yaz..."></textarea>`
+            + `<button class="story-btn" data-conversation-meeting-motion-propose="${esc(meeting.id)}">ÖNERGE SUN</button>` : '')
+        + '</section>'
         + `<p class="conversation-meeting-boundary">Toplantı oyu yalnız güncel ve usule uygun önerge sürümünü sonuçlandırır. Sonuç kaydı, ayrı bir yetkili uygulama adaptörü olmadan dünyayı değiştirmez.</p></section>`;
 }
 
@@ -2155,6 +2174,44 @@ function storyConversationWorkspaceResponseSettled(responseId) {
 function storyConversationWorkspaceHandleClick(event) {
     const modal = document.getElementById('conversation-workspace-modal');
     if (!modal) return;
+    const meetingClose = event.target.closest('[data-conversation-meeting-close]');
+    if (meetingClose && typeof storyConversationMeetingClose === 'function') {
+        if (meetingClose.disabled) return;
+        meetingClose.disabled = true;
+        const closed = storyConversationMeetingClose(
+            meetingClose.dataset.conversationMeetingClose,
+            meetingClose.dataset.outcomeReceiptId
+        );
+        let routed = null;
+        if (closed && closed.ok && closed.closure.decision === 'ADOPTED'
+            && typeof storyConversationMeetingClosureRoute === 'function') {
+            routed = storyConversationMeetingClosureRoute(closed.closure.id);
+        }
+        storyFlash(!closed || !closed.ok
+            ? `Toplantı kapatılamadı: ${closed && closed.code || 'UNKNOWN'}`
+            : closed.closure.decision === 'REJECTED'
+                ? 'Toplantı ret tutanağıyla kapandı; kurum teklifi oluşturulmadı.'
+                : routed && routed.ok
+                    ? 'Toplantı kapandı; yetkili kuruma uygulama değil teklif kaydı gönderildi.'
+                    : `Toplantı kapandı; kurum teklifi bekliyor: ${routed && routed.code || 'ROUTE_UNAVAILABLE'}`);
+        if (closed && closed.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
+    const meetingRouteClosure = event.target.closest('[data-conversation-meeting-route-closure]');
+    if (meetingRouteClosure && typeof storyConversationMeetingClosureRoute === 'function') {
+        if (meetingRouteClosure.disabled) return;
+        meetingRouteClosure.disabled = true;
+        const result = storyConversationMeetingClosureRoute(
+            meetingRouteClosure.dataset.conversationMeetingRouteClosure
+        );
+        storyFlash(result && result.ok
+            ? 'Yetkili kuruma uygulama değil teklif kaydı gönderildi.'
+            : `Kurum teklifi yönlendirilemedi: ${result && result.code || 'UNKNOWN'}`);
+        if (result && result.ok && typeof storySave === 'function') storySave();
+        storyConversationWorkspaceRender();
+        return;
+    }
     const pendingOption = event.target.closest('[data-talk][data-opt]');
     if (pendingOption) {
         storyTalkAnswer(Number(pendingOption.dataset.talk), Number(pendingOption.dataset.opt));
