@@ -91,6 +91,9 @@ function verifyInstitutionalTaskOfferDecisions() {
             conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger()
         }), doubleAcceptBefore, 'Double accept must not mutate the task or budget ledgers.');
         const playerPointsBeforeCompletion = taskStory.commander.res.points;
+        const institutionalReverseBefore = JSON.stringify(taskRuntime.api.relationshipView(
+            accepted.taskOffer.assigneeActorId, accepted.taskOffer.issuerActorId
+        ));
         const completion = taskRuntime.api.conversationSessionBegin('G�rev g�r�_mesini tamamlamak i�in geldim.', {
             listenerActorId: created.taskOffer.objective.targetActorId
         });
@@ -104,6 +107,19 @@ function verifyInstitutionalTaskOfferDecisions() {
         assert.equal(resultReceipt.schemaVersion, 1);
         assert.equal(resultReceipt.completionSessionId, completion.session.id);
         assert.equal(resultReceipt.institutionRequestId, institutionRequest.id);
+        assert.equal(completedInstitutional.relationshipResultReceiptId,
+            completedInstitutional.institutional.relationshipResultReceiptId);
+        assert.equal(resultReceipt.relationshipResultReceiptId,
+            completedInstitutional.relationshipResultReceiptId);
+        const institutionalRelationshipReceipt = taskRuntime.api.relationshipResultReceipt(
+            completedInstitutional.relationshipResultReceiptId
+        );
+        assert.equal(institutionalRelationshipReceipt.interpretationType, 'TASK_COMMITMENT_KEPT');
+        assert.equal(institutionalRelationshipReceipt.fromActorId, completedInstitutional.issuerActorId);
+        assert.equal(institutionalRelationshipReceipt.toActorId, completedInstitutional.assigneeActorId);
+        assert.equal(JSON.stringify(taskRuntime.api.relationshipView(
+            completedInstitutional.assigneeActorId, completedInstitutional.issuerActorId
+        )), institutionalReverseBefore);
         const settledPayment = taskRuntime.api.budgetLedger().settlements.find(row =>
             row.id === completedInstitutional.institutional.escrowReservationId);
         assert.equal(settledPayment.status, 'SETTLED');
@@ -118,17 +134,19 @@ function verifyInstitutionalTaskOfferDecisions() {
         taskRuntime.dom.window.storyConversationWorkspaceClose();
         const duplicateCompletionBefore = JSON.stringify({
             conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger(),
-            playerPoints: taskStory.commander.res.points
+            relationships: taskRuntime.api.relationshipLedger(), playerPoints: taskStory.commander.res.points
         });
         assert.equal(taskRuntime.api.conversationSessionBegin('Ayo1 hedefle tekrar g�r�_�yorum.', {
             listenerActorId: created.taskOffer.objective.targetActorId
         }).ok, true);
         const duplicateCompletionAfter = {
-            budget: taskRuntime.api.budgetLedger(), playerPoints: taskStory.commander.res.points
+            budget: taskRuntime.api.budgetLedger(), relationships: taskRuntime.api.relationshipLedger(),
+            playerPoints: taskStory.commander.res.points
         };
         const duplicateCompletionExpected = JSON.parse(duplicateCompletionBefore);
         assert.equal(JSON.stringify(duplicateCompletionAfter), JSON.stringify({
             budget: duplicateCompletionExpected.budget,
+            relationships: duplicateCompletionExpected.relationships,
             playerPoints: duplicateCompletionExpected.playerPoints
         }), 'A repeated target conversation must not settle or pay the task twice.');
         const forgedReceiptLedger = taskRuntime.api.conversationSessionSnapshot();
@@ -140,12 +158,15 @@ function verifyInstitutionalTaskOfferDecisions() {
         const declinedSessionId = openTaskSession(issuerActorId);
         const declinedCreated = taskRuntime.api.conversationInstitutionalTaskOfferCreate(declinedSessionId);
         const declineBudgetBefore = JSON.stringify(taskRuntime.api.budgetLedger());
+        const declineRelationshipsBefore = JSON.stringify(taskRuntime.api.relationshipLedger());
         const declined = taskRuntime.api.conversationTaskOfferDecision(declinedCreated.taskOffer.id, 'DECLINE');
         assert.equal(declined.ok, true);
         assert.equal(declined.taskOffer.status, 'DECLINED');
         assert.equal(declined.taskOffer.institutional.paymentStatus, 'NOT_RESERVED');
         assert.equal(JSON.stringify(taskRuntime.api.budgetLedger()), declineBudgetBefore,
             'Declining an institutional offer must not reserve compensation.');
+        assert.equal(JSON.stringify(taskRuntime.api.relationshipLedger()), declineRelationshipsBefore,
+            'Declining an institutional offer must not create a relationship result.');
 
         const insufficientSessionId = openTaskSession(issuerActorId);
         const insufficientCreated = taskRuntime.api.conversationInstitutionalTaskOfferCreate(insufficientSessionId);
@@ -218,17 +239,60 @@ function verifyInstitutionalTaskOfferDecisions() {
         assert.ok(taskRuntime.api.conversationTaskOfferTick() >= 1);
         assert.equal(blockedSettlementTask.status, 'EXPIRED');
         assert.equal(blockedSettlementTask.institutional.paymentStatus, 'RELEASED');
+        assert.equal(blockedSettlementTask.relationshipResultReceiptId,
+            blockedSettlementTask.institutional.relationshipResultReceiptId);
+        const expiredRelationshipReceipt = taskRuntime.api.relationshipResultReceipt(
+            blockedSettlementTask.relationshipResultReceiptId
+        );
+        assert.equal(expiredRelationshipReceipt.interpretationType, 'TASK_COMMITMENT_BROKEN');
+        assert.equal(expiredRelationshipReceipt.fromActorId, blockedSettlementTask.issuerActorId);
+        assert.equal(expiredRelationshipReceipt.toActorId, blockedSettlementTask.assigneeActorId);
         assert.equal(payerCommander.res.points, payerBeforeExpiry + 25);
         assert.equal(taskEscrowAccount['ASSET:TASK_ESCROW'], escrowBeforeExpiry - 25);
+        const unacceptedExpiredTask = taskStory.conversationUnderstanding.taskOffers.find(row =>
+            row.id === insufficientCreated.taskOffer.id);
+        assert.equal(unacceptedExpiredTask.status, 'EXPIRED');
+        assert.equal(unacceptedExpiredTask.acceptedAt, null);
+        assert.equal(unacceptedExpiredTask.relationshipResultReceiptId, null);
         const duplicateExpiryBefore = JSON.stringify({
             conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger(),
+            relationships: taskRuntime.api.relationshipLedger(),
             payerPoints: payerCommander.res.points
         });
         assert.equal(taskRuntime.api.conversationTaskOfferTick(), 0);
         assert.equal(JSON.stringify({
             conversation: taskRuntime.api.conversationSessionSnapshot(), budget: taskRuntime.api.budgetLedger(),
+            relationships: taskRuntime.api.relationshipLedger(),
             payerPoints: payerCommander.res.points
         }), duplicateExpiryBefore, 'Repeated expiry ticks must not release escrow twice.');
+
+        const atomicSessionId = openTaskSession(issuerActorId);
+        const atomicCreated = taskRuntime.api.conversationInstitutionalTaskOfferCreate(atomicSessionId);
+        const atomicAccepted = taskRuntime.api.conversationTaskOfferDecision(
+            atomicCreated.taskOffer.id, 'ACCEPT'
+        );
+        assert.equal(atomicAccepted.ok, true);
+        const atomicTask = taskStory.conversationUnderstanding.taskOffers.find(row =>
+            row.id === atomicCreated.taskOffer.id);
+        const healthyRelationships = taskRuntime.api.relationshipLedger();
+        let limitFixtureSequence = 1;
+        while (Object.keys(taskStory.characterRelationships.resultReceipts).length < 256) {
+            taskStory.characterRelationships.resultReceipts[`relationship-result:limit-fixture:${limitFixtureSequence++}`] = {};
+        }
+        const atomicBefore = JSON.stringify({
+            task: atomicTask, budget: taskRuntime.api.budgetLedger(),
+            relationships: taskRuntime.api.relationshipLedger(), playerPoints: taskStory.commander.res.points
+        });
+        assert.equal(taskRuntime.api.conversationSessionBegin('İlişki kapısı kapalı hedef görüşmesi.', {
+            listenerActorId: atomicCreated.taskOffer.objective.targetActorId
+        }).ok, true);
+        assert.equal(JSON.stringify({
+            task: atomicTask, budget: taskRuntime.api.budgetLedger(),
+            relationships: taskRuntime.api.relationshipLedger(), playerPoints: taskStory.commander.res.points
+        }), atomicBefore, 'A rejected relationship result must roll back task completion and payment settlement.');
+        assert.equal(atomicTask.status, 'ACCEPTED');
+        assert.equal(atomicTask.institutional.paymentStatus, 'RESERVED');
+        assert.equal(taskRuntime.api.relationshipRestore(healthyRelationships).schemaVersion, 2);
 
         const unauthorized = taskDirectory.publicCharacters.find(row => {
             const parts = row.id.split(':');
@@ -448,6 +512,9 @@ try {
     const taskAccepted = runtime.api.conversationTaskOfferDecision(taskCreated.taskOffer.id, 'ACCEPT');
     assert.equal(taskAccepted.ok, true);
     assert.equal(taskAccepted.taskOffer.status, 'ACCEPTED');
+    const personalReverseBefore = JSON.stringify(runtime.api.relationshipView(
+        taskAccepted.taskOffer.assigneeActorId, taskAccepted.taskOffer.issuerActorId
+    ));
 
     const confidential = runtime.api.conversationSessionFollowUp(sessionId, 'Bu bilgi aramızda kalsın.');
     assert.equal(confidential.ok, true);
@@ -1100,6 +1167,15 @@ try {
     const completedTask = runtime.api.conversationTaskOfferList(sessionId)[0];
     assert.equal(completedTask.status, 'COMPLETED');
     assert.equal(completedTask.completionSessionId, completion.session.id);
+    const personalRelationshipReceipt = runtime.api.relationshipResultReceipt(
+        completedTask.relationshipResultReceiptId
+    );
+    assert.equal(personalRelationshipReceipt.interpretationType, 'TASK_COMMITMENT_KEPT');
+    assert.equal(personalRelationshipReceipt.fromActorId, completedTask.issuerActorId);
+    assert.equal(personalRelationshipReceipt.toActorId, completedTask.assigneeActorId);
+    assert.equal(JSON.stringify(runtime.api.relationshipView(
+        completedTask.assigneeActorId, completedTask.issuerActorId
+    )), personalReverseBefore);
 
     const beforeInvalid = runtime.api.conversationSessionCaseGet(sessionId);
     const invalid = runtime.api.conversationSessionSetMode(sessionId, 'MAKE_UP_A_REWARD');

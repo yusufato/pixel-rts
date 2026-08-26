@@ -1145,6 +1145,34 @@ function storyConversationTaskOfferDecision(taskOfferId, decision) {
     return { ok: true, code: `TASK_OFFER_${taskOffer.status}`, taskOffer: storyConversationClone(taskOffer), worldMutation: false };
 }
 
+function storyConversationTaskRelationshipResultApply(taskOffer, interpretationType) {
+    if (!taskOffer || typeof storyRelationshipApplyResult !== 'function') {
+        return { ok: false, code: 'TASK_RELATIONSHIP_RESULT_REQUIRED' };
+    }
+    const result = storyRelationshipApplyResult({
+        sourceType: 'TASK_RESULT', sourceReceiptId: taskOffer.id,
+        fromActorId: taskOffer.issuerActorId, toActorId: taskOffer.assigneeActorId,
+        interpretationType
+    });
+    if (!result || !result.receipt) {
+        return { ok: false, code: result && result.reason || 'TASK_RELATIONSHIP_RESULT_REJECTED' };
+    }
+    taskOffer.relationshipResultReceiptId = result.receipt.id;
+    if (taskOffer.institutional) {
+        taskOffer.institutional.relationshipResultReceiptId = result.receipt.id;
+        if (taskOffer.institutional.resultReceipt) {
+            taskOffer.institutional.resultReceipt.relationshipResultReceiptId = result.receipt.id;
+        }
+    }
+    return { ok: true, result };
+}
+
+function storyConversationTaskRollback(taskOffer, previousTask, relationshipSnapshot) {
+    Object.keys(taskOffer).forEach(key => delete taskOffer[key]);
+    Object.assign(taskOffer, previousTask);
+    STORY.characterRelationships = relationshipSnapshot;
+}
+
 function storyConversationTaskOfferTick() {
     const ledger = storyConversationSessionEnsure();
     if (!ledger) return 0;
@@ -1153,7 +1181,23 @@ function storyConversationTaskOfferTick() {
     for (const taskOffer of ledger.taskOffers || []) {
         if (!['OFFERED', 'ACCEPTED'].includes(taskOffer.status) || now <= taskOffer.dueAt) continue;
         if (taskOffer.kind !== 'INSTITUTIONAL_PAID_CONTACT_TASK') {
+            if (taskOffer.status === 'OFFERED') {
+                taskOffer.status = 'EXPIRED';
+                expired++;
+                continue;
+            }
+            const previousTask = storyConversationClone(taskOffer);
+            const relationshipSnapshot = storyConversationClone(STORY.characterRelationships);
             taskOffer.status = 'EXPIRED';
+            const relationship = storyConversationTaskRelationshipResultApply(
+                taskOffer, 'TASK_COMMITMENT_BROKEN'
+            );
+            const validation = relationship.ok
+                ? storyConversationSessionValidateLedger(ledger) : { ok: false };
+            if (!relationship.ok || !validation.ok) {
+                storyConversationTaskRollback(taskOffer, previousTask, relationshipSnapshot);
+                continue;
+            }
             expired++;
             continue;
         }
@@ -1173,6 +1217,7 @@ function storyConversationTaskOfferTick() {
         const payer = storyConversationTaskCommanderAccount(taskOffer.issuerActorId);
         const payerPoints = payer && Number(payer.commander.res && payer.commander.res.points) || 0;
         const previousTask = storyConversationClone(taskOffer);
+        const relationshipSnapshot = storyConversationClone(STORY.characterRelationships);
         const released = typeof storyBudgetReleaseInstitutionalTaskPayment === 'function'
             ? storyBudgetReleaseInstitutionalTaskPayment(
                 taskOffer.institutional.escrowReservationId, 'TASK_EXPIRED')
@@ -1180,12 +1225,15 @@ function storyConversationTaskOfferTick() {
         if (!released.ok) continue;
         taskOffer.institutional.paymentStatus = 'RELEASED';
         taskOffer.status = 'EXPIRED';
-        const validation = storyConversationSessionValidateLedger(ledger);
-        if (!validation.ok) {
+        const relationship = storyConversationTaskRelationshipResultApply(
+            taskOffer, 'TASK_COMMITMENT_BROKEN'
+        );
+        const validation = relationship.ok
+            ? storyConversationSessionValidateLedger(ledger) : { ok: false };
+        if (!relationship.ok || !validation.ok) {
             STORY.stateBudget = budgetSnapshot;
             if (payer && payer.commander && payer.commander.res) payer.commander.res.points = payerPoints;
-            Object.keys(taskOffer).forEach(key => delete taskOffer[key]);
-            Object.assign(taskOffer, previousTask);
+            storyConversationTaskRollback(taskOffer, previousTask, relationshipSnapshot);
             continue;
         }
         expired++;
@@ -1203,7 +1251,17 @@ function storyConversationTaskOfferCompleteForConversation(ledger, completedSess
             || taskOffer.objective.targetActorId !== completedSession.listenerActorId
             || taskOffer.sessionId === completedSession.id) continue;
         if (now > taskOffer.dueAt) {
-            if (taskOffer.kind === 'PERSONAL_CONTACT_REQUEST') taskOffer.status = 'EXPIRED';
+            if (taskOffer.kind === 'PERSONAL_CONTACT_REQUEST') {
+                const previousTask = storyConversationClone(taskOffer);
+                const relationshipSnapshot = storyConversationClone(STORY.characterRelationships);
+                taskOffer.status = 'EXPIRED';
+                const relationship = storyConversationTaskRelationshipResultApply(
+                    taskOffer, 'TASK_COMMITMENT_BROKEN'
+                );
+                if (!relationship.ok || !storyConversationSessionValidateLedger(ledger).ok) {
+                    storyConversationTaskRollback(taskOffer, previousTask, relationshipSnapshot);
+                }
+            }
             continue;
         }
         if (taskOffer.kind === 'INSTITUTIONAL_PAID_CONTACT_TASK') {
@@ -1214,6 +1272,7 @@ function storyConversationTaskOfferCompleteForConversation(ledger, completedSess
             const payee = storyConversationTaskCommanderAccount(taskOffer.assigneeActorId);
             const payeePoints = payee && Number(payee.commander.res && payee.commander.res.points) || 0;
             const previousTask = storyConversationClone(taskOffer);
+            const relationshipSnapshot = storyConversationClone(STORY.characterRelationships);
             const settled = typeof storyBudgetSettleInstitutionalTaskPayment === 'function'
                 ? storyBudgetSettleInstitutionalTaskPayment(
                     taskOffer.institutional.escrowReservationId, payment.spec)
@@ -1251,21 +1310,33 @@ function storyConversationTaskOfferCompleteForConversation(ledger, completedSess
                 taskOffer.status = 'COMPLETED';
                 taskOffer.completedAt = now;
                 taskOffer.completionSessionId = completedSession.id;
+                const relationship = storyConversationTaskRelationshipResultApply(
+                    taskOffer, 'TASK_COMMITMENT_KEPT'
+                );
+                if (!relationship.ok) throw new Error('INSTITUTIONAL_TASK_RELATIONSHIP_RESULT_INVALID');
                 const validation = storyConversationSessionValidateLedger(ledger);
                 if (!validation.ok) throw new Error('INSTITUTIONAL_TASK_RECEIPT_INVALID');
             } catch (error) {
                 STORY.stateBudget = budgetSnapshot;
                 if (payee && payee.commander && payee.commander.res) payee.commander.res.points = payeePoints;
-                Object.keys(taskOffer).forEach(key => delete taskOffer[key]);
-                Object.assign(taskOffer, previousTask);
+                storyConversationTaskRollback(taskOffer, previousTask, relationshipSnapshot);
                 continue;
             }
             completed.push(taskOffer.id);
             continue;
         }
+        const previousTask = storyConversationClone(taskOffer);
+        const relationshipSnapshot = storyConversationClone(STORY.characterRelationships);
         taskOffer.status = 'COMPLETED';
         taskOffer.completedAt = now;
         taskOffer.completionSessionId = completedSession.id;
+        const relationship = storyConversationTaskRelationshipResultApply(
+            taskOffer, 'TASK_COMMITMENT_KEPT'
+        );
+        if (!relationship.ok || !storyConversationSessionValidateLedger(ledger).ok) {
+            storyConversationTaskRollback(taskOffer, previousTask, relationshipSnapshot);
+            continue;
+        }
         completed.push(taskOffer.id);
     }
     return completed;
