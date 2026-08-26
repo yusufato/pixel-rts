@@ -23,11 +23,13 @@ depends_on:
   - worktree-reconciliation-no-delete
   - phase-38-13-meeting-closure-routing
   - phase-38-13-private-note-response
+  - phase-38-13-institutional-paid-task
 conflicts_with:
   - bugfix-story-invalid-battle-target-guard
   - bugfix-council-motion-atomicity
   - phase-38-13-meeting-closure-routing
   - phase-38-13-private-note-response
+  - phase-38-13-institutional-paid-task
 created: 2026-08-26
 last_touched: 2026-08-26
 ---
