@@ -1049,17 +1049,72 @@ try {
     runtime.dom.window.storyConversationWorkspaceOpen(listener.id, listener.name, sessionId);
     assert.ok(runtime.dom.window.document.querySelector('[data-conversation-meeting-close]'));
     runtime.dom.window.storyConversationWorkspaceClose();
+    const meetingPlayerActorId = opened.session.playerActorId;
+    const meetingObserverActorIds = meeting.participantActorIds.filter(row =>
+        row !== meetingPlayerActorId);
+    const meetingReverseBefore = Object.fromEntries(meetingObserverActorIds.map(actorId => [
+        actorId, JSON.stringify(runtime.api.relationshipView(meetingPlayerActorId, actorId))
+    ]));
+    const healthyMeetingRelationships = runtime.api.relationshipLedger();
+    let meetingLimitFixtureSequence = 1;
+    while (Object.keys(story.characterRelationships.resultReceipts).length < 256) {
+        story.characterRelationships.resultReceipts[
+            `relationship-result:meeting-limit-fixture:${meetingLimitFixtureSequence++}`
+        ] = {};
+    }
+    const meetingLimitBefore = JSON.stringify({
+        conversation: story.conversationUnderstanding,
+        relationships: story.characterRelationships
+    });
+    const failedLimitClose = runtime.api.conversationMeetingClose(
+        meeting.id, completedVote.outcomeReceipt.id
+    );
+    assert.equal(failedLimitClose.ok, false);
+    assert.equal(failedLimitClose.rolledBack, true);
+    assert.equal(JSON.stringify({
+        conversation: story.conversationUnderstanding,
+        relationships: story.characterRelationships
+    }), meetingLimitBefore, 'A receipt-cap rejection must leave the whole meeting closure untouched.');
+    runtime.api.relationshipRestore(healthyMeetingRelationships);
+    assert.equal(runtime.api.conversationSessionValidate(story.conversationUnderstanding).ok, true);
+    const relationshipsBeforeAdoptedClose = runtime.api.relationshipLedger();
     const closedMeeting = runtime.api.conversationMeetingClose(
         meeting.id, completedVote.outcomeReceipt.id
     );
     assert.equal(closedMeeting.ok, true);
     assert.equal(closedMeeting.closure.outcomeReceiptId, completedVote.outcomeReceipt.id);
-    assert.equal(JSON.stringify(closedMeeting.closure.relationshipResultReceiptIds), '[]');
+    assert.equal(closedMeeting.closure.relationshipResultReceiptIds.length,
+        meetingObserverActorIds.length);
+    const adoptedOutcome = runtime.api.conversationMeetingGet(meeting.id).outcomeReceipts.find(row =>
+        row.id === completedVote.outcomeReceipt.id);
+    assert.equal(JSON.stringify(closedMeeting.closure.relationshipResultReceiptIds),
+        JSON.stringify(adoptedOutcome.relationshipResultReceiptIds));
+    const adoptedVotes = runtime.api.conversationMeetingGet(meeting.id).votes.filter(row =>
+        adoptedOutcome.voteIds.includes(row.id));
+    const adoptedPlayerVote = adoptedVotes.find(row => row.actorId === meetingPlayerActorId);
+    for (let observerIndex = 0; observerIndex < meetingObserverActorIds.length; observerIndex++) {
+        const observerActorId = meetingObserverActorIds[observerIndex];
+        const observerVote = adoptedVotes.find(row => row.actorId === observerActorId);
+        const relationshipReceipt = runtime.api.relationshipResultReceipt(
+            adoptedOutcome.relationshipResultReceiptIds[observerIndex]
+        );
+        assert.equal(relationshipReceipt.fromActorId, observerActorId);
+        assert.equal(relationshipReceipt.toActorId, meetingPlayerActorId);
+        assert.equal(relationshipReceipt.sourceReceiptId, adoptedOutcome.id);
+        const sharedSuccess = adoptedOutcome.decision === 'ADOPTED'
+            && adoptedPlayerVote.choice === 'YES' && observerVote.choice === 'YES';
+        assert.equal(relationshipReceipt.decision, sharedSuccess ? 'APPLIED' : 'NO_CHANGE');
+        assert.equal(JSON.stringify(runtime.api.relationshipView(meetingPlayerActorId, observerActorId)),
+            meetingReverseBefore[observerActorId]);
+    }
     assert.equal(closedMeeting.closure.decision, completedVote.outcomeReceipt.decision);
     assert.equal(closedMeeting.closure.proposalId, null);
     assert.equal(closedMeeting.closure.physicalMutation, false);
+    const adoptedRelationshipSnapshot = runtime.api.relationshipLedger();
+    const duplicateCloseRelationships = JSON.stringify(adoptedRelationshipSnapshot);
     assert.equal(runtime.api.conversationMeetingClose(
         meeting.id, completedVote.outcomeReceipt.id).code, 'MEETING_ALREADY_CLOSED');
+    assert.equal(JSON.stringify(runtime.api.relationshipLedger()), duplicateCloseRelationships);
     assert.equal(runtime.api.conversationMeetingClosureGet(closedMeeting.closure.id).id,
         closedMeeting.closure.id);
     const liveMotion = story.conversationUnderstanding.meetingCases
@@ -1131,6 +1186,7 @@ try {
     for (const vote of rejectedVotes) vote.choice = 'NO';
     rejectedReceipt.tally = { yes: 0, no: rejectedVotes.length, abstain: 0 };
     rejectedReceipt.decision = 'REJECTED';
+    runtime.api.relationshipRestore(relationshipsBeforeAdoptedClose);
     assert.equal(runtime.api.conversationSessionValidate(rejectedOpenSnapshot).ok, true);
     runtime.api.conversationSessionRestore(rejectedOpenSnapshot);
     while (runtime.api.conversationMeetingGet(meeting.id)
@@ -1145,20 +1201,35 @@ try {
         assert.equal(advanced.ok, true);
     }
     const rejectedRequestCountBefore = Object.keys(story.institutions.requests || {}).length;
+    const rejectedEdgesBefore = Object.fromEntries(meetingObserverActorIds.map(actorId => [
+        actorId, JSON.stringify(runtime.api.relationshipView(actorId, meetingPlayerActorId))
+    ]));
     const rejectedClosure = runtime.api.conversationMeetingClose(meeting.id, rejectedReceipt.id);
     assert.equal(rejectedClosure.ok, true);
     assert.equal(rejectedClosure.closure.status, 'CLOSED_REJECTED');
     assert.equal(rejectedClosure.closure.proposalStatus, 'NOT_APPLICABLE_REJECTED');
     assert.equal(rejectedClosure.closure.proposalId, null);
+    for (const [observerIndex, relationshipReceiptId] of rejectedClosure.closure
+        .relationshipResultReceiptIds.entries()) {
+        const relationshipReceipt = runtime.api.relationshipResultReceipt(relationshipReceiptId);
+        const observerActorId = meetingObserverActorIds[observerIndex];
+        assert.equal(relationshipReceipt.decision, 'NO_CHANGE');
+        assert.equal(relationshipReceipt.reason, 'MEETING_REJECTED');
+        assert.equal(JSON.stringify(runtime.api.relationshipView(observerActorId, meetingPlayerActorId)),
+            rejectedEdgesBefore[observerActorId]);
+    }
     assert.equal(runtime.api.conversationMeetingClosureRoute(
         rejectedClosure.closure.id).code, 'MEETING_REJECTED_NO_PROPOSAL');
     assert.equal(Object.keys(story.institutions.requests || {}).length,
         rejectedRequestCountBefore);
     assert.equal(runtime.api.conversationSessionValidate(
         runtime.api.conversationSessionSnapshot()).ok, true);
+    runtime.api.relationshipRestore(adoptedRelationshipSnapshot);
     runtime.api.conversationSessionRestore(adoptedClosedSnapshot);
     assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()),
         JSON.stringify(adoptedClosedSnapshot));
+    assert.equal(JSON.stringify(runtime.api.relationshipLedger()),
+        JSON.stringify(adoptedRelationshipSnapshot));
 
     const completion = runtime.api.conversationSessionBegin('Merhaba, görev için geldim.', {
         listenerActorId: taskTargetActorId

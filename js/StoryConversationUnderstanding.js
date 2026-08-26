@@ -1479,6 +1479,37 @@ function storyConversationMeetingClosureGet(meetingClosureId) {
     return row ? storyConversationClone(row) : null;
 }
 
+function storyConversationMeetingRelationshipResultsApply(ledger, meeting, outcomeReceipt) {
+    if (typeof storyRelationshipApplyResult !== 'function') {
+        return { ok: false, code: 'MEETING_RELATIONSHIP_RESULT_REQUIRED' };
+    }
+    const session = ledger.sessions.find(row => row.id === meeting.sessionId);
+    if (!session) return { ok: false, code: 'MEETING_SESSION_REQUIRED' };
+    const votes = meeting.votes.filter(row => row.motionId === outcomeReceipt.motionId
+        && row.motionVersionId === outcomeReceipt.motionVersionId);
+    const playerVote = votes.find(row => row.actorId === session.playerActorId);
+    const receiptIds = [];
+    for (const actorId of meeting.participantActorIds) {
+        if (actorId === session.playerActorId) continue;
+        const observerVote = votes.find(row => row.actorId === actorId);
+        const noChangeReason = outcomeReceipt.decision !== 'ADOPTED' ? 'MEETING_REJECTED'
+            : !playerVote || playerVote.choice !== 'YES' ? 'PLAYER_VOTE_NOT_YES'
+                : !observerVote || observerVote.choice !== 'YES' ? 'OBSERVER_VOTE_NOT_YES' : null;
+        const result = storyRelationshipApplyResult({
+            sourceType: 'MEETING_OUTCOME', sourceReceiptId: outcomeReceipt.id,
+            fromActorId: actorId, toActorId: session.playerActorId,
+            interpretationType: 'MEETING_SHARED_SUCCESS',
+            noChangeReason
+        });
+        if (!result || !result.receipt) {
+            return { ok: false, code: result && result.reason || 'MEETING_RELATIONSHIP_RESULT_REJECTED' };
+        }
+        receiptIds.push(result.receipt.id);
+    }
+    outcomeReceipt.relationshipResultReceiptIds = receiptIds;
+    return { ok: true, receiptIds };
+}
+
 function storyConversationMeetingClose(meetingCaseId, outcomeReceiptId) {
     const ledger = storyConversationSessionEnsure();
     const meeting = ledger && ledger.meetingCases.find(row => row.id === String(meetingCaseId));
@@ -1501,6 +1532,17 @@ function storyConversationMeetingClose(meetingCaseId, outcomeReceiptId) {
     if (currentActorId !== meeting.chair.actorId) {
         return { ok: false, code: 'MEETING_CHAIR_TURN_REQUIRED', worldMutation: false };
     }
+    const conversationSnapshot = storyConversationClone(ledger);
+    const relationshipSnapshot = storyConversationClone(STORY.characterRelationships);
+    const rollback = code => {
+        STORY.conversationUnderstanding = conversationSnapshot;
+        STORY.characterRelationships = relationshipSnapshot;
+        return { ok: false, code, rolledBack: true, worldMutation: false };
+    };
+    const relationshipResults = storyConversationMeetingRelationshipResultsApply(
+        ledger, meeting, receipt
+    );
+    if (!relationshipResults.ok) return rollback(relationshipResults.code);
     const turnResult = storyConversationMeetingAppendTurn(meeting, {
         actorId: meeting.chair.actorId,
         addressedActorId: null,
@@ -1511,7 +1553,7 @@ function storyConversationMeetingClose(meetingCaseId, outcomeReceiptId) {
         sourceRefs: [meeting.agendaItems[0].id, motion.id, motion.activeVersionId,
             receipt.id, meeting.chair.institutionId]
     });
-    if (!turnResult.ok) return turnResult;
+    if (!turnResult.ok) return rollback(turnResult.code || 'MEETING_CLOSURE_TURN_REJECTED');
     const sequence = ledger.nextMeetingClosureSequence++;
     const closureId = `meeting-closure:${sequence}`;
     const closure = {
@@ -1546,6 +1588,8 @@ function storyConversationMeetingClose(meetingCaseId, outcomeReceiptId) {
     meeting.closureId = closure.id;
     meeting.status = closure.status;
     meeting.updatedAt = closure.closedAt || meeting.updatedAt;
+    const validation = storyConversationSessionValidateLedger(ledger);
+    if (!validation.ok) return rollback('MEETING_RELATIONSHIP_CLOSURE_INVALID');
     return { ok: true, code: 'MEETING_CLOSED', closure: storyConversationClone(closure),
         turn: turnResult.turn, meetingCase: storyConversationClone(meeting), worldMutation: false };
 }
@@ -6113,12 +6157,26 @@ function storyConversationSessionValidateLedger(candidate) {
                     || (relationshipIds.length === expectedRelationshipActors.length
                         && relationshipIds.every((relationshipId, relationshipIndex) => {
                             const relationshipReceipt = relationshipReceipts[relationshipId];
+                            const observerActorId = expectedRelationshipActors[relationshipIndex];
+                            const playerVote = receiptVotes.find(row =>
+                                row.actorId === sourceSession.playerActorId);
+                            const observerVote = receiptVotes.find(row => row.actorId === observerActorId);
+                            const expectedNoChangeReason = receipt.decision !== 'ADOPTED'
+                                ? 'MEETING_REJECTED'
+                                : !playerVote || playerVote.choice !== 'YES' ? 'PLAYER_VOTE_NOT_YES'
+                                    : !observerVote || observerVote.choice !== 'YES'
+                                        ? 'OBSERVER_VOTE_NOT_YES' : null;
                             return relationshipReceipt
                                 && relationshipReceipt.sourceType === 'MEETING_OUTCOME'
                                 && relationshipReceipt.sourceReceiptId === receipt.id
-                                && relationshipReceipt.fromActorId === expectedRelationshipActors[relationshipIndex]
+                                && relationshipReceipt.fromActorId === observerActorId
                                 && relationshipReceipt.toActorId === sourceSession.playerActorId
-                                && relationshipReceipt.interpretationType === 'MEETING_SHARED_SUCCESS';
+                                && relationshipReceipt.interpretationType === 'MEETING_SHARED_SUCCESS'
+                                && (expectedNoChangeReason
+                                    ? relationshipReceipt.decision === 'NO_CHANGE'
+                                        && relationshipReceipt.reason === expectedNoChangeReason
+                                    : relationshipReceipt.decision === 'APPLIED'
+                                        && relationshipReceipt.reason === 'POLICY_APPLIED');
                         })));
                 const tally = receiptVotes.reduce((sum, vote) => {
                     sum[vote.choice.toLowerCase()]++;
