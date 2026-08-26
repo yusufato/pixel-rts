@@ -14,9 +14,11 @@ touches:
 depends_on:
   - worktree-reconciliation-no-delete
   - phase-38-13-meeting-closure-routing
+  - phase-38-13-private-note-response
 conflicts_with:
   - electron-story-lifecycle-acceptance
   - phase-38-13-meeting-closure-routing
+  - phase-38-13-private-note-response
 created: 2026-08-25
 last_touched: 2026-08-26
 ---

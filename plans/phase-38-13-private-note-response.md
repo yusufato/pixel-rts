@@ -1,6 +1,6 @@
 ---
 id: phase-38-13-private-note-response
-status: Approved # User approved 2026-08-26
+status: In Progress # User approved 2026-08-26
 owner: osman
 source: Faz 38.13 / 26 Ağustos 2026 aktif uygulama sırası
 touches:
