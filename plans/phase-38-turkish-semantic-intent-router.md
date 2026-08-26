@@ -25,6 +25,7 @@ depends_on:
 conflicts_with:
   - 25-agustos-hikaye-modu-toplam-bugfix-plani
   - bugfix-council-motion-atomicity
+  - bugfix-story-invalid-battle-target-guard
   - electron-story-lifecycle-acceptance
 created: 2026-08-27
 last_touched: 2026-08-27

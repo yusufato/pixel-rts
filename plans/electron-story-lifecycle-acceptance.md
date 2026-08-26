@@ -25,6 +25,7 @@ depends_on:
   - phase-38-13-private-note-response
   - phase-38-13-institutional-paid-task
   - phase-38-13-directional-relationship-result-receipts
+  - phase-38-turkish-semantic-intent-router
 conflicts_with:
   - bugfix-story-invalid-battle-target-guard
   - bugfix-council-motion-atomicity
@@ -32,6 +33,7 @@ conflicts_with:
   - phase-38-13-private-note-response
   - phase-38-13-institutional-paid-task
   - phase-38-13-directional-relationship-result-receipts
+  - phase-38-turkish-semantic-intent-router
 created: 2026-08-26
 last_touched: 2026-08-26
 ---
