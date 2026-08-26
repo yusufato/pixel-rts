@@ -8,7 +8,7 @@ Bu alan oyuncunun gördüğü bilgi, verebildiği karar ve görsel/etkileşim do
 - [Genel tasarım QA](qa/design-qa.md) — görsel/ürün değerlendirmesi.
 - [Hikâye haritası tasarım QA](qa/story-map-design-qa.md) — harita görünümü ve etkileşim borçları.
 - [Sohbet QA](../story/qa/STORY_DIALOGUE_QA.md) — görüşme arayüzü ve konuşma kalitesi.
-- [Mockup bulguları](../../mockup/BULGULAR.md) — mockup bağlamında yaşayan bulgular; kendi klasöründe kalır.
+- [Mockup bulguları](../../_arsiv/mockup/BULGULAR.md) — arşivlenen mockup bağlamındaki bulgular.
 
 ## Ayrım
 

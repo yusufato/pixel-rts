@@ -881,4 +881,367 @@
 - **Evidence:** `npm run test:story-player-agency` (18/18 test OK) ve `npm run test:story-infrastructure` (20/20 test OK) tüm alt sistemleriyle tam başarıyla geçti; simülasyon adımlarında `trade-shipment:1` aracının ardışık koordinat ilerlemesi (`2169.19` $\to$ `2179.55` $\to$ `2189.05`) ve mod transferi teyit edildi.
 - **Implication for future audits:** Harita etkileşimi (`_mapInteracting`) sırasında asla asenkron `createImageBitmap` veya tam sahne pick registry hesaplaması yapılmamalı; lojistik araçları konumları daima `stepProgressBps` ile enterpole edilmeli.
 
+## 2026-08-25 — Karakter aktivasyon probu kayıt sırasını yürütme sırası sanıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Karakter aktivasyon bütçesi probu runtime sırasını değil görev sicili sırasını ölçüyor
+- **What happened:** Performans düzenlemesi görev sicilini fazlara göre sıralayınca prob `taskOrder` indislerini gerçek callback yürütme sırası kabul edip tam paketi 85/88'de durdurdu.
+- **Evidence:** İzole probda yalnız `schedulerRegistered=false`; görev mevcut ve 15 saniyelik. `Story.js` callback sırası hâlâ behavior -> activation -> actions.
+- **Implication for future audits:** Görev kaydı, faz sırası ve fiili callback yürütmesini ayrı assertion ve alan adlarıyla ölç.
 
+## 2026-08-25 — Karakter aktivasyon görevi kayıp değil
+- **Type:** Refuted
+- **Source:** RCA.md — Karakter aktivasyon bütçesi probu runtime sırasını değil görev sicili sırasını ölçüyor
+- **What happened:** Kırmızı sonucun görevin kaldırılması veya periyodunun değişmesinden kaynaklandığı hipotezi incelendi.
+- **Evidence:** `character-activation` sicilde mevcut ve `intervalSeconds === 15` koşulu geçiyor.
+- **Implication for future audits:** Bileşik boolean sonuçlarını alt koşullara ayırmadan “görev kayıtlı değil” teşhisi koyma.
+
+## 2026-08-25 — Runtime karakter eylemleri aktivasyondan önce çalışmıyor
+- **Type:** Refuted
+- **Source:** RCA.md — Karakter aktivasyon bütçesi probu runtime sırasını değil görev sicili sırasını ölçüyor
+- **What happened:** Görev listesi indisleri eylemin aktivasyondan önce çalıştığını düşündürdü.
+- **Evidence:** `Story.js:1709-1714` gerçek callbackleri behavior, activation, actions sırasıyla çağırıyor.
+- **Implication for future audits:** Metadata dizisinin sırasını fiili yürütme izi olmadan runtime davranışı sayma.
+
+## 2026-08-25 — Aktivasyon probu paralel koşu flake'i değil
+- **Type:** Refuted
+- **Source:** RCA.md — Karakter aktivasyon bütçesi probu runtime sırasını değil görev sicili sırasını ölçüyor
+- **What happened:** 85/88 kesilmesinin işçi paralelliği veya bellek baskısından doğduğu hipotezi incelendi.
+- **Evidence:** Prob izole koşuda deterministik olarak aynı tek alt alanı düşürdü.
+- **Implication for future audits:** Flake teşhisinden önce başarısız probu tek başına ve alt sonuçları görünür biçimde tekrar et.
+
+## 2026-08-25 — Gümrük gelirleri karşılıksız bütçe kredisi üretiyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Dış ticaret gümrük ve transit gelirleri tahsil edilmeden devlet kasasına yazılıyor
+- **What happened:** Yabancı sevkiyat teslimatında ithalat, ihracat ve transit gelirleri devlet bütçelerine kredilendi; escrow yalnız satış bedelini taşıdığı için bu gelirleri ödeyen bir aktör bulunmadı.
+- **Evidence:** 1,26 kargo değerli deterministik örnekte 3 satış bedeli tam olarak satıcı şirkete aktarılırken alıcı devlet 0,1512, satıcı devlet 0,063 karşılıksız nakit aldı; sistem toplamı 0,2142 arttı.
+- **Implication for future audits:** Devlet defterinin kendi içindeki çift kayıt dengesini, bütün aktörler arasındaki para korunumu yerine kullanma.
+
+## 2026-08-25 — Gümrük bedeli ticaret escrow'una dahil değil
+- **Type:** Refuted
+- **Source:** RCA.md — Dış ticaret gümrük ve transit gelirleri tahsil edilmeden devlet kasasına yazılıyor
+- **What happened:** Vergilerin sevkiyat başında alıcıdan ayrılan escrow içinde zaten tahsil edildiği hipotezi incelendi.
+- **Evidence:** Alıcıdan ayrılan ve teslimatta çözülen escrow tam olarak 3 satış bedeli; vergi kredileri ayrıca ve teslimat sonrasında oluşuyor.
+- **Implication for future audits:** Kârlılık hesabında görünen maliyeti gerçek rezervasyon ve settlement hareketi sanma.
+
+## 2026-08-25 — İhracat harcı satıcı şirket gelirinden kesilmiyor
+- **Type:** Refuted
+- **Source:** RCA.md — Dış ticaret gümrük ve transit gelirleri tahsil edilmeden devlet kasasına yazılıyor
+- **What happened:** Satıcı devletin ihracat gelirinin şirket satış bedelinden kesildiği hipotezi incelendi.
+- **Evidence:** Satıcı şirket 3 satış bedelinin tamamını aldı; satıcı devlet buna ek olarak 0,063 bütçe kredisi aldı.
+- **Implication for future audits:** Vergi geliri assertionına her zaman ödeyen taraftaki eş tutarlı hareketi bağla.
+
+## 2026-08-25 — Gümrük yalnız raporlama alanı değil
+- **Type:** Refuted
+- **Source:** RCA.md — Dış ticaret gümrük ve transit gelirleri tahsil edilmeden devlet kasasına yazılıyor
+- **What happened:** Dış ticaret gümrük toplamlarının yalnız memo/UI verisi olduğu ve gerçek nakdi etkilemediği hipotezi incelendi.
+- **Evidence:** `storyBudgetCredit` devlet nakdini ve gelir hesabını değiştirdi; gözlenen nakit artışları yüzde 12 ve yüzde 5 oranlarıyla birebir eşleşti.
+- **Implication for future audits:** Raporlama alanının yanında çağrılan mali mutasyonları ayrı izleyip toplam etkiyi ölç.
+
+## 2026-08-25 — Kayıtlı olduğu söylenen gümrük testi depoda yok
+- **Type:** Confirmed
+- **Source:** RCA.md — Dış ticaret gümrük ve transit gelirleri tahsil edilmeden devlet kasasına yazılıyor
+- **What happened:** Tarihsel LEDGER kaydı `test_customs_and_foreign_trade.js` testinin geçtiğini söylüyor; dosya güncel ağaçta bulunmadığı gibi tüm git geçmişindeki yol araması da sonuç vermiyor.
+- **Evidence:** Depo geneli ad araması yalnız LEDGER kaydını buldu; `git log --all -- tests/test_customs_and_foreign_trade.js test_customs_and_foreign_trade.js` boş döndü. Mevcut `tradeProbe` ise para korunumunu ölçmeden geçiyor.
+- **Implication for future audits:** Test başarı kaydında çalıştırılabilir yol, komut ve saklanan sonuç kanıtı zorunlu olmalı; var olmayan test adına dayanarak özellik doğrulanmış sayılmamalı.
+
+## 2026-08-25 — EXECUTIVE oyuncu seçim sonucuna rağmen makam yetkisini koruyor
+- **Type:** Confirmed
+- **Source:** RCA.md — EXECUTIVE oyuncu seçim sonucuna rağmen yürütme makamını süresiz koruyor
+- **What happened:** Seçim defteri yeni yürütme mandatını Bora Demirel'e verdi; kurum defteri legacy player bayrağını öncelediği için oyuncuyu Cumhurbaşkanı ve yetkili EXECUTIVE saymaya devam etti.
+- **Evidence:** Deterministik 420 saniyelik EXECUTIVE kampanyasında seçim CERTIFIED ve election holder Bora Demirel iken institution holder character:0:0, governance rolü CUMHURBAŞKANI kaldı.
+- **Implication for future audits:** Aynı makamın seçim, kurum, karakter kariyeri ve UI sahiplerini çapraz-defter invariantıyla tek aktöre bağla.
+
+## 2026-08-25 — Varsayılan monarchy rejimi seçimsiz değil
+- **Type:** Refuted
+- **Source:** RCA.md — EXECUTIVE oyuncu seçim sonucuna rağmen yürütme makamını süresiz koruyor
+- **What happened:** Oyuncunun makamda kalmasının varsayılan monarchy rejiminde seçim yapılmamasından doğduğu hipotezi incelendi.
+- **Evidence:** Monarchy PARLIAMENTARY_BALANCE modeline bağlanıyor ve oyuncu ülkesindeki ilk seçim 420. saniyeden önce sertifikalandı.
+- **Implication for future audits:** Kullanıcıya görünen anayasa etiketiyle gerçek rejim/election modelini ayrı doğrula.
+
+## 2026-08-25 — Oyuncu seçimi kazanmadı
+- **Type:** Refuted
+- **Source:** RCA.md — EXECUTIVE oyuncu seçim sonucuna rağmen yürütme makamını süresiz koruyor
+- **What happened:** Oyuncunun seçim zaferi nedeniyle makamda kaldığı hipotezi incelendi.
+- **Evidence:** Kazanan SOCIAL_COMPACT mandatının aktörü Bora Demirel; oyuncu aktörü character:0:0'dır.
+- **Implication for future audits:** Makam devamlılığını liste sonucu veya UI rolünden değil aktör kimliği eşitliğinden sınay.
+
+## 2026-08-25 — Seçim-makam ayrışması yalnız UI bayatlığı değil
+- **Type:** Refuted
+- **Source:** RCA.md — EXECUTIVE oyuncu seçim sonucuna rağmen yürütme makamını süresiz koruyor
+- **What happened:** Sonucun yalnız yönetim ekranı metninin yenilenmemesi olduğu hipotezi incelendi.
+- **Evidence:** Kurumun kanonik officeHolder alanı oyuncuyu döndürdü ve governanceView oyuncuya gerçek EXECUTIVE yetkisi vermeyi sürdürdü.
+- **Implication for future audits:** UI metnini, yetki çözümleyicisini ve kanonik defter sahibini ayrı ayrı karşılaştır.
+
+## 2026-08-25 — Seçim ve yönetim probları oynanabilir EXECUTIVE devrini kapsamıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — EXECUTIVE oyuncu seçim sonucuna rağmen yürütme makamını süresiz koruyor
+- **What happened:** electionProbe varsayılan COMMANDER rolüyle mandat sayımını; governanceProbe ise seçimi çalıştırmadan leader bayrağını elle değiştirmeyi sınadı.
+- **Evidence:** Hiçbir mevcut assertion electionExecutiveHolder, institution EXECUTIVE officeHolder ve oyuncu governance permission aktörlerini aynı seçim sonrası durumda eşitlemiyor.
+- **Implication for future audits:** Birbirinden ayrı yeşil domain problarını entegrasyon kanıtı sayma; kritik sahiplik sınırında gerçek rol ve gerçek transition kullan.
+
+## 2026-08-25 — Governance cache makam devrinde değişmeyen hayali revision kullanıyor
+- **Type:** Confirmed
+- **Source:** Doğrudan runtime ve kaynak denetimi — StoryGovernance/StoryInstitutions
+- **What happened:** Yönetim görünümü cache anahtarı `STORY.institutions.revision` alanına bağlandı; kurum defterinde böyle bir alan olmadığı için değer sürekli 0 kaldı ve makam değişimi cache'i geçersizleştirmedi.
+- **Evidence:** Makam değişiminden önce ve sonra anahtar `country:0|character:0:0|0|0|||` kaldı. Eski görünüm kurumsal makam yok derken cache temizlenince aynı durumda Cumhurbaşkanı ve EXECUTIVE sahibi gösterildi. Geçen governanceProbe ayrıca `president.role=GENELKURMAY BAŞKANI` ve `holdsExecutive=false` sakladı.
+- **Implication for future audits:** Cache anahtarını varlığı varsayılan alanlara değil gerçek artan revision veya kanonik sahiplik imzasına bağla; probe sonuç alanlarını zorunlu assertion yap.
+
+## 2026-08-25 — Başarılı darbe kriz liderini kanonik yürütme makamına getirmiyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Başarılı darbe legacy lider bayrağını değiştiriyor fakat kurum makamını devretmiyor
+- **What happened:** Siyasi kriz başarıyla sonuçlandığında `state.gov.crisisActorId` kriz liderine yazıldı ve sonuç `GOVERNMENT_SEIZED` oldu; kurum katmanı bu alanı okumadığı için seçim mandatındaki eski kişiyi EXECUTIVE sahibi tuttu.
+- **Evidence:** Deterministik başarıda kriz lideri `character:0:1`, kurum yürütme sahibi `character:0:president` Demir Aydoğan oldu. Kurum validatorü çelişkiye rağmen `ok=true` döndü.
+- **Implication for future audits:** Seçim, darbe, istifa ve atama için ayrı bayraklar değil, kurum/kariyer/seçim projeksiyonlarını atomik güncelleyen tek yürütme transition makbuzu kullan.
+
+## 2026-08-25 — Siyasi kriz başarı probu makam devri kanıtı değil
+- **Type:** Refuted
+- **Source:** RCA.md — Başarılı darbe legacy lider bayrağını değiştiriyor fakat kurum makamını devretmiyor
+- **What happened:** `politicalCrisisProbe` içindeki SUCCESS, kanonik iktidar devrinin de gerçekleştiği şeklinde yorumlandı.
+- **Evidence:** Prob kriz durumu, hafıza, aktör kimliği ve sahte toprak mutasyonu olmamasını ölçüyor; institution EXECUTIVE holder veya election mandate sahibini assert etmiyor. Aynı geçen fixture'da makam eski başkanda kaldı.
+- **Implication for future audits:** Bir domain'in terminal durumunu çapraz-domain fiziksel sonuç kanıtı sayma.
+
+## 2026-08-25 — Bütünlük sistemi kanıtlanmış vakaya doğrudan yaptırım uygulamıyor
+- **Type:** Confirmed phase boundary
+- **Source:** StoryIntegrity Faz 32 politika ve deterministik integrityProbe
+- **What happened:** Gerçek bütçe, kurum ve kanıt fişleriyle bir rüşvet vakası `SUBSTANTIATED` oldu; sistem bilinçli olarak yalnız bulgu kaydı üretti, ceza/görevden alma/iade/şirket yaptırımı yazmadı.
+- **Evidence:** Açık rüşvet vakası 6.321/10.000, şüpheli ihale 4.271/10.000 skor aldı; politika `INTEGRITY_FINDING_RECORD_ONLY_PHASE_32` ve her vaka `physicalMutation=false` taşıdı. Kanıtlanmış vaka siyasi kriz riskine girdi olarak okunuyor.
+- **Implication for future audits:** Bu davranışı gizli bug diye düzeltme; önce yaptırım kataloğu ve yetkili kurum sözleşmesini tasarla, ardından fiziksel sonuç katmanı ekle.
+
+## 2026-08-25 — Şirket sahibi rolü kanonik pay sahipliği vermiyor
+- **Type:** Confirmed
+- **Source:** StoryCharacters/StoryCompanies doğrudan runtime karşılaştırması
+- **What happened:** `COMPANY_OWNER` oyuncu sanayi şirketine ve Yönetim Kurulu Başkanı unvanına bağlandı; şirket pay defterinde oyuncu bulunmadı.
+- **Evidence:** `company:0:civil_industry` sahipliği %88 `households:0`, %12 `country:0`; `character:0:0` payı %0. Rol adaptörü yalnız organization binding üzerinden kurul başkanı ve şirket yetkilisi üretti.
+- **Implication for future audits:** Organization binding, officer authority ve equity ownership kavramlarını ayrı doğrula; rol adını pay kanıtı sayma.
+
+## 2026-08-25 — PlayerAgency şirket kredisi kurul onayı yolunu atlıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Şirket kredisi kurul ve yaşam döngüsü kapılarını atlayan ikinci komut yoluna sahip
+- **What happened:** Aynı oyuncu ve kredi kurul kuyruğunda CFO eksikliği nedeniyle ekonomik etkisiz kaldı; PlayerAgency düşük seviye kredi fonksiyonunu doğrudan çağırıp krediyi uyguladı.
+- **Evidence:** Kurul yolu `BOARD_APPROVAL_MISSING`; doğrudan yol şirket nakdi 160→235, borç 0→−75, banka rezervi 1.400→1.325. Validator `ok=true`.
+- **Implication for future audits:** Bir domain eyleminin bütün UI/AI/karakter yollarını tek yetki ve precondition hattında birleştir; yeşil yüzey testlerini ayrı sözleşme kabul etme.
+
+## 2026-08-25 — Feshedilmiş şirket yeni kredi çekebiliyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Şirket kredisi kurul ve yaşam döngüsü kapılarını atlayan ikinci komut yoluna sahip
+- **What happened:** 182,5 sıkıntı gününde iflas edip hukuken feshedilen ve ruhsatı iptal edilen şirket PlayerAgency üzerinden yeni banka kredisi kullandı.
+- **Evidence:** İflas anında `BANKRUPT/DISSOLVED/REVOKED`, 12 tesis `RECEIVERSHIP`, nakit 0 ve borç −77,4375. Sonraki kredi nakdi 10'a, borcu −87,4375'e çıkardı; defter geçerli sayıldı.
+- **Implication for future audits:** Finansal denge doğrulamasına şirket faaliyet durumu ve yasal kapasite invariantlarını ekle.
+
+## 2026-08-25 — Şirket kredi yaşam döngüsü yalnız toplu borç ve faizden oluşuyor
+- **Type:** Confirmed phase gap
+- **Source:** StoryCompanies kaynak-geneli kredi/geri ödeme taraması
+- **What happened:** Banka ve şirkette toplu borç/alacak ile faiz tahakkuku var; kredi kimliği, vade, anapara taksiti, geri ödeme, temerrüt tahsilatı veya tasfiye zararı yok.
+- **Evidence:** `bank.loanIds` açılışta boş oluşturuluyor ve hiçbir yerde doldurulmuyor; `storyCompanyRequestLoan` yalnız toplu hesapları değiştiriyor; tick yalnız faiz öder veya borca ekler.
+- **Implication for future audits:** Kurul bypass düzeltmesini tam kredi ürün tasarımıyla karıştırma; yaşam döngüsünü ayrı ve açık bir fazda kur.
+
+## 2026-08-25 — Ölü ve emekli oyuncu PlayerAgency üzerinden şirketi yönetebiliyor
+- **Type:** Confirmed
+- **Source:** RCA.md — PlayerAgency karakter yaşam durumunu merkezi olarak denetlemiyor
+- **What happened:** Kanonik ölüm/emeklilik geçişi rol adaptörü, kurul makamı ve normal CharacterAction yetkisini doğru kapattı; PlayerAgency aynı kimliğin kredi ve lobi eylemlerini yine uyguladı.
+- **Evidence:** Ölü fixture `DEAD/INACTIVE_CHARACTER`, boş BOARD_CHAIR ve `ACTOR_DEAD` karakter eylemi taşırken kredi +20, lobi −10, borç −20 ve lobi etkisi +0,8 üretti. Emekli fixture `PERSONAL_AGENCY_ONLY` iken kredi/lobi yine başarılı oldu.
+- **Implication for future audits:** Yaşam durumu kontrolünü her binding'e dağıtma; ortak komut yürütücüsünde zorunlu kıl ve bütün eylem ailelerini aynı durum matrisiyle sınay.
+
+## 2026-08-25 — Karakter yaşam defteri otomatik mortalite üretmiyor
+- **Type:** Confirmed phase boundary
+- **Source:** StoryCharacters kariyer/yaşam sözleşmesi ve characterCareerLifecycleProbe
+- **What happened:** Doğum tarihi, yaş, sağlık ve emeklilik uygunluğu bilinmiyor; ölüm/emeklilik yalnız dışarıdan kaynak kimliği verilen transition ile oluşuyor.
+- **Evidence:** Probe `automaticAgeHealthMortality=UNAVAILABLE`, `sourceEventValidation=UNAVAILABLE`, birthDate/ageYears null alanlarını açıkça doğruluyor.
+- **Implication for future audits:** Bu eksikliği rastgele ölüm ekleyerek kapatma; demografik zaman, sağlık olayı, kaynak sicili ve halef kontrol sözleşmesini birlikte tasarla.
+
+## 2026-08-25 — Fiziksel göç kişi sayısını tam koruyor
+- **Type:** Confirmed
+- **Source:** StoryPopulation/StoryHumanMigration kaynak denetimi ve beş hedefli toplum probu
+- **What happened:** Profil bazlı nüfus aktarımı kaynak ve hedef kohortları ile `node.pop` değerini tek işlemde değiştirdi; kapasite beklemesi sonrası mülteci varışı da dünya toplamını değiştirmedi.
+- **Evidence:** 17 kişi kaynakta −17, hedefte +17, dünya deltası 0; populationProbe, needsProbe, opinionProbe, collectiveProbe ve humanMigrationProbe ayrı ayrı 1/1 geçti.
+- **Implication for future audits:** Kişi korunum kapısını yeniden yazma; toplumsal durum aktarımı ve demografik geçişleri onun üstünde ayrı invariantlar olarak kur.
+
+## 2026-08-25 — Göçmenlerin şikâyet hafızası hedefe taşınmıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Göç fiziksel kişiyi taşıyor fakat şikâyet hafızasını bölge kohortunda bırakıyor
+- **What happened:** Aynı profilden 17 kişi komşu bölgeye taşındı ve save uzlaştırması üye sayılarını güncelledi; kaynak ve hedef kamuoyu kayıtlarının kimlik/şiddet içeriği değişmedi.
+- **Evidence:** `movedPeople=17`, `originRecordsUnchanged=true`, `destinationRecordsUnchanged=true`, `lastSaveOk=true`. Kaynakta bulunan kayıtlar hedefe oranlı katkı üretmedi.
+- **Implication for future audits:** Fiziksel toplamın sıfır deltası toplumsal hafıza korunumunu kanıtlamaz; göç fixture'ında taşınan durumun kaynağı ve hedef karışım politikası ayrıca ölçülmeli.
+
+## 2026-08-25 — Organik şehir büyümesi doğum veya yaşlanma modeli değil
+- **Type:** Confirmed phase boundary
+- **Source:** Production.storyCityGrowthTick ve StoryPopulation.storyPopulationReconcile
+- **What happened:** Yıllık büyüme yalnız bölgesel nüfus skalerini değiştiriyor; kohort katmanı yeni toplamı mevcut sabit profil paylarına dağıtıyor.
+- **Evidence:** Nüfus yazma noktası `node.pop`; nüfus uzlaştırması önceki `shareBps` değerlerini koruyor. Doğum, ölüm, yaşlanma, eğitim veya meslek transition'ı bulunmuyor.
+- **Implication for future audits:** Skaler büyümeyi gerçek demografi diye adlandırma; zaman ölçeği ve transition politikası seçilmeden otomatik kohort geçişi ekleme.
+
+## 2026-08-25 — Taktik birlik kaybı bölgesel nüfus kaybına bağlı değil
+- **Type:** Confirmed phase boundary
+- **Source:** Story.storyOnBattleEnd ve nüfus yazma noktası taraması
+- **What happened:** Ölen birlikler gerçek ordu havuzundan kalıcı düşüyor ve savaşan komutanlardan sabit 30 insan gücü eksiliyor; öldürme sayısı hiçbir bölgenin kohort nüfusunu azaltmıyor.
+- **Evidence:** Savaş sonucu birlik havuzu/survivor dönüşünü ve `warDebit(-30)` işlemini içeriyor; `node.pop` yazımları şehir büyümesi ve StoryPopulation göç kapısıyla sınırlı.
+- **Implication for future audits:** Birlik başına kişi, askerî personelin kaynak bölgesi ve sivil/asker ayrımı seçilmeden savaş kaybını nüfusa bağlama.
+
+## 2026-08-25 — Mod değiştiren kaynak yönlendirmesi eski terminal yuvasını sızdırıyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Rota değişimi yeni taşıma ajanını bağlamadan eski terminal üyeliğini bırakmıyor
+- **What happened:** RAIL terminalinde yüklenen sevkiyat kaynakta LAND rotasına yönlendirildi; aynı agent kimliği hem eski RAIL hem yeni LAND terminalinde aktif kaldı.
+- **Evidence:** Eski anahtar `RAIL:6877:LOAD`, yeni anahtar `LAND:6877:LOAD`; `keyChanged=true`, `staleOldOccupancy=true`. RAIL terminali iki yuvalıdır.
+- **Implication for future audits:** Rota rezervasyonunu değiştirmek terminal kaydını otomatik bırakmaz; reroute testinde eski ve yeni bütün kaynak sahiplerini karşılaştır.
+
+## 2026-08-25 — HELD sevkiyat rota rezervasyonunu kaybedebiliyor
+- **Type:** Confirmed
+- **Source:** StoryRoutePlanner/StoryTransportAgents çapraz runtime fixtürü
+- **What happened:** Canlı yük blokajda beklerken sabit süreli segment rezervasyonu saat bazında sona erdi; sevkiyat iptal edilmedi veya yeni lease almadı.
+- **Evidence:** 1.051 birim shipment `HELD`, ilk rezervasyon `EXPIRED`; aynı segmentler için ikinci 1.051 birim rezervasyon `ok=true`.
+- **Implication for future audits:** Reservation validatorünü kendi içinde geçerli saymak yerine owner shipment'ın yaşam durumu ve devam hakkıyla bağla.
+
+## 2026-08-25 — Kanonik koridorlar transit gelirinin okuduğu sahiplik alanını üretmiyor
+- **Type:** Confirmed / Prior claim corrected
+- **Source:** StoryInfrastructure şema taraması ve 631 koridorluk runtime snapshot
+- **What happened:** Tarihsel kayıt ve önceki ekonomi incelemesi üçüncü ülke başına yüzde 2 transit gelirini mümkün kabul etti; çalışan kod `corridor.ownerCountryId` okuyor fakat kanonik koridorlarda bu alan yok.
+- **Evidence:** `withOwnerCountryId=0/631`; bütün erişim politikaları `ENDPOINT_OWNERS`. Depoda `ownerCountryId` yazan koridor üreticisi bulunmadı.
+- **Implication for future audits:** Önceki “transit geliri de karşılıksız para üretir” ifadesi güncel runtime için çürütüldü. İthalat/ihracatın +0,2142 para üretimi doğrulanmış kalır; transit ise ölü daldır.
+
+## 2026-08-25 — İnsan göçü ve ticari yük aynı segment kapasitesini paylaşmıyor
+- **Type:** Confirmed phase boundary
+- **Source:** StoryHumanMigration diagnostics ve rota/rezervasyon kaynak taraması
+- **What happened:** Göç akışı gerçek altyapı rotası arıyor fakat route planner kapasite rezervasyonu oluşturmuyor.
+- **Evidence:** Göç defteri `sharedTradeCapacityReservation:false` bildiriyor; transfer akışında reserve/release çağrısı yok.
+- **Implication for future audits:** Ortak kapasiteyi küçük bugfix diye ekleme; yolcu/tonaj birimi, insani öncelik ve ticaret etkisi birlikte tasarlanmalı.
+
+## 2026-08-25 — Barış mevcut kuşatmayı sonraki tikte iptal ediyor
+- **Type:** Refuted
+- **Source:** StoryAI düşmanlık kapıları ve deterministik peaceProbe
+- **What happened:** Savaş sırasında başlayan kuşatmanın sonradan yapılan barışa rağmen fetihle sonuçlanacağı hipotezi sınandı.
+- **Evidence:** Hedef seçimi, kuşatma başlangıcı, kuşatma tiki, çözüm ve fetih ayrı `storyIsHostile` denetimleri taşıyor; barışta kuşatma temizleniyor. peaceProbe 28 barış kenarında sahiplik olayı üretmedi.
+- **Implication for future audits:** Aynı korumayı gereksiz yeniden tasarlama; barış-sırasında-kuşatma regresyonuyla sabitle.
+
+## 2026-08-25 — Emekli oyuncu harita yoluyla savaş ilan edebiliyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Harita saldırısı kanonik savaş ilanı yetki kapısını atlıyor
+- **What happened:** Oyuncu kanonik olarak emekli edilip yürütme makamından çıkarıldı; diplomasi PlayerAgency yolu reddederken harita saldırısı treaty'yi değiştirdi.
+- **Evidence:** `life=RETIRED`, agency `DIPLOMACY_LOCKED`, treaty `peace→war`, PlayerAgency receipt sayısı `0`.
+- **Implication for future audits:** Bir eylem ailesinin yetkili binding'i bulunması diğer doğrudan UI yollarının korunduğunu kanıtlamaz; savaş ilanını tek domain komutuna indir.
+
+## 2026-08-25 — Fetih makbuzu bağımlı sahiplik defterlerini geçici olarak geçersiz bırakıyor
+- **Type:** Confirmed
+- **Source:** StoryCausality/StoryPopulation çapraz runtime fixtürü
+- **What happened:** Bölge sahipliği başarıyla değişti, fakat nüfus, ihtiyaç ve kamuoyu bir sonraki scheduler uzlaştırmasına kadar eski ülkeyi gösterdi.
+- **Evidence:** `region:25 owner=0` iken nüfus `country:1`; population validator `POPULATION_OWNER_MISMATCH` ve 12 `POPULATION_COHORT_LINK` üretti. Causality-world validator aynı anda `ok=true`; 30 saniye sonra nüfus zinciri `country:0` oldu.
+- **Implication for future audits:** Kanonik alanın atomik değişmesi tüm dünya transaction'ının atomik olduğu anlamına gelmez; transfer sonrası çapraz-defter invariantı kur.
+
+## 2026-08-25 — Fethedilen bölgede kamuoyu gerçek şirket yerine yeni ülke şirketini suçluyor
+- **Type:** Confirmed
+- **Source:** StoryOpinion attribution ve StoryCompanies region view karşılaştırması
+- **What happened:** Bölgedeki tesisler eski ülke şirketlerinde kaldı; nüfus yeni ülkeye uzlaşınca opinion katmanı sektör aktörünü yalnız yeni countryId'den türetti.
+- **Evidence:** `region:25` tesis/şirket ülkesi `country:1`; şikâyet aktörleri arasında `company:0:agriculture`, `company:0:energy` ve `company:0:civil_industry` var.
+- **Implication for future audits:** Yabancı tesis mülkiyeti ürün kararıdır; fakat “işveren/tedarikçi” sorumluluğu gerçek bölgesel işletmeciden çözülmelidir.
+
+## 2026-08-25 — Yüksek kademe araştırma önceliği yürütülemiyor
+- **Type:** Confirmed
+- **Source:** RCA.md — Yüksek kademe araştırma önceliği hiçbir yürütücünün tüketmediği başarı makbuzu üretiyor
+- **What happened:** Available Kademe 3 araştırma PlayerAgency ile başarıyla önceliklendirildi; rutin motor yalnız Kademe 1–2'yi taradığı için hedef hiçbir zaman aday olmadı.
+- **Evidence:** `heavybat` için `player-action:1`; 40 tur sonra 8.697 fon, hedef hâlâ available ve priority alanı hâlâ `heavybat`.
+- **Implication for future audits:** Niyet alanının yazılması eylemin yürütülebilir olduğunu kanıtlamaz; producer ve consumer aynı eligibility sözleşmesini paylaşmalı.
+
+## 2026-08-25 — Teknoloji paneli PlayerKnowledge filtresini atlıyor
+- **Type:** Confirmed
+- **Source:** Sis-açık teknoloji UI fixtürü ile worldV2/projection karşılaştırması
+- **What happened:** Genel bilgi katmanı yabancı kesin değerleri kapatırken teknoloji paneli ham devlet dizisinden rakip araştırma sayısını okudu.
+- **Evidence:** `fog=true`; foreign resources `UNKNOWN/value=null`; genel projection exact leak=false; panel “İber Federasyonu 7 teknoloji” gösterdi.
+- **Implication for future audits:** PlayerKnowledge'ın varlığı bütün panellerin onu kullandığı anlamına gelmez; her render girişinin veri kaynağını sınayıp ham dünya erişimini envanterle.
+
+## 2026-08-25 — Çağ savaş metriği sınırı olmayan devlet çiftini sayıyor
+- **Type:** Confirmed
+- **Source:** Era.storyEraMetrics kaynak denetimi ve topoloji fixtürü
+- **What happened:** Yorum “komşu devlet çiftleri” derken metrik bütün yaşayan devlet çiftlerini payda ve aday olarak kullandı.
+- **Evidence:** 10 komşuluk, 28 bütün çift; sınırı olmayan 0–1 savaşı `war=1/28` üretti, komşuluk sözleşmesinde beklenen 0'dı.
+- **Implication for future audits:** Metrik yorumunu gerçek hesap sayma; payda ve topoloji duyarlılığını ters örnekle doğrula.
+
+## 2026-08-25 — Ahit bozma çağ çalkantısına bağlanmıyor
+- **Type:** Confirmed
+- **Source:** Era olay çağrıları ve treaty kırma runtime fixtürü
+- **What happened:** Barış savaşa çevrilip ilişki/itibar bedeli uygulandı; çağ olay defteri değişmedi.
+- **Evidence:** `storyBreakTreaty=true`, treaty `war`, `_eraEvents=[]`; kaynak çağrıları yalnız grev, sermaye kaçışı ve firarda bulundu.
+- **Implication for future audits:** Anlatıda sayılan olayların kanonik event adapterine bağlı olduğunu doğrula; dağınık manuel çağrıları eksiksiz sanma.
+
+## 2026-08-25 — Ticari müzakere fiziksel sözleşmeye güvenli biçimde bağlanıyor
+- **Type:** Confirmed healthy contract
+- **Source:** conversationUnderstanding ve negotiationDeliveryLifecycle probları
+- **What happened:** Serbest metin aday/inceleme/müzakere/preflight zincirinden gerçek teslimat yükümlülüğüne geçti; yalnız taraf kabulü dünya mutasyonu üretmedi.
+- **Evidence:** KEPT, BROKEN, BREACH_PAYMENT_PENDING ve RESALE yollarında escrow bir kez ayrıldı; finans/ilişki idempotent, altı validator geçerli ve save/load exact kaldı. Ticari ihlal savaş uyduramadı; anayasal savaş tam rejim yetkisi istedi.
+- **Implication for future audits:** Konuşma metnini mekanik sonuç sayma; mevcut review→acceptance→preflight→contract zincirini yeni domainlerde koru.
+
+## 2026-08-25 — Uzun konuşma yabancı hafızayı veya ham dünyayı okumuyor
+- **Type:** Confirmed healthy contract
+- **Source:** conversationRuntime385Probe
+- **What happened:** Çok turlu oturum karakterin kendi hafıza recall kaynağıyla sürdü, yabancı hafızayı gizledi ve dünya durumunu değiştirmedi.
+- **Evidence:** 23 takip kabul edildi, limitte durdu; `memoryForeignHidden=true`, `memoryRawWorldRead=false`, `worldNeutral=true`, save/load exact=true.
+- **Implication for future audits:** LLM/konuşma bağlamına ham dünya ekleme; bilgi sahipliği ve token bütçesi sınırını koru.
+
+## 2026-08-25 — Dokuz özel konuşma senaryosu yalnız laboratuvar kaydı
+- **Type:** Confirmed phase boundary
+- **Source:** dialogueScenarioLabProbe
+- **What happened:** Grev, ihale, seferberlik, yaptırım, mülteci, banka, esir, boru hattı ve darbe konuşmaları doğru aday dalları üretti fakat üretim domain komutuna bağlanmadı.
+- **Evidence:** Katalog tam, deterministik ve geçerli; bütün adaylar non-executable, oturumlar `SCENARIO_LAB_ONLY`, durum `OPEN_COMPOSITIONAL_ADAPTER_DEBT`.
+- **Implication for future audits:** Bu güvenli fallback'i bug diye executable yapma; her senaryoyu gerçek domain yetki/preflight/makbuz zincirine ayrı bağla.
+
+## 2026-08-25 — Fiziksel hex ve ölçekleme altyapısı hedefli doğrulamaları geçti
+- **Type:** Confirmed healthy contracts
+- **Source:** activation/aggregation/decisionTrace/relationship/cityDossier/projection/hex hedefli probları ve yedi bağımsız hex-render testi
+- **What happened:** Kaynak envanterinde kanonik belgede eksik görünen fiziksel coğrafya, site/inşaat, aktivasyon, toplulaştırma, bilgi projeksiyonu ve görsel katalog katmanları güncel testlerle doğrulandı.
+- **Evidence:** On iki manifest görevi ve doğal kaynak, tarım, site, inşaat, inşaat başvurusu, görsel katalog, map renderer testleri exit 0 verdi. Tarım kanıt yokken aday kaldı; aktivasyon UI-neutral, aggregation korunumlu, yabancı şehir görünümü bilgi filtreliydi.
+- **Implication for future audits:** Bu katmanları dekor veya ölü dosya diye arşivleme; salt-okunur/türetilmiş sözleşmeleri kanonik mutasyon katmanlarından ayrı koru.
+
+## 2026-08-25 — Konsey önergeleri eski ve ayrıntılı dünya gerçeklerini ayırıyor
+- **Type:** Confirmed architecture seam
+- **Source:** Council kaynak denetimi ve census/roads/arsenal runtime karşı örnekleri
+- **What happened:** Konsey ödemeyi kısmen kanonik bütçeden yaptı fakat sonucu nüfus, stok, altyapı veya hex inşaat domain komutu yerine doğrudan stratejik cüzdan ve şehir alanlarına yazdı.
+- **Evidence:** 551.133 kişilik kohort defteri exact kalırken census +450 manpower/+450 oil üretti; yollar 25 wealth üretirken yol ağı/iş emri aynı kaldı; cephanelik inşaat makbuzu olmadan bina seviyesini artırdı.
+- **Implication for future audits:** Aynı isimli stratejik ve ayrıntılı kaynağı otomatik eşdeğer sayma; kullanıcı üst-katman kararından sonra her konsey maddesini tek domain komutu ve correlationId ile bağla.
+
+## 2026-08-25 — Konsey önerge exception'ı ödeme sonrası sahte başarı üretiyor
+- **Type:** Confirmed bug
+- **Source:** `storyCouncilApply` kaynak denetimi ve kontrollü effect-failure runtime fixtürü
+- **What happened:** Önerge etkisi exception üretti; boş catch hatayı yuttu, ödeme geri alınmadı ve fonksiyon başarı metni döndürdü.
+- **Evidence:** Otoyol fixtüründe nakit 3000→2850, wealth 0, dönüş “Otoyol Yatırım Programı kabul edildi”.
+- **Implication for future audits:** Ödeme ve domain etkisini tek transaction/makbuz sınırında tut; exception güvenliği sessiz yutma değil açık ret veya tam rollback olmalıdır.
+
+
+## 2026-08-25 — Electron harita kabulü kalıcı raster belleğini ve açılış dilim aşımını doğruladı
+- **Type:** Measured
+- **Source:** `OPTIMIZATIONS.md` — Electron dünya haritası açılış/render incelemesi
+- **What happened:** İzole kullanıcı profilli gerçek Electron maptest sabit render hedefini karşıladı; buna karşılık şehir katmanları 986,3 MiB tuttu ve 4 ms bütçeli doğal-yüzey işi 109,6 ms'lik dilim üretti. Doğal yüzey byte sayacı, kaynak canvas ile birlikte tutulan yaklaşık 109,3 MiB'lık karo kopyasını rapora katmıyor.
+- **Evidence:** Uzak/orta/yakın p95 15,4/13,1/16,3 ms; etkileşim p95 13,7 ms; katman toplamı 1.194,1 MiB; `cityBytes=1.034.257.408`; doğal yüzey `buildMs=19.037`, `maxSliceMs=109,6`, `frameBudgetMs=4`. Kaynak denetiminde `_hexNaturalContentsCanvas` ve eş boyutlu karo canvas'ları birlikte tutuluyor.
+- **Implication for future audits:** Sürekli 50 FPS varsayımını yeniden raporlama; sabit render sağlıklı. Önce kalıcı şehir/doğal yüzey belleğini ve başlangıç dilim bütçesini ölç; maptest'in border, transport sample ve hover kırmızılarını ürün regresyonu saymadan test zamanlaması/ölçümünü düzelt.
+
+## 2026-08-25 — Electron testleri hikâye savaş yaşam döngüsünü birleştirmiyor
+- **Type:** Confirmed
+- **Source:** TEST_GAPS.md — TG-31
+- **What happened:** UITEST dünya ekranında bitiyor, BATTLETEST yalnız Hızlı Maç açıyor, PLAYTEST bütün confirm kararlarını reddediyor; başsız dünya harness'ı savaş girişini ve yenilgi denetimini stub'lıyor.
+- **Evidence:** electron/main.js içindeki UITEST, BATTLETEST ve PLAYTEST gövdeleri ile tools/story-sim-harness.js:297-299; paket komutlarında gerçek hikâye saldırısı→mode:story savaş→sonuç→ödül→ikinci süreçte Continue zinciri yok.
+- **Implication for future audits:** Bu ayrı testlerin birlikte yeşil olmasını hikâye modu uçtan uca kabulü sayma; yaşam döngüsü güveni ancak üretim köprüsünü ve yeni Electron sürecinde kayıt/devamı kullanan tek E2E ile kurulabilir.
+
+## 2026-08-26 — Geniş arşiv planı tamamlanan önekiyle kapatıldı
+- **Type:** Executed
+- **Source:** BACKLOG.md plan register — 25-agustos-arsiv-duzenlemesi
+- **What happened:** Kullanıcının durdurduğu toplu arşivleme hedefi yeniden açılmadı; gerçekleşen doğrulanmış taşıma öneki tutarlı bırakıldı ve kalan belge yönlendirme işi 25-agustos-belge-hedefleme-duzeni planına geçti.
+- **Evidence:** Planın kendi 25 Ağustos yürütme kaydı, güncel iş ağacındaki arşiv taşımaları ve kullanıcının güncele yakın dosyaları koruma kararı.
+- **Implication for future audits:** 25-agustos-arsiv-duzenlemesi planını yeniden yürütme veya açık iş kaynağı sayma; yeni arşiv taleplerini kanıt kapılı ayrı plan olarak aç.
+
+## 2026-08-26 — Dokuz lab-only konuşma adaptörü bu bugfix döngüsünde reddedildi
+- **Type:** Rejected
+- **Source:** BACKLOG.md Won't Do — TEST_GAPS TG-28
+- **What happened:** Grev, ihale, seferberlik, yaptırım, mülteci, banka, esir, boru hattı ve darbe senaryolarını topluca executable yapma işi 10 kişi-günlük bugfix döngüsüne alınmadı.
+- **Evidence:** Mevcut davranış güvenli SCENARIO_LAB_ONLY fallback'tir; dokuz ayrı domain yetki/preflight/makbuz entegrasyonu gerekir ve kapasiteyi aşar.
+- **Implication for future audits:** TG-28'i genel bugfix olarak yeniden önermeyin; kullanıcı tek bir senaryoyu ürün hedefi seçerse o domain için ayrı planla yeniden açın.
+
+## 2026-08-26 — 10 kişi-günlük bugfix döngüsü onaylandı
+- **Type:** User decision
+- **Source:** 25 Ağustos Atlas Operasyonu kapasite ve triage görüşmesi
+- **What happened:** Tek geliştiricilik çalışma için 10 kişi-gün sınırı onaylandı. İlk sıra gerçek Electron hikâye yaşam döngüsü, sonra konsey atomikliği ve reroute terminal sızıntısı olarak sabitlendi; 2 gün tampon korundu.
+- **Evidence:** Kullanıcının açık “onaylıyorum” kararı ve `BACKLOG.md` Now dağılımı. Ayrıntılı `electron-story-lifecycle-acceptance` planı Draft olarak üretildi; kaynak kod uygulama onayı henüz verilmedi.
+- **Implication for future audits:** Döngü onayını bütün Draft planların otomatik uygulama yetkisi sayma. Her ayrıntılı plan ayrı onay almalı; kapasiteyi aşan yeni iş ancak tampon veya açık takas kararıyla Now'a girebilir.
+
+## 2026-08-26 — TG-06 Electron yaşam döngüsü kümesinden çıkarıldı
+- **Type:** Falsified plan assumption
+- **Source:** BACKLOG ayrıntılandırma denetimi ve TEST_GAPS.md kaynak karşılaştırması
+- **What happened:** TG-06'nın Electron savaş/harita kabulü değil, karakter aktivasyon probunun metadata yerine gerçek callback davranışını ölçmesiyle ilgili olduğu görüldü. 3,5 günlük Electron planından çıkarılıp tetikleyicili Next işi yapıldı.
+- **Evidence:** TEST_GAPS.md TG-06 konumu `tools/story-sim-harness.js:16183`; Electron yaşam döngüsü kanıtları TG-01, TG-31, TG-32 ve TG-33 altında.
+- **Implication for future audits:** Bulgu kimliklerini yalnız ortak “yanlış güven” etiketiyle kümelendirme; kapatılacak üretim sınırı ve dokunulan kaynak yüzeyiyle yeniden doğrula.
