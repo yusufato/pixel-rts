@@ -211,6 +211,11 @@ try {
         opened.session.listenerActorId, 'Kaynak planının ayrıntısını toplantıdan sonra ikili ele alalım.');
     assert.equal(privateNoteResult.ok, true);
     assert.equal(privateNoteResult.privateNote.visibility, 'BILATERAL_PRIVATE');
+    assert.equal(privateNoteResult.privateNote.schemaVersion, 2);
+    assert.equal(privateNoteResult.privateNote.kind, 'PLAYER_NOTE');
+    assert.equal(privateNoteResult.privateNote.replyToPrivateNoteId, null);
+    assert.equal(privateNoteResult.privateNote.generationMode, 'PLAYER_AUTHORED');
+    assert.equal(privateNoteResult.privateNote.knowledgePolicy.rawWorldRead, false);
     const meetingAfterNote = runtime.api.conversationMeetingGet(meeting.id);
     assert.equal(JSON.stringify(meetingAfterNote.visibilityMatrix
         .filter(row => row.visiblePrivateNoteIds.includes(privateNoteResult.privateNote.id))
@@ -510,7 +515,7 @@ try {
     runtime.dom.window.storyConversationWorkspaceClose();
 
     const openMeetingSnapshot = runtime.api.conversationSessionSnapshot();
-    assert.equal(runtime.api.conversationSessionRestore(openMeetingSnapshot).schemaVersion, 5);
+    assert.equal(runtime.api.conversationSessionRestore(openMeetingSnapshot).schemaVersion, 6);
     assert.equal(runtime.api.conversationMeetingGet(meeting.id).status, 'OPEN_NO_DECISION_ADAPTER');
     assert.equal(JSON.stringify(runtime.api.conversationSessionSnapshot()),
         JSON.stringify(openMeetingSnapshot));
@@ -716,7 +721,7 @@ try {
     uninvolvedVisibility.visiblePrivateNoteIds.push(note.id);
     assert.ok(runtime.api.conversationSessionValidate(forgedPrivateVisibility).issues
         .some(row => row.code === 'MEETING_VISIBILITY_MATRIX'));
-    assert.equal(runtime.api.conversationSessionRestore(snapshot).schemaVersion, 5);
+    assert.equal(runtime.api.conversationSessionRestore(snapshot).schemaVersion, 6);
     const restoredSnapshot = runtime.api.conversationSessionSnapshot();
     const restoreDifference = firstDifference(restoredSnapshot, snapshot);
     assert.equal(restoreDifference, null, `Kayıt geri yükleme farkı: ${JSON.stringify(restoreDifference)}`);
@@ -735,8 +740,8 @@ try {
         delete session.conversationCase;
     }
     const migrated = runtime.api.conversationSessionMigrate(legacy);
-    assert.equal(migrated.schemaVersion, 5);
-    assert.equal(migrated.adapterVersion, 'story-conversation-session-ledger-5');
+    assert.equal(migrated.schemaVersion, 6);
+    assert.equal(migrated.adapterVersion, 'story-conversation-session-ledger-6');
     assert.ok(migrated.sessions.every(session => session.conversationCase
         && session.conversationCase.modeHistory.length === 1));
     assert.equal(runtime.api.conversationSessionValidate(migrated).ok, true);

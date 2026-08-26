@@ -656,8 +656,8 @@ function storyConversationContract() {
 // NegotiationCase değildir: karakter henüz kabul/ret vermemiş, dünya komutu
 // oluşmamıştır. Oyuncunun cümle ve açıklamalarını kaybolmayan, sınırlandırılmış
 // bir mekanik inceleme adayına taşır. Gerçek söz/borç/anlaşma Faz 38.3'e aittir.
-const STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 5;
-const STORY_CONVERSATION_SESSION_ADAPTER_VERSION = 'story-conversation-session-ledger-5';
+const STORY_CONVERSATION_SESSION_SCHEMA_VERSION = 6;
+const STORY_CONVERSATION_SESSION_ADAPTER_VERSION = 'story-conversation-session-ledger-6';
 const STORY_CONVERSATION_SESSION_LIMIT = 32;
 const STORY_CONVERSATION_TASK_OFFER_LIMIT = 64;
 const STORY_CONVERSATION_MEETING_LIMIT = 16;
@@ -1399,9 +1399,17 @@ function storyConversationMeetingSendPrivateNote(meetingCaseId, recipientActorId
     }
     const sequence = meeting.privateNotes.length + 1;
     const note = {
-        schemaVersion: 1, id: `${meeting.id}:private-note:${sequence}`, sequence,
+        schemaVersion: 2, id: `${meeting.id}:private-note:${sequence}`, sequence,
+        kind: 'PLAYER_NOTE', replyToPrivateNoteId: null,
         authorActorId, recipientActorId: recipient, text: normalized,
         visibility: 'BILATERAL_PRIVATE', sourceTurnId: null,
+        sourceRefs: [], grounding: null, stance: null,
+        knowledgePolicy: {
+            agendaVisible: true, priorPublicTurnsVisible: false,
+            rootPrivateNoteOnly: true, otherPrivateContextReadable: false,
+            rawWorldRead: false
+        },
+        generationMode: 'PLAYER_AUTHORED', publicTurnCountAtReply: null,
         createdAt: Number(STORY.clock) || 0, worldMutation: false
     };
     meeting.privateNotes.push(note);
@@ -2092,7 +2100,8 @@ function storyConversationMeetingGenerateCharacterTurn(meetingCaseId, addressedA
 function storyConversationSessionMigrateLedger(saved) {
     const ledger = storyConversationClone(saved);
     if (!ledger || typeof ledger !== 'object'
-        || ![1, 2, 3, 4, STORY_CONVERSATION_SESSION_SCHEMA_VERSION].includes(Number(ledger.schemaVersion))) return null;
+        || ![1, 2, 3, 4, 5, STORY_CONVERSATION_SESSION_SCHEMA_VERSION]
+            .includes(Number(ledger.schemaVersion))) return null;
     ledger.schemaVersion = STORY_CONVERSATION_SESSION_SCHEMA_VERSION;
     ledger.adapterVersion = STORY_CONVERSATION_SESSION_ADAPTER_VERSION;
     ledger.nextTaskOfferSequence = Number.isInteger(ledger.nextTaskOfferSequence)
@@ -2108,6 +2117,29 @@ function storyConversationSessionMigrateLedger(saved) {
         if (!Object.prototype.hasOwnProperty.call(meeting, 'closureId')) meeting.closureId = null;
         if (!Array.isArray(meeting.turns)) meeting.turns = [];
         if (!Array.isArray(meeting.privateNotes)) meeting.privateNotes = [];
+        for (const note of meeting.privateNotes) {
+            note.schemaVersion = 2;
+            if (!Object.prototype.hasOwnProperty.call(note, 'kind')) note.kind = 'PLAYER_NOTE';
+            if (!Object.prototype.hasOwnProperty.call(note, 'replyToPrivateNoteId')) {
+                note.replyToPrivateNoteId = null;
+            }
+            if (!Array.isArray(note.sourceRefs)) note.sourceRefs = [];
+            if (!Object.prototype.hasOwnProperty.call(note, 'grounding')) note.grounding = null;
+            if (!Object.prototype.hasOwnProperty.call(note, 'stance')) note.stance = null;
+            if (!note.knowledgePolicy || typeof note.knowledgePolicy !== 'object') {
+                note.knowledgePolicy = {
+                    agendaVisible: true, priorPublicTurnsVisible: false,
+                    rootPrivateNoteOnly: true, otherPrivateContextReadable: false,
+                    rawWorldRead: false
+                };
+            }
+            if (!Object.prototype.hasOwnProperty.call(note, 'generationMode')) {
+                note.generationMode = 'PLAYER_AUTHORED';
+            }
+            if (!Object.prototype.hasOwnProperty.call(note, 'publicTurnCountAtReply')) {
+                note.publicTurnCountAtReply = null;
+            }
+        }
         for (const turn of meeting.turns) {
             if (!Object.prototype.hasOwnProperty.call(turn, 'grounding')) turn.grounding = null;
             if (!Object.prototype.hasOwnProperty.call(turn, 'stance')) turn.stance = null;
@@ -5084,9 +5116,11 @@ function storyConversationSessionValidateLedger(candidate) {
             add('MEETING_TURNS', `${at}.turns`);
         }
         const agendaIds = (meeting.agendaItems || []).map(row => row.id);
-        const privateNoteIds = (meeting.privateNotes || []).map(row => row && row.id);
-        if (!Array.isArray(meeting.privateNotes) || meeting.privateNotes.length > 24
-            || meeting.privateNotes.some((note, noteIndex) => !note
+        const privateNotes = Array.isArray(meeting.privateNotes) ? meeting.privateNotes : [];
+        const privateNoteIds = privateNotes.map(row => row && row.id);
+        const replyCounts = new Map();
+        const invalidPrivateNote = privateNotes.some((note, noteIndex) => {
+            if (!note || note.schemaVersion !== 2
                 || note.id !== `${meeting.id}:private-note:${noteIndex + 1}`
                 || note.sequence !== noteIndex + 1
                 || !meeting.participantActorIds.includes(note.authorActorId)
@@ -5094,7 +5128,59 @@ function storyConversationSessionValidateLedger(candidate) {
                 || note.authorActorId === note.recipientActorId
                 || note.visibility !== 'BILATERAL_PRIVATE'
                 || typeof note.text !== 'string' || note.text.length < 2 || note.text.length > 600
-                || note.worldMutation !== false)) {
+                || !Array.isArray(note.sourceRefs)
+                || !note.knowledgePolicy
+                || note.knowledgePolicy.agendaVisible !== true
+                || note.knowledgePolicy.rootPrivateNoteOnly !== true
+                || note.knowledgePolicy.otherPrivateContextReadable !== false
+                || note.knowledgePolicy.rawWorldRead !== false
+                || note.worldMutation !== false
+                || !Number.isFinite(note.createdAt)) return true;
+            if (note.kind === 'PLAYER_NOTE') {
+                return note.authorActorId !== (sourceSession && sourceSession.playerActorId)
+                    || note.replyToPrivateNoteId !== null
+                    || note.sourceTurnId !== null
+                    || note.sourceRefs.length !== 0
+                    || note.grounding !== null || note.stance !== null
+                    || note.generationMode !== 'PLAYER_AUTHORED'
+                    || note.publicTurnCountAtReply !== null
+                    || note.knowledgePolicy.priorPublicTurnsVisible !== false;
+            }
+            if (note.kind !== 'CHARACTER_REPLY') return true;
+            const parent = privateNotes.find(row => row && row.id === note.replyToPrivateNoteId);
+            if (!parent || parent.kind !== 'PLAYER_NOTE' || parent.sequence >= note.sequence
+                || note.authorActorId !== parent.recipientActorId
+                || note.recipientActorId !== parent.authorActorId
+                || note.sourceTurnId !== null
+                || note.generationMode !== 'DETERMINISTIC_SOURCE_BOUND'
+                || !Number.isInteger(note.publicTurnCountAtReply)
+                || note.publicTurnCountAtReply < 0
+                || note.publicTurnCountAtReply > (meeting.turns || []).length
+                || meeting.speakingOrderActorIds[
+                    note.publicTurnCountAtReply % meeting.speakingOrderActorIds.length
+                ] !== note.authorActorId
+                || note.knowledgePolicy.priorPublicTurnsVisible !== true
+                || !note.sourceRefs.includes(parent.id)
+                || !note.sourceRefs.includes(meeting.agendaItems[0].id)
+                || note.sourceRefs.some(ref => privateNoteIds.includes(ref) && ref !== parent.id)
+                || (note.grounding != null && (!note.grounding.beliefId
+                    || !note.grounding.worldFactId
+                    || !note.sourceRefs.includes(note.grounding.beliefId)
+                    || !note.sourceRefs.includes(note.grounding.worldFactId)
+                    || !['PUBLIC', 'INSTITUTIONAL'].includes(note.grounding.visibility)))
+                || (note.stance != null && (note.stance.schemaVersion !== 1
+                    || !['SUPPORT', 'LEAN_SUPPORT', 'UNDECIDED', 'LEAN_OPPOSE', 'OPPOSE']
+                        .includes(note.stance.direction)
+                    || !Array.isArray(note.stance.sourceRefs)
+                    || note.stance.sourceRefs.some(ref => !note.sourceRefs.includes(ref))
+                    || note.stance.rawPersonalityAxesExposed !== false
+                    || note.stance.rawRelationshipAxesExposed !== false
+                    || note.stance.worldMutation !== false))) return true;
+            replyCounts.set(parent.id, (replyCounts.get(parent.id) || 0) + 1);
+            return replyCounts.get(parent.id) > 1;
+        });
+        if (!Array.isArray(meeting.privateNotes) || meeting.privateNotes.length > 24
+            || invalidPrivateNote) {
             add('MEETING_PRIVATE_NOTES', `${at}.privateNotes`);
         }
         if (!Array.isArray(meeting.visibilityMatrix)
