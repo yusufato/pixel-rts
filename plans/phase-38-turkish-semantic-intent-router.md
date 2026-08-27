@@ -368,3 +368,21 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   speech-act `59`, predicate `45`, yanlış OOD `37` ölçüldü.
 - Sıradaki yetkili adım model/runtime embedding spike'ıdır. Bu sonuç herhangi
   bir modeli kabul etmez ve mekanik oyun hattına bağlama yetkisi vermez.
+
+### 27 Ağustos 2026 — Adım 2 model seçimi preflight'ında corpus açığı
+
+- Benchmark artık deney kapısı ile model seçimi kapısını ayrı raporlar.
+  `100/100` deney kapısı açıktır; fakat model seçimi preflight'ı 13 kapsam
+  açığı nedeniyle kapalıdır.
+- Gold dağılımı prototip `67`, kalibrasyon `10`, kör test `23`tür.
+  Kör `REPORT_MILITARY` sınıfının prototip çapası yoktur; beş kör sınıfın
+  kalibrasyon örneği yoktur.
+- Prototip, kalibrasyon ve kör test splitlerinin hiçbirinde `outOfDomain=true`
+  gold bulunmaz. Bu nedenle OOD yanlış kabul oranı ve eşik kalibrasyonu
+  ölçülemez.
+- `THREATEN`, `SHARE_SECRET` ve `BLUFF_CANDIDATE` gold kapsamı yoktur;
+  ticari teklif yalnız kalibrasyonda bir örnektir. Yüksek-risk yanlış pozitif
+  sıfır şartı bu corpus ile kanıtlanamaz.
+- İki geçici GGUF adayının indirmesi model sonucu üretmeden durduruldu.
+  Eksik kabul verisiyle model sıralamak sahte güven oluşturacağından Adım 2
+  model seçimi başlamadı.

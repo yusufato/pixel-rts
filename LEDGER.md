@@ -1387,3 +1387,10 @@
 - **What happened:** Son yirmi aday tek tek ve tam çerçeveyle etiketlendi; toplam 100 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu ve yalnız model/runtime spike kapısı açıldı.
 - **Evidence:** Corpus ve benchmark doğrulaması exit `0`; prototype `100/100 pass=true`, product `100/1000 pass=false`; baseline macro-F1 `0,3948296528`, ECE `0,2261`, tam çerçeve `3/100`.
 - **Implication for future audits:** 100-gold embedding deneyini başlatmaya izin ver; bu sonucu model kabulü, ürün entegrasyonu veya planın Landed olması olarak yorumlama.
+
+## 2026-08-27 — Embedding model seçimi corpus kapsamı nedeniyle durdu
+- **Type:** Confirmed
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 2 preflight
+- **What happened:** Deney ve model seçimi kapıları ayrıldı. 100 gold deney çalıştırmaya yeterli olsa da kör sınıf çapası, kalibrasyon, OOD ve yüksek-risk kapsamı model seçmeye yetmiyor.
+- **Evidence:** Preflight `experimentGatePass=true`, `modelSelectionPass=false` ve 13 açık raporladı: prototip/kalibrasyon/kör dağılımı `67/10/23`; üç splitte OOD gold `0`; kör `REPORT_MILITARY` için prototip çapası `0`; `THREATEN`, `SHARE_SECRET`, `BLUFF_CANDIDATE` kapsamı `0`.
+- **Implication for future audits:** Bu corpus üzerinde çıkan embedding macro-F1 sonucuyla model seçme. Önce aile-split sızıntısı yaratmadan OOD, eksik kör sınıflar ve yüksek-risk hard-negative kapsamını açıkça tamamla.

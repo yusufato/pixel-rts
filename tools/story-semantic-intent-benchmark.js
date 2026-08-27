@@ -362,7 +362,71 @@ function buildBenchmark(options) {
     };
 }
 
+function buildEmbeddingSpikePreflight(options) {
+    options = options && typeof options === 'object' ? options : {};
+    const corpus = options.corpus || readJson(DEFAULT_CORPUS_PATH, null);
+    const validation = validateCorpus(corpus);
+    const candidates = corpus && Array.isArray(corpus.candidates) ? corpus.candidates : [];
+    const gold = candidates.filter(row => row.adjudication
+        && isGoldReview(row.adjudication, new Set([row.id])));
+    const bySplit = Object.fromEntries(SPLITS.map(split =>
+        [split, gold.filter(row => row.split === split)]));
+    const acts = rows => new Set(rows.map(row => row.adjudication.labels.speechAct));
+    const prototypeActs = acts(bySplit.prototype);
+    const calibrationActs = acts(bySplit.calibration);
+    const blindActs = acts(bySplit.blind_test);
+    const missingBlindAnchors = [...blindActs].filter(act => !prototypeActs.has(act)).sort();
+    const missingBlindCalibration = [...blindActs]
+        .filter(act => !calibrationActs.has(act)).sort();
+    const oodBySplit = Object.fromEntries(SPLITS.map(split => [split, {
+        inDomain: bySplit[split].filter(row => !row.adjudication.labels.outOfDomain).length,
+        outOfDomain: bySplit[split].filter(row => row.adjudication.labels.outOfDomain).length
+    }]));
+    const highRiskActs = ['THREATEN', 'REQUEST_ACTION', 'PROPOSE_COMMERCIAL_DEAL',
+        'SHARE_SECRET', 'BLUFF_CANDIDATE'];
+    const highRiskCoverage = Object.fromEntries(highRiskActs.map(act =>
+        [act, Object.fromEntries(SPLITS.map(split => [split,
+            bySplit[split].filter(row => row.adjudication.labels.speechAct === act).length]))]));
+    const issues = [];
+    for (const act of missingBlindAnchors) issues.push(`BLIND_ACT_WITHOUT_PROTOTYPE_ANCHOR:${act}`);
+    for (const act of missingBlindCalibration) issues.push(`BLIND_ACT_WITHOUT_CALIBRATION:${act}`);
+    for (const split of SPLITS) {
+        if (!oodBySplit[split].outOfDomain) issues.push(`OOD_POSITIVE_MISSING:${split}`);
+    }
+    for (const [act, coverage] of Object.entries(highRiskCoverage)) {
+        if (!coverage.prototype || !coverage.blind_test) {
+            issues.push(`HIGH_RISK_SPLIT_COVERAGE_MISSING:${act}`);
+        }
+    }
+    const threshold = Number(corpus && corpus.gates
+        && corpus.gates.prototypeHumanGold) || 100;
+    return {
+        ok: validation.ok,
+        experimentGatePass: validation.ok && gold.length >= threshold,
+        modelSelectionPass: validation.ok && gold.length >= threshold && issues.length === 0,
+        gold: { total: gold.length,
+            bySplit: Object.fromEntries(SPLITS.map(split => [split, bySplit[split].length])) },
+        classCoverage: {
+            prototype: [...prototypeActs].sort(),
+            calibration: [...calibrationActs].sort(),
+            blindTest: [...blindActs].sort(),
+            missingBlindAnchors,
+            missingBlindCalibration
+        },
+        oodBySplit,
+        highRiskCoverage,
+        issues
+    };
+}
+
 if (require.main === module) {
+    if (process.argv.includes('--embedding-spike-preflight')) {
+        const preflight = buildEmbeddingSpikePreflight();
+        process.stdout.write(`${JSON.stringify(preflight, null, 2)}\n`);
+        if (!preflight.ok || (process.argv.includes('--require-model-selection')
+            && !preflight.modelSelectionPass)) process.exitCode = 2;
+        return;
+    }
     const report = buildBenchmark({ includePredictions: !process.argv.includes('--inventory-only') });
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     if (!report.ok || (process.argv.includes('--require-prototype')
@@ -373,5 +437,5 @@ module.exports = {
     LABEL_VALUES, LABEL_AXES, REQUIRED_LABEL_FIELDS, SPLITS, GOLD_REVIEWERS,
     ERROR_FAMILY_DEFINITIONS, classifyErrorFamilies, summarizeErrorFamilies,
     normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
-    labelsFromAnalysis, buildBaselineProposals, buildBenchmark
+    labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight
 };
