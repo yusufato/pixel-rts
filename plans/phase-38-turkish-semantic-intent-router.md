@@ -386,3 +386,16 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - İki geçici GGUF adayının indirmesi model sonucu üretmeden durduruldu.
   Eksik kabul verisiyle model sıralamak sahte güven oluşturacağından Adım 2
   model seçimi başlamadı.
+
+### 27 Ağustos 2026 — Hedefli corpus genişlemesi onaylandı
+
+- Kullanıcı, model seçimi preflight'ında ölçülen kapsam açıklarını kapatmak için
+  corpusun 200 satır sınırını aşmasını onayladı. Önceki “200 satır korunur”
+  kararı bu genişleme için tersine döndü.
+- Gold sayılmayan 78 hedefli aday eklendi; corpus `278` benzersiz cümle ve
+  `238` aileye çıktı. Split toplamları prototip `149`, kalibrasyon `61`,
+  kör test `68`dir.
+- Paket OOD, tehdit, sır paylaşımı, bluff, ticari teklif, askerî rapor, eksik
+  kalibrasyon sınıfları ve olumsuz/varsayımsal hard-negative cümleleri kapsar.
+- Yeni kayıtların hiçbiri otomatik gold değildir. Model seçimi preflight'ı,
+  hedefli kayıtlar tek tek incelenene kadar kapalı kalır.

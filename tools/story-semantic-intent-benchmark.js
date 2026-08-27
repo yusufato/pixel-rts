@@ -132,7 +132,10 @@ function validateCorpus(corpus) {
     const rows = corpus && Array.isArray(corpus.candidates) ? corpus.candidates : [];
     if (!corpus || corpus.schemaVersion !== 1
         || corpus.kind !== 'STORY_SEMANTIC_INTENT_CORPUS_V1') issues.push('CORPUS_SCHEMA');
-    if (rows.length !== 200) issues.push(`CANDIDATE_COUNT:${rows.length}`);
+    const expectedCount = Number(corpus && corpus.summary && corpus.summary.total) || 200;
+    if (expectedCount < 200 || rows.length !== expectedCount) {
+        issues.push(`CANDIDATE_COUNT:${rows.length}/${expectedCount}`);
+    }
     const ids = new Set();
     const texts = new Set();
     const familySplits = new Map();
