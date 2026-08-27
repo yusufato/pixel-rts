@@ -32,7 +32,7 @@ const corpusQueue = review.buildQueue({
     quality: { results: [] },
     reviews: { reviews: [] },
     corpus: { candidates: [candidate],
-        gates: { prototypeHumanGold: 200, productHumanGold: 1000 } },
+        gates: { prototypeHumanGold: 100, productHumanGold: 1000 } },
     proposals: new Map([[candidate.id, {
         labels, confidenceBps: 5000, source: 'TEST_PROPOSAL'
     }]])
@@ -97,6 +97,7 @@ assert.equal(inventory.inventory.candidates, 200);
 assert.equal(inventory.inventory.humanGold, 0);
 assert.equal(inventory.inventory.codexGold, 0);
 assert.equal(inventory.inventory.gold, 0);
+assert.equal(inventory.gates.prototype.threshold, 100);
 assert.equal(inventory.gates.prototype.pass, false);
 assert.equal(inventory.gates.product.pass, false);
 

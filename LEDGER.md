@@ -1368,3 +1368,9 @@
 - **What happened:** Altı gözlenmiş oyuncu turu ve on dört model üretimi aday tek tek etiketlendi; toplam 60 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu. Dilbilgisi bozuk fakat anlaşılır oyun dili otomatik OOD sayılmadı.
 - **Evidence:** Corpus doğrulaması exit `0`; kısmi baseline macro-F1 `0,3547602089`, ECE `0,2415`, tam çerçeve `2/60`; hedef `44`, epistemik durum `41`, speech-act `37`, predicate `31`, yanlış OOD `26` hata. Sayaç `60/200`.
 - **Implication for future audits:** İlk 60 kaydı tamamlanmış Codex gold kabul et; fakat genişleyen hata sayısını motor gerilemesi diye yorumlama ve 200 kapısı dolmadan model karşılaştırmasına başlama.
+## 2026-08-27 — Embedding deney kapısı 100 gold olarak yeniden belirlendi
+- **Type:** Reversed
+- **Source:** Kullanıcı kararı / `phase-38-turkish-semantic-intent-router`
+- **What happened:** Model/runtime embedding deneyi için önceki 200 tekil gold eşiği 100'e indirildi. Corpus 200 satır, ürün entegrasyonu ve plan kapanışı 1.000 gold olarak korundu.
+- **Evidence:** Kullanıcının “Embedding deneyini 100/100'e indir” talimatı; corpus ve review/benchmark runtime'ı `prototypeHumanGold: 100` raporlar.
+- **Implication for future audits:** 100 gold tamamlandığında yalnız embedding spike ve aday model ölçümünü aç; bunu ürün entegrasyonu veya plan kapanışı yetkisi sayma. Önceki 200-prototip ledger kayıtları bu kararla superseded olmuştur.

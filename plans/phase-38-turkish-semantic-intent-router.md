@@ -54,7 +54,7 @@ embedding/LLM kapalıyken mekanik oyun eşdeğer kalır; hiçbir model eylem, he
 miktar, yetki, sonuç veya ilişki deltası yazamaz.
 
 **Durum:** Kullanıcı 27 Ağustos 2026 tarihinde kapsamı genişleten iki düzeltmeyle
-onayladı. Aynı tarihte, tek geliştiricilik iş akışı için 200 tek tek
+onayladı. Kullanıcı 27 Ağustos 2026 tarihinde tek geliştiricilik iş akışı için 100 tek tek
 onaylanmış gold örneğini model/runtime prototip kapısı; 1.000 tek tek
 onaylanmış gold örneğini ürün entegrasyonu ve `Landed` kapısı yapmayı, ayrıca
 toplu inceleme aracı kapsamını onayladı. Kullanıcı daha sonra Codex'in her
@@ -150,7 +150,7 @@ cümleyi bağlamıyla ayrı inceleyip eksiksiz etiketlediği kayıtların da aç
 
 | # | Adım | Çıktı | Commit |
 |---|---|---|---|
-| 1 | Gerçek Türkçe tabanı ölç | 200 tekil incelemeli prototip gold, kör ayrım, mevcut hata matrisi; 1.000 ürün kapısı korunur | `test(story): establish Turkish intent baseline` |
+| 1 | Gerçek Türkçe tabanı ölç | 100 tekil incelemeli prototip gold, kör ayrım, mevcut hata matrisi; 1.000 ürün kapısı korunur | `test(story): establish Turkish intent baseline` |
 | 2 | Model/runtime spike | İki aday, EXE CPU/RAM/latans/paket ölçümü; ürün bağı yok | `test(story): benchmark local multilingual embeddings` |
 | 3 | Kapalı katalog ve yönlendirici | Sürümlü prototipler, ölçülmüş top-K, skor/marj, OOD ret | `feat(story): add bounded semantic intent candidates` |
 | 4 | SemanticFrameV2 birleşimi | Aday doğrulama, çoklu niyet ve netleştirme | `feat(story): validate embedding candidates through semantic frames` |
@@ -161,7 +161,7 @@ cümleyi bağlamıyla ayrı inceleyip eksiksiz etiketlediği kayıtların da aç
 
 ## 6) Corpus ve kabul kapıları
 
-- Model/runtime prototipi en az 200 tek tek incelenmiş, birbirinin yeniden
+- Model/runtime prototipi en az 100 tek tek incelenmiş, birbirinin yeniden
   yazımı olmayan Türkçe turdan önce başlamaz. Ürün entegrasyonu ve planın
   `Landed` olması için gold set en az 1.000 tekil incelemeli tur taşır. Her iki
   kapıda da prototip, kalibrasyon ve kör test konuşmacı/şablon ailesine göre
@@ -331,3 +331,14 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   epistemik durum `41`, speech-act `37`, predicate `31`, yanlış OOD `26` ölçüldü.
 - Bu genişleyen kısmi corpus model seçimi değildir. Prototip kapısına `140`, ürün
   kapısına `940` tekil inceleme kalmıştır.
+
+### 27 Ağustos 2026 — Embedding deney kapısı 100 gold oldu
+
+- Kullanıcı model/runtime embedding deneyini `100/100` tekil gold kayıtta açma
+  kararı verdi. Corpus 200 satır olarak korunur; yalnız prototip deney eşiği
+  `200 → 100` değişmiştir.
+- Ürün entegrasyonu, mekanik hatta bağlama ve planı `Landed` yapma eşiği
+  `1.000/1.000` olarak değişmeden kalır. İlk 100 kayıt deney ve aday eleme için
+  yeterlidir; ürün kalitesi veya çokdilli genelleme kanıtı değildir.
+- Güncel sayaç `60/100` deney ve `60/1000` ürün gold; embedding spike'ına `40`
+  tekil inceleme kalmıştır.

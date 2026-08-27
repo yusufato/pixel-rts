@@ -322,7 +322,7 @@ function buildBenchmark(options) {
         if (!row.correct) domainErrors[domain].speechActErrors += 1;
     }
     const prototypeThreshold = Number(corpus && corpus.gates
-        && corpus.gates.prototypeHumanGold) || 200;
+        && corpus.gates.prototypeHumanGold) || 100;
     const productThreshold = Number(corpus && corpus.gates
         && corpus.gates.productHumanGold) || 1000;
     return {

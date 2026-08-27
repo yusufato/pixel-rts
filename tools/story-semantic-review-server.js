@@ -86,7 +86,7 @@ function buildQueue(options) {
     const codexGold = goldReviews.filter(row =>
         row.reviewer === 'CODEX_INDIVIDUAL_REVIEW').length;
     const gold = goldReviews.length;
-    const prototypeThreshold = Number(corpus.gates && corpus.gates.prototypeHumanGold) || 200;
+    const prototypeThreshold = Number(corpus.gates && corpus.gates.prototypeHumanGold) || 100;
     const productThreshold = Number(corpus.gates && corpus.gates.productHumanGold) || 1000;
     return { schemaVersion: 2, axes: AXES.slice(),
         labelValues: semanticBenchmark.LABEL_VALUES, rows,

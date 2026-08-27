@@ -4,7 +4,7 @@
   "createdAt": "2026-08-27",
   "selectionVersion": "observed-s0-plus-frontier-round-robin-v1",
   "gates": {
-    "prototypeHumanGold": 200,
+    "prototypeHumanGold": 100,
     "productHumanGold": 1000
   },
   "labelContract": {
