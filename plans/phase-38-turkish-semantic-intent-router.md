@@ -342,3 +342,16 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   yeterlidir; ürün kalitesi veya çokdilli genelleme kanıtı değildir.
 - Güncel sayaç `60/100` deney ve `60/1000` ürün gold; embedding spike'ına `40`
   tekil inceleme kalmıştır.
+
+### 27 Ağustos 2026 — Codex tekil inceleme partisi 4
+
+- Yirmi model üretimi aday ayrı ayrı incelendi. Tamamlanmış ithalat anlaşması ile
+  yeni ticari teklif; konuşanın yardım teklifi ile dinleyiciye verilen emir;
+  dolaylı bilgi sorusu ile konu açılışı; geçmiş kurum raporu ile yeni eylem
+  talebi birbirinden ayrıldı.
+- Toplam `80/100` deney ve `80/1000` ürün gold oldu. Kısmi baseline macro-F1
+  `0,376352`, ECE `0,216875`, tam çerçeve eşleşmesi `3/80` oldu. Hata ailelerinde
+  hedef `58`, epistemik durum `53`, speech-act `51`, predicate `38`, yanlış OOD
+  `32` ölçüldü.
+- Embedding spike kapısına `20`, ürün kapısına `920` tekil inceleme kalmıştır.
+  Bu kısmi ölçümle model/runtime deneyi henüz başlatılmaz.

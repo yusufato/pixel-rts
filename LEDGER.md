@@ -1374,3 +1374,9 @@
 - **What happened:** Model/runtime embedding deneyi için önceki 200 tekil gold eşiği 100'e indirildi. Corpus 200 satır, ürün entegrasyonu ve plan kapanışı 1.000 gold olarak korundu.
 - **Evidence:** Kullanıcının “Embedding deneyini 100/100'e indir” talimatı; corpus ve review/benchmark runtime'ı `prototypeHumanGold: 100` raporlar.
 - **Implication for future audits:** 100 gold tamamlandığında yalnız embedding spike ve aday model ölçümünü aç; bunu ürün entegrasyonu veya plan kapanışı yetkisi sayma. Önceki 200-prototip ledger kayıtları bu kararla superseded olmuştur.
+## 2026-08-27 — Codex tekil semantik incelemesi 80 gold kayda ulaştı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 1 / Codex partisi 4
+- **What happened:** Yirmi model üretimi aday tek tek etiketlendi; teklif–talep, geçmiş rapor–yeni eylem, dolaylı soru–konu açılışı ayrımları bütün kapalı eksenlerde kararlaştırıldı.
+- **Evidence:** Corpus doğrulaması exit `0`; kısmi baseline macro-F1 `0,3763515123`, ECE `0,216875`, tam çerçeve `3/80`; hedef `58`, epistemik durum `53`, speech-act `51`, predicate `38`, yanlış OOD `32` hata. Sayaç `80/100`.
+- **Implication for future audits:** İlk 80 kaydı tamamlanmış Codex gold kabul et; embedding spike'ını kalan 20 tekil kayıt tamamlanmadan başlatma ve teklif cümlelerini yalnız soru yüzeyine göre emir/talep sayma.
