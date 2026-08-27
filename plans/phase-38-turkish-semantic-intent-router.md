@@ -355,3 +355,16 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   `32` ölçüldü.
 - Embedding spike kapısına `20`, ürün kapısına `920` tekil inceleme kalmıştır.
   Bu kısmi ölçümle model/runtime deneyi henüz başlatılmaz.
+
+### 27 Ağustos 2026 — Codex tekil inceleme partisi 5 ve deney kapısı
+
+- Son yirmi model üretimi aday tek tek incelendi. Yanlış öncül içeren neden
+  soruları, duygu bildirimleri, ekonomik durum raporları, düzeltme niyeti,
+  reddetme ve reddetme içeren eylem talebi birbirinden ayrıldı.
+- Toplam `100/100` deney ve `100/1000` ürün gold oldu. Prototip kapısı
+  açıldı; ürün entegrasyonu kapısı kapalı kalır.
+- Deterministik baseline macro-F1 `0,394830`, ECE `0,2261`, tam çerçeve
+  eşleşmesi `3/100` oldu. Hata ailelerinde hedef `71`, epistemik durum `69`,
+  speech-act `59`, predicate `45`, yanlış OOD `37` ölçüldü.
+- Sıradaki yetkili adım model/runtime embedding spike'ıdır. Bu sonuç herhangi
+  bir modeli kabul etmez ve mekanik oyun hattına bağlama yetkisi vermez.

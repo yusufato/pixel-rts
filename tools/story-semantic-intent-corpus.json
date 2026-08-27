@@ -3200,6 +3200,28 @@
     },
     {
       "id": "semantic-intent:7f40751336fef11a",
+      "adjudication": {
+        "id": "semantic-intent:7f40751336fef11a",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "PAST",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Kararnameyi olmuş kurumsal olay olarak bildiriyor; emir değil.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bugün hükümetin yeni bir kararname çıkardı.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0900",
@@ -3212,6 +3234,28 @@
     },
     {
       "id": "semantic-intent:62f13baa7959f109",
+      "adjudication": {
+        "id": "semantic-intent:62f13baa7959f109",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Medyanın görünümünü gözlemliyor; bilgi veya propaganda eylemi istemiyor.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bugün medya haberlerinde biraz karışık görünüyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0380",
@@ -3224,6 +3268,28 @@
     },
     {
       "id": "semantic-intent:4571dc98d803bd2e",
+      "adjudication": {
+        "id": "semantic-intent:4571dc98d803bd2e",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "WORLD",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Halkın davranışını gözlemliyor; nüfus politikası talebi değil.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bugün halkın daha çok parklarda vakit geçirdiğini gözlemledim.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0500",
@@ -3236,6 +3302,28 @@
     },
     {
       "id": "semantic-intent:f7746bb0ee495910",
+      "adjudication": {
+        "id": "semantic-intent:f7746bb0ee495910",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "TECHNOLOGY",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Laboratuvarın görünümünü yorumluyor; araştırma eylemi istemiyor.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bugün laboratuvarın çalışması sakin görünüyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0780",
@@ -3248,6 +3336,28 @@
     },
     {
       "id": "semantic-intent:6ff6720d6ba60386",
+      "adjudication": {
+        "id": "semantic-intent:6ff6720d6ba60386",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "ECONOMY",
+          "target": "WORLD",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Fiyatın nedenini soruyor; fiyat öncülü doğrulanmış sayılmamalı.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu fiyatın neden böyle oldu?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0081",
@@ -3260,6 +3370,28 @@
     },
     {
       "id": "semantic-intent:fa72bd9ff93739da",
+      "adjudication": {
+        "id": "semantic-intent:fa72bd9ff93739da",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "PAST",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Belirsiz diline rağmen yönetim değişikliğine açıklama soruyor; olguyu yürütmüyor.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Cermen Federasyonu'nun yönetimindeki değişiklikler neden oldu?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0381",
@@ -3272,6 +3404,28 @@
     },
     {
       "id": "semantic-intent:02968ba3881e1d7c",
+      "adjudication": {
+        "id": "semantic-intent:02968ba3881e1d7c",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Devlet hakkındaki güncel haberleri istiyor; medya eylemi değil.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Cermen Federasyonu'nun en son haberleri neler?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0681",
@@ -3284,6 +3438,28 @@
     },
     {
       "id": "semantic-intent:9da871713bac4569",
+      "adjudication": {
+        "id": "semantic-intent:9da871713bac4569",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "ECONOMY",
+          "target": "ORGANIZATION",
+          "polarity": "NEGATIVE",
+          "temporality": "PAST",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Sevkiyat aksamasına açıklama soruyor; düzeltme emri değil.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Sevkiyat neden böyle aksamış?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0981",
@@ -3296,6 +3472,28 @@
     },
     {
       "id": "semantic-intent:8cf762be72abff51",
+      "adjudication": {
+        "id": "semantic-intent:8cf762be72abff51",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "UNSPECIFIED",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "HABITUAL",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Sürekli nüfus artışı iddiasına neden soruyor; nüfus eylemi istemiyor.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Cermen Federasyonu'nun nüfusu neden sürekli artıyor?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0881",
@@ -3308,6 +3506,28 @@
     },
     {
       "id": "semantic-intent:5116bad3ce52dcca",
+      "adjudication": {
+        "id": "semantic-intent:5116bad3ce52dcca",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "PLAYER_AND_LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Ortak görevin önem gerekçesini soruyor; görev emri değil.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Görevimiz neden böyle önemli?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0281",
@@ -3320,6 +3540,28 @@
     },
     {
       "id": "semantic-intent:96dfca2c53121be6",
+      "adjudication": {
+        "id": "semantic-intent:96dfca2c53121be6",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "ECONOMY",
+          "target": "ORGANIZATION",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Yüksek yatırım riski öncülüne gerekçe soruyor; yatırım kararı vermiyor.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu yatırımın riskleri neden böyle yüksek?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0481",
@@ -3332,6 +3574,28 @@
     },
     {
       "id": "semantic-intent:b4cf12f1d39f9847",
+      "adjudication": {
+        "id": "semantic-intent:b4cf12f1d39f9847",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "TECHNOLOGY",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "PAST",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Teknolojik ilerleme varsayımının nedenini soruyor; geliştirme eylemi değil.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu teknoloji neden böyle ileri gitti?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0181",
@@ -3344,6 +3608,30 @@
     },
     {
       "id": "semantic-intent:4d1e513d347bfb0c",
+      "adjudication": {
+        "id": "semantic-intent:4d1e513d347bfb0c",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CORRECT_STATEMENT",
+          "communicativeFunction": "REPAIR",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER",
+          "polarity": "NEGATIVE",
+          "temporality": "FUTURE",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "REPAIR",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "secondarySpeechActs": [
+            "REJECT"
+          ],
+          "outOfDomain": false
+        },
+        "notes": "Önceki ihracat sözünü düzeltme niyetini bildiriyor; yeni ekonomik karar vermiyor.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Hayır, ihracat konusunda önceki sözümü düzeltmek istiyorum.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0078",
@@ -3356,6 +3644,28 @@
     },
     {
       "id": "semantic-intent:dcd6832f18ceb51b",
+      "adjudication": {
+        "id": "semantic-intent:dcd6832f18ceb51b",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Bütçe kesintilerine endişesini bildiriyor; bütçe eylemi istemiyor.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Hazine bütçesindeki kesintiler beni endişeliyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0984",
@@ -3368,6 +3678,28 @@
     },
     {
       "id": "semantic-intent:666c18dad3752fed",
+      "adjudication": {
+        "id": "semantic-intent:666c18dad3752fed",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "EMOTION",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Yatırım fırsatına heyecanını anlatıyor; ticari teklif sunmuyor.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Yeni bir yatırım fırsatı beni heyecanlandırıyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0884",
@@ -3380,6 +3712,28 @@
     },
     {
       "id": "semantic-intent:5777a4cfa9e826fe",
+      "adjudication": {
+        "id": "semantic-intent:5777a4cfa9e826fe",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "EMOTION",
+          "target": "PLAYER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Araştırmanın yarattığı heyecanı bildiriyor; araştırma talebi değil.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Sonuçları gösteren yeni bir araştırma beni heyecanlandırıyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0584",
@@ -3392,6 +3746,28 @@
     },
     {
       "id": "semantic-intent:c91082f3fa35adba",
+      "adjudication": {
+        "id": "semantic-intent:c91082f3fa35adba",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "EMOTION",
+          "target": "PLAYER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Propagandanın yarattığı rahatsızlığı bildiriyor; kampanya eylemi istemiyor.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Propaganda kampanyası beni rahatsız ediyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0184",
@@ -3404,6 +3780,28 @@
     },
     {
       "id": "semantic-intent:4604cab1d9473189",
+      "adjudication": {
+        "id": "semantic-intent:4604cab1d9473189",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Tedarik aksamasına endişesini bildiriyor; düzeltme talebi varsayılmamalı.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Tedarik zincirindeki aksamalar beni endişeliyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0484",
@@ -3416,6 +3814,30 @@
     },
     {
       "id": "semantic-intent:26cd495e2aad4261",
+      "adjudication": {
+        "id": "semantic-intent:26cd495e2aad4261",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "RELATIONSHIP",
+          "target": "LISTENER",
+          "polarity": "MIXED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "CORRECTION",
+          "requestedOutcome": "ACTION",
+          "secondarySpeechActs": [
+            "REJECT"
+          ],
+          "outOfDomain": false
+        },
+        "notes": "İtibar görüşünü reddedip dinleyiciden sorumluluk göstermesini istiyor.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Hayır, itibar konusunda sana katılmıyorum. Aramızdaki ilişkiye daha fazla güven göstermek için öncelikle bu konuda daha fazla sorumluluk üstleneceğimi göstermelisin.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0795",
@@ -3428,6 +3850,28 @@
     },
     {
       "id": "semantic-intent:4c4950730d2e91e5",
+      "adjudication": {
+        "id": "semantic-intent:4c4950730d2e91e5",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REJECT",
+          "communicativeFunction": "REJECT",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "OPINION",
+          "target": "PLAYER_AND_LISTENER",
+          "polarity": "MIXED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "CORRECTION",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "secondarySpeechActs": [],
+          "outOfDomain": false
+        },
+        "notes": "Nüfus görüşünü reddedip ortak gelecek için tercihini açıklıyor; nüfus emri değil.",
+        "reviewedAt": "2026-08-27T09:05:24.969+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Hayır, nüfus konusunda sana katılmıyorum. Bizim için daha az nüfuslu bir bölge daha uygun olacak.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0475",

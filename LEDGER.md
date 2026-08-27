@@ -1380,3 +1380,10 @@
 - **What happened:** Yirmi model üretimi aday tek tek etiketlendi; teklif–talep, geçmiş rapor–yeni eylem, dolaylı soru–konu açılışı ayrımları bütün kapalı eksenlerde kararlaştırıldı.
 - **Evidence:** Corpus doğrulaması exit `0`; kısmi baseline macro-F1 `0,3763515123`, ECE `0,216875`, tam çerçeve `3/80`; hedef `58`, epistemik durum `53`, speech-act `51`, predicate `38`, yanlış OOD `32` hata. Sayaç `80/100`.
 - **Implication for future audits:** İlk 80 kaydı tamamlanmış Codex gold kabul et; embedding spike'ını kalan 20 tekil kayıt tamamlanmadan başlatma ve teklif cümlelerini yalnız soru yüzeyine göre emir/talep sayma.
+
+## 2026-08-27 — Embedding deney kapısı 100 Codex gold ile açıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 1 / Codex partisi 5
+- **What happened:** Son yirmi aday tek tek ve tam çerçeveyle etiketlendi; toplam 100 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu ve yalnız model/runtime spike kapısı açıldı.
+- **Evidence:** Corpus ve benchmark doğrulaması exit `0`; prototype `100/100 pass=true`, product `100/1000 pass=false`; baseline macro-F1 `0,3948296528`, ECE `0,2261`, tam çerçeve `3/100`.
+- **Implication for future audits:** 100-gold embedding deneyini başlatmaya izin ver; bu sonucu model kabulü, ürün entegrasyonu veya planın Landed olması olarak yorumlama.
