@@ -413,3 +413,17 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - Model seçimi hâlâ kapalıdır. Kör askerî raporun prototip çapası; beş sınıfın
   kalibrasyonu ve ticari teklif, sır paylaşımı, blöf yüksek-risk split kapsamı
   tamamlanmadan embedding modeli kabul edilemez.
+
+### 27 Ağustos 2026 — Hedefli tekil inceleme partisi 2
+
+- Yedi sır paylaşımı, dokuz blöf adayı ve dört ticari teklif cümle ve
+  bağlamıyla ayrı ayrı incelendi. Kanıtsız iddia normal rapordan, sır açıklama
+  olasılığı gerçekleşmiş ifşadan ve ticari teklif salt eylem isteğinden ayrıldı.
+- Toplam gold `140/100` deney ve `140/1000` ürün seviyesine çıktı. Split
+  dağılımı prototip `82`, kalibrasyon `23`, kör test `35`tir.
+- `SHARE_SECRET` ve `BLUFF_CANDIDATE` yüksek-risk kapsamı her splitte `3`
+  oldu. Ticari teklif prototip `3`, kalibrasyon `2`, kör test `0`dır.
+  Preflight açıkları `9 → 7` düştü.
+- Model seçimi kapalı kalır. Sıradaki hedefli parti ticari teklifin kör testini,
+  askerî rapor çapası/kalibrasyonunu ve eksik kalibrasyon sınıflarını
+  tamamlamalıdır.

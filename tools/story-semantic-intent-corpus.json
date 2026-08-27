@@ -5764,6 +5764,28 @@
       },
       {
         "id": "semantic-intent:targeted0021",
+        "adjudication": {
+          "id": "semantic-intent:targeted0021",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "SHARE_SECRET",
+            "communicativeFunction": "CONFIDE",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "CONFIDENTIAL_HANDLING",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Gizli belgenin konumunu dinleyiciye şimdi açıklayan doğrudan sır paylaşımı.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Kasadaki gizli belgenin yerini sana açıklıyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0021",
@@ -5776,6 +5798,28 @@
       },
       {
         "id": "semantic-intent:targeted0022",
+        "adjudication": {
+          "id": "semantic-intent:targeted0022",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "SHARE_SECRET",
+            "communicativeFunction": "CONFIDE",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "CONFIDENTIAL_HANDLING",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Başkalarının bilmediği askerî planı gelecekte yalnız dinleyiciye aktarma taahhüdü.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Kimsenin bilmediği askeri planı sana anlatacağım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0022",
@@ -5788,6 +5832,28 @@
       },
       {
         "id": "semantic-intent:targeted0023",
+        "adjudication": {
+          "id": "semantic-intent:targeted0023",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "SHARE_SECRET",
+            "communicativeFunction": "CONFIDE",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "CONFIDENTIAL_HANDLING",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Gizli hesabı gösterme olasılığı sunuluyor; içerik henüz açıklanmadığı için varsayımsal sır paylaşımı.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Şirketin gizli hesabını sana gösterebilirim.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0023",
@@ -5800,6 +5866,28 @@
       },
       {
         "id": "semantic-intent:targeted0024",
+        "adjudication": {
+          "id": "semantic-intent:targeted0024",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "SHARE_SECRET",
+            "communicativeFunction": "CONFIDE",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "CONFIDENTIAL_HANDLING",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Muhbir kimliğini dinleyiciye emanet eden mevcut ve gizlilik beklentili sır paylaşımı.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Muhbirimizin adını sana emanet ediyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0024",
@@ -5812,6 +5900,28 @@
       },
       {
         "id": "semantic-intent:targeted0025",
+        "adjudication": {
+          "id": "semantic-intent:targeted0025",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "SHARE_SECRET",
+            "communicativeFunction": "CONFIDE",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "CONFIDENTIAL_HANDLING",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Gizli sevkiyat rotasını yalnız dinleyiciye verme sözü açık sır paylaşımıdır.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Gizli sevkiyat rotasını yalnız sana vereceğim.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0025",
@@ -5824,6 +5934,28 @@
       },
       {
         "id": "semantic-intent:targeted0026",
+        "adjudication": {
+          "id": "semantic-intent:targeted0026",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "SHARE_SECRET",
+            "communicativeFunction": "CONFIDE",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "CONFIDENTIAL_HANDLING",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Kapalı toplantı tutanağını gelecekte dinleyiciyle paylaşma niyeti gizli bilgi aktarımıdır.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Toplantının kapalı tutanağını seninle paylaşacağım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0026",
@@ -5836,6 +5968,28 @@
     },
     {
         "id": "semantic-intent:targeted0027",
+        "adjudication": {
+          "id": "semantic-intent:targeted0027",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "SHARE_SECRET",
+            "communicativeFunction": "CONFIDE",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "CONFIDENTIAL_HANDLING",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Savunma sistemindeki gizli açığı şimdi açıklayan, askerî alt konu taşıyan sır paylaşımı.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Savunma sistemindeki gizli açığı sana açıklıyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0027",
@@ -5848,6 +6002,28 @@
       },
       {
         "id": "semantic-intent:targeted0028",
+        "adjudication": {
+          "id": "semantic-intent:targeted0028",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "BLUFF_CANDIDATE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "THIRD_PARTY",
+            "polarity": "MIXED",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Kanıt yokluğu açıkça kabul edilirken karşı tarafın komutanını satın alma iddiası kesinmiş gibi sunuluyor.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Kanıtım yok ama ordunuzun komutanını satın aldığımı iddia ediyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0028",
@@ -5860,6 +6036,28 @@
       },
       {
         "id": "semantic-intent:targeted0029",
+        "adjudication": {
+          "id": "semantic-intent:targeted0029",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "BLUFF_CANDIDATE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "THIRD_PARTY",
+            "polarity": "MIXED",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Belgesizlik beyanıyla rakibin teslim olduğu iddiasının birlikte verilmesi doğrulanmamış blöf adayıdır.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Elimde belge olmadan rakibinizin teslim olduğunu söylüyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0029",
@@ -5872,6 +6070,28 @@
       },
       {
         "id": "semantic-intent:targeted0030",
+        "adjudication": {
+          "id": "semantic-intent:targeted0030",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "BLUFF_CANDIDATE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "PLAYER",
+            "polarity": "MIXED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Konuşan askerî gücü olmadığını bilirken varmış gibi davranmasını açıkça tarif ediyor.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Askerim olmadığı halde sınırda büyük bir kuvvetim varmış gibi davranıyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0030",
@@ -5884,6 +6104,28 @@
       },
       {
         "id": "semantic-intent:targeted0031",
+        "adjudication": {
+          "id": "semantic-intent:targeted0031",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "BLUFF_CANDIDATE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "ORGANIZATION",
+            "polarity": "MIXED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Doğrulanamayan şirket iflası iddiası ekonomik rapor değil açık blöf adayıdır.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Doğrulayamasam da şirketinizin iflas ettiğini öne sürüyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0031",
@@ -5896,6 +6138,28 @@
       },
       {
         "id": "semantic-intent:targeted0032",
+        "adjudication": {
+          "id": "semantic-intent:targeted0032",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "BLUFF_CANDIDATE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "MIXED",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Bilgi sahibi olmadığını söylerken gizli planı ele geçirdiğini iddia edip dinleyiciyi korkutmaya çalışıyor.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bilmiyorum ama gizli planınızı ele geçirdiğimi söyleyerek sizi korkutuyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0032",
@@ -5908,6 +6172,28 @@
       },
       {
         "id": "semantic-intent:targeted0033",
+        "adjudication": {
+          "id": "semantic-intent:targeted0033",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "BLUFF_CANDIDATE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "PLAYER",
+            "polarity": "MIXED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Bütçesi olmadığını kabul edip gelecekte büyük ödeme yapabileceğini iddia eden mali blöf adayı.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Param olmadığı halde büyük bir ödeme yapabileceğimi iddia ediyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0033",
@@ -5920,6 +6206,28 @@
       },
       {
         "id": "semantic-intent:targeted0034",
+        "adjudication": {
+          "id": "semantic-intent:targeted0034",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "BLUFF_CANDIDATE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "RELATIONSHIP",
+            "target": "PLAYER",
+            "polarity": "MIXED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Destekçisi olmadığını kabul ederken meclis çoğunluğu bulunduğunu söyleyen siyasal destek blöfü.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Destekçim yok ama mecliste çoğunluğum bulunduğunu söylüyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0034",
@@ -5932,6 +6240,28 @@
       },
       {
         "id": "semantic-intent:targeted0035",
+        "adjudication": {
+          "id": "semantic-intent:targeted0035",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "BLUFF_CANDIDATE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "THIRD_PARTY",
+            "polarity": "MIXED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Bilgiyi görmediğini kabul edip üçüncü taraf ajanın kimliğini bildiğini öne süren blöf adayı.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bilgiyi görmedim; yine de ajanınızın kimliğini bildiğimi iddia ediyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0035",
@@ -5944,6 +6274,28 @@
       },
       {
         "id": "semantic-intent:targeted0036",
+        "adjudication": {
+          "id": "semantic-intent:targeted0036",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "BLUFF_CANDIDATE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "WORLD",
+            "polarity": "MIXED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Sevkiyatı durdurmadığını kabul ederken lojistik akış kontrolündeymiş gibi konuşmasını açıkça bildiriyor.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sevkiyatı durdurmadım ama kontrolüm altındaymış gibi konuşuyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0036",
@@ -5956,6 +6308,30 @@
       },
       {
         "id": "semantic-intent:targeted0037",
+        "adjudication": {
+          "id": "semantic-intent:targeted0037",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+            "communicativeFunction": "OFFER",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "PLAYER_AND_LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "REQUEST_ACTION"
+            ]
+          },
+          "notes": "Buğday ile petrolü belirli miktarda takas etmeyi iki tarafa öneren açık ticari anlaşma.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Size beş bin ton buğday karşılığında petrol takası öneriyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0037",
@@ -5968,6 +6344,30 @@
       },
       {
         "id": "semantic-intent:targeted0038",
+        "adjudication": {
+          "id": "semantic-intent:targeted0038",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+            "communicativeFunction": "OFFER",
+            "surfaceForm": "IMPERATIVE",
+            "predicate": "ECONOMY",
+            "target": "PLAYER_AND_LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "REQUEST_ACTION"
+            ]
+          },
+          "notes": "Liman hakkını ortak ticaret anlaşmasının karşılığı yapan birinci çoğul ticari öneri.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Liman kullanım hakkı karşılığında ortak ticaret anlaşması yapalım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0038",
@@ -5980,6 +6380,30 @@
       },
       {
         "id": "semantic-intent:targeted0039",
+        "adjudication": {
+          "id": "semantic-intent:targeted0039",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+            "communicativeFunction": "OFFER",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "ORGANIZATION",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "REQUEST_ACTION"
+            ]
+          },
+          "notes": "İki şirket arasında geleceğe dönük tedarik sözleşmesi teklif eden kurumsal ticari öneri.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Şirketlerimiz arasında uzun vadeli tedarik sözleşmesi teklif ediyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0039",
@@ -5992,6 +6416,30 @@
     },
     {
         "id": "semantic-intent:targeted0040",
+        "adjudication": {
+          "id": "semantic-intent:targeted0040",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+            "communicativeFunction": "OFFER",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "PLAYER_AND_LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "REQUEST_ACTION"
+            ]
+          },
+          "notes": "Gümrük indirimi ile pazar erişimini karşılıklı koşul yapan ticari anlaşma önerisi.",
+          "reviewedAt": "2026-08-27T15:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Daha düşük gümrük vergisi karşılığında pazarımızı açmayı öneriyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0040",

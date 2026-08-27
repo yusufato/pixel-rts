@@ -1408,3 +1408,10 @@
 - **What happened:** Dokuz OOD, dokuz koşullu tehdit ve iki sır paylaşımı adayı cümle ve bağlamıyla tek tek incelendi; 20 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu.
 - **Evidence:** Preflight `120` gold ve `75/16/29` split dağılımı raporlar. OOD her splitte `3`, `THREATEN` her splitte `3`; kapsam açıkları `13 → 9`. Korpus, router, review-server, SemanticFrameV2 ve gece kapısı testleri exit `0`.
 - **Implication for future audits:** OOD veya tehdit kapsamını artık sıfır sayma; ancak `modelSelectionPass=false` durumunu koru. Sır paylaşımı, blöf, ticari teklif, askerî rapor çapası ve eksik kalibrasyon sınıfları tamamlanmadan model seçme ya da ürün hattına bağlama.
+
+## 2026-08-27 — Sır paylaşımı ve blöf split kapsamı 140 gold ile kapatıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 2 / hedefli Codex partisi 2
+- **What happened:** Yedi sır paylaşımı, dokuz blöf adayı ve dört ticari teklif cümle ve bağlamıyla tek tek incelendi; 20 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu.
+- **Evidence:** Preflight `140` gold ve `82/23/35` split dağılımı raporlar. `SHARE_SECRET` ve `BLUFF_CANDIDATE` her splitte `3`; ticari teklif `3/2/0`; kapsam açıkları `9 → 7`. Router, review-server, SemanticFrameV2 ve gece kapısı testleri exit `0`.
+- **Implication for future audits:** Sır paylaşımı veya blöf split kapsamını eksik sayma; fakat kör ticari teklif, askerî rapor çapası ve beş kalibrasyon açığı kapanmadan `modelSelectionPass=false` durumunu koru ve modeli ürün hattına bağlama.
