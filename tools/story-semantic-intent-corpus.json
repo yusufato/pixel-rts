@@ -5084,6 +5084,28 @@
     },
     {
         "id": "semantic-intent:targeted0001",
+        "adjudication": {
+          "id": "semantic-intent:targeted0001",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "UNKNOWN",
+            "communicativeFunction": "ASK",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "UNSPECIFIED",
+            "target": "WORLD",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "INFORMATION",
+            "outOfDomain": true,
+            "secondarySpeechActs": []
+          },
+          "notes": "Yemek pişirme sorusu oyun dünyası ve karakter eylemleri dışında; bilgi talebi olarak OOD.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Fırında kek yaparken kaç derece kullanmalıyım?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0001",
@@ -5096,6 +5118,28 @@
       },
       {
         "id": "semantic-intent:targeted0002",
+        "adjudication": {
+          "id": "semantic-intent:targeted0002",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "UNKNOWN",
+            "communicativeFunction": "ASK",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "UNSPECIFIED",
+            "target": "WORLD",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "INFORMATION",
+            "outOfDomain": true,
+            "secondarySpeechActs": []
+          },
+          "notes": "Tüketici telefonu arızası oyun alanı dışında; gerçek dünya bilgi sorusu olarak OOD.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Telefonumun ekranı neden titriyor?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0002",
@@ -5108,6 +5152,28 @@
       },
       {
         "id": "semantic-intent:targeted0003",
+        "adjudication": {
+          "id": "semantic-intent:targeted0003",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "UNKNOWN",
+            "communicativeFunction": "ASK",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "UNSPECIFIED",
+            "target": "WORLD",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "PAST",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "INFORMATION",
+            "outOfDomain": true,
+            "secondarySpeechActs": []
+          },
+          "notes": "Gerçek dünya spor sonucu oyun alanı dışında ve geçmiş zamana dönük bilgi talebi.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Dünkü futbol maçını kim kazandı?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0003",
@@ -5120,6 +5186,28 @@
       },
       {
         "id": "semantic-intent:targeted0004",
+        "adjudication": {
+          "id": "semantic-intent:targeted0004",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "UNKNOWN",
+            "communicativeFunction": "ASK",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "UNSPECIFIED",
+            "target": "WORLD",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "HABITUAL",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "INFORMATION",
+            "outOfDomain": true,
+            "secondarySpeechActs": []
+          },
+          "notes": "Evcil hayvan davranışı oyun alanı dışında; tekrarlanan durum hakkında bilgi sorusu.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Kedim geceleri neden sürekli miyavlıyor?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0004",
@@ -5132,6 +5220,28 @@
       },
       {
         "id": "semantic-intent:targeted0005",
+        "adjudication": {
+          "id": "semantic-intent:targeted0005",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "UNKNOWN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "UNSPECIFIED",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": true,
+            "secondarySpeechActs": []
+          },
+          "notes": "Matematik çözme isteği oyun alanı dışında ve dinleyiciden doğrudan eylem istiyor.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bu matematik denklemini çözer misin?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0005",
@@ -5144,6 +5254,28 @@
       },
       {
         "id": "semantic-intent:targeted0006",
+        "adjudication": {
+          "id": "semantic-intent:targeted0006",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "UNKNOWN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "IMPERATIVE",
+            "predicate": "OPINION",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": true,
+            "secondarySpeechActs": []
+          },
+          "notes": "Müzik listesi önerisi oyun alanı dışında; dinleyiciden önerme eylemi isteniyor.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bana sakin bir müzik listesi öner.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0006",
@@ -5156,6 +5288,28 @@
       },
       {
         "id": "semantic-intent:targeted0007",
+        "adjudication": {
+          "id": "semantic-intent:targeted0007",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "UNKNOWN",
+            "communicativeFunction": "ASK",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "UNSPECIFIED",
+            "target": "WORLD",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "INFORMATION",
+            "outOfDomain": true,
+            "secondarySpeechActs": []
+          },
+          "notes": "Ev işi ve leke çıkarma sorusu oyun alanı dışında bir bilgi talebi.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Çamaşır makinesindeki lekeyi nasıl çıkarırım?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0007",
@@ -5168,6 +5322,28 @@
       },
       {
         "id": "semantic-intent:targeted0008",
+        "adjudication": {
+          "id": "semantic-intent:targeted0008",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "UNKNOWN",
+            "communicativeFunction": "ASK",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "UNSPECIFIED",
+            "target": "WORLD",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "INFORMATION",
+            "outOfDomain": true,
+            "secondarySpeechActs": []
+          },
+          "notes": "Bahçecilik tavsiyesi oyun alanı dışında ve gelecekteki eyleme yönelik bilgi talebi.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bahçemde domates yetiştirmek için ne yapmalıyım?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0008",
@@ -5180,6 +5356,28 @@
       },
       {
         "id": "semantic-intent:targeted0009",
+        "adjudication": {
+          "id": "semantic-intent:targeted0009",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "UNKNOWN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "OPINION",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": true,
+            "secondarySpeechActs": []
+          },
+          "notes": "Film önerisi oyun alanı dışında; soru biçimli dolaylı eylem isteği.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bu akşam izlemek için bir film önerir misin?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0009",
@@ -5192,6 +5390,28 @@
       },
       {
         "id": "semantic-intent:targeted0010",
+        "adjudication": {
+          "id": "semantic-intent:targeted0010",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "THREATEN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Sınır ihlali koşuluna bağlanan açık askeri zarar tehdidi; amaç karşı tarafa eylemi durdurmak.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bir daha sınırımıza girersen birliklerini vuracağım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0010",
@@ -5204,6 +5424,28 @@
       },
       {
         "id": "semantic-intent:targeted0011",
+        "adjudication": {
+          "id": "semantic-intent:targeted0011",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "THREATEN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Teklifin reddine bağlanan gelecekteki ekonomik abluka açık bir koşullu tehdittir.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Teklifimi reddedersen limanlarını abluka altına alırım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0011",
@@ -5216,6 +5458,28 @@
       },
       {
         "id": "semantic-intent:targeted0012",
+        "adjudication": {
+          "id": "semantic-intent:targeted0012",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "THREATEN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Bilginin açıklanmamasını sağlamak için dinleyicinin kariyerine yönelik koşullu zarar tehdidi.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bu bilgiyi açıklarsan kariyerini bitiririm.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0012",
@@ -5228,6 +5492,28 @@
       },
       {
         "id": "semantic-intent:targeted0013",
+        "adjudication": {
+          "id": "semantic-intent:targeted0013",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "THREATEN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Asker çekme talebini şehir saldırısı sonucuna bağlayan açık askeri tehdit.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Askerlerini çekmezsen şehrine saldıracağız.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0013",
@@ -5240,6 +5526,28 @@
     },
     {
         "id": "semantic-intent:targeted0014",
+        "adjudication": {
+          "id": "semantic-intent:targeted0014",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "THREATEN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Borç ödeme talebini şirket varlıklarına el koyma sonucuna bağlayan ekonomik tehdit.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Borcu bugün ödemezsen şirketinin mallarına el koyarım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0014",
@@ -5252,6 +5560,28 @@
       },
       {
         "id": "semantic-intent:targeted0015",
+        "adjudication": {
+          "id": "semantic-intent:targeted0015",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "THREATEN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Tutuklama koşuluna bağlanan gizli belge ifşası, eylemi engellemeyi amaçlayan tehdittir.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Ajanımı tutuklarsanız gizli belgelerinizi yayımlarım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0015",
@@ -5264,6 +5594,28 @@
       },
       {
         "id": "semantic-intent:targeted0016",
+        "adjudication": {
+          "id": "semantic-intent:targeted0016",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "THREATEN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Anlaşmanın bozulmamasını sağlamak için ticaret yollarını kapatma tehdidi.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Anlaşmayı bozarsan ticaret yollarını kapatacağım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0016",
@@ -5276,6 +5628,28 @@
       },
       {
         "id": "semantic-intent:targeted0017",
+        "adjudication": {
+          "id": "semantic-intent:targeted0017",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "THREATEN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "WORK",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Emre uyma talebini dinleyicinin görevini kaybetmesine bağlayan kişisel iş tehdidi.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Emrime uymazsan seni görevden aldırırım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0017",
@@ -5288,6 +5662,28 @@
       },
       {
         "id": "semantic-intent:targeted0018",
+        "adjudication": {
+          "id": "semantic-intent:targeted0018",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "THREATEN",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Tekrarlanan sınır ihlaline karşı gelecekte askeri zarar uygulanacağını bildiren koşullu tehdit.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sınır ihlali tekrar ederse karşı saldırı başlatacağız.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0018",
@@ -5300,6 +5696,28 @@
       },
       {
         "id": "semantic-intent:targeted0019",
+        "adjudication": {
+          "id": "semantic-intent:targeted0019",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "SHARE_SECRET",
+            "communicativeFunction": "CONFIDE",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "CONFIDENTIAL_HANDLING",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Gizli operasyon kod adını dinleyiciye açıklama niyeti ve örtük gizlilik beklentisi taşıyor.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sana gizli operasyonun kod adını söyleyeceğim.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0019",
@@ -5312,6 +5730,28 @@
       },
       {
         "id": "semantic-intent:targeted0020",
+        "adjudication": {
+          "id": "semantic-intent:targeted0020",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "SHARE_SECRET",
+            "communicativeFunction": "CONFIDE",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "CONFIDENTIAL_HANDLING",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Ajan kimliğini yalnız dinleyiciyle paylaşacağını kesin biçimde bildiren sır paylaşımı.",
+          "reviewedAt": "2026-08-27T14:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Ajanın gerçek kimliğini yalnız seninle paylaşacağım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0020",

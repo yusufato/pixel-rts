@@ -399,3 +399,17 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   kalibrasyon sınıfları ve olumsuz/varsayımsal hard-negative cümleleri kapsar.
 - Yeni kayıtların hiçbiri otomatik gold değildir. Model seçimi preflight'ı,
   hedefli kayıtlar tek tek incelenene kadar kapalı kalır.
+
+### 27 Ağustos 2026 — Hedefli tekil inceleme partisi 1
+
+- İlk 20 hedefli aday cümle ve bağlamıyla ayrı ayrı incelendi: dokuz oyun dışı
+  bilgi/eylem isteği, dokuz koşullu tehdit ve iki sır paylaşımı eksiksiz
+  SemanticFrameV2 etiketleriyle `CODEX_INDIVIDUAL_REVIEW` gold oldu.
+- Toplam gold `120/100` deney ve `120/1000` ürün seviyesine çıktı. Split
+  dağılımı prototip `75`, kalibrasyon `16`, kör test `29`dur.
+- OOD gold kapsamı her splitte `3`; tehdit kapsamı her splitte `3` oldu.
+  Böylece üç OOD açığı ve tehdit yüksek-risk açığı kapandı; preflight açıkları
+  `13 → 9` düştü.
+- Model seçimi hâlâ kapalıdır. Kör askerî raporun prototip çapası; beş sınıfın
+  kalibrasyonu ve ticari teklif, sır paylaşımı, blöf yüksek-risk split kapsamı
+  tamamlanmadan embedding modeli kabul edilemez.

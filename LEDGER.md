@@ -1401,3 +1401,10 @@
 - **What happened:** Önceki 200-cümle corpus sınırı kaldırıldı; OOD, yüksek-risk, eksik kör sınıf ve hard-negative kapsamı için 78 etiketsiz aday eklendi.
 - **Evidence:** Corpus doğrulaması `278` benzersiz cümle, `238` aile ve `149/61/68` prototype/calibration/blind dağılımı raporlar; mevcut gold sayısı değişmeden `100`dür.
 - **Implication for future audits:** Yeni 78 adayı gold veya model başarısı sayma. Model seçimi ancak bu hedefli kayıtlar tek tek etiketlenip preflight kapısını geçtiğinde başlayabilir.
+
+## 2026-08-27 — Hedefli OOD ve tehdit kapsamı 120 gold ile kapatıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 2 / hedefli Codex partisi 1
+- **What happened:** Dokuz OOD, dokuz koşullu tehdit ve iki sır paylaşımı adayı cümle ve bağlamıyla tek tek incelendi; 20 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu.
+- **Evidence:** Preflight `120` gold ve `75/16/29` split dağılımı raporlar. OOD her splitte `3`, `THREATEN` her splitte `3`; kapsam açıkları `13 → 9`. Korpus, router, review-server, SemanticFrameV2 ve gece kapısı testleri exit `0`.
+- **Implication for future audits:** OOD veya tehdit kapsamını artık sıfır sayma; ancak `modelSelectionPass=false` durumunu koru. Sır paylaşımı, blöf, ticari teklif, askerî rapor çapası ve eksik kalibrasyon sınıfları tamamlanmadan model seçme ya da ürün hattına bağlama.
