@@ -1,7 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { buildEmbeddingSpikePreflight } =
+const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
+    rankEmbeddingCandidates, fitEmbeddingCalibration, summarizeEmbeddingRows } =
     require('../tools/story-semantic-intent-benchmark');
 
 const report = buildEmbeddingSpikePreflight();
@@ -53,6 +54,35 @@ assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:SHARE_SECRET'));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:BLUFF_CANDIDATE'));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:PROPOSE_COMMERCIAL_DEAL'));
+
+const normalizedLeft = l2Normalize([3, 4]);
+const normalizedRight = l2Normalize([4, 3]);
+assert.ok(Math.abs(dotProduct(normalizedLeft, normalizedRight)
+    - cosineSimilarity(normalizedLeft, normalizedRight)) < 1e-12);
+assert.throws(() => l2Normalize([0, 0]), /EMBEDDING_VECTOR_NORM/);
+
+const ranked = rankEmbeddingCandidates([1, 0], [
+    { id: 'b', label: 'GREETING', vector: [0.9, 0.1] },
+    { id: 'a', label: 'GREETING', vector: [1, 0] },
+    { id: 'c', label: 'THREATEN', vector: [0, 1] }
+], 1);
+assert.equal(ranked[0].label, 'GREETING');
+assert.equal(ranked[0].anchorId, 'a');
+
+const calibrationRows = [
+    { id: 'safe', actual: 'GREETING', outOfDomain: false,
+        rawPrediction: 'GREETING', score: 0.91, margin: 0.2 },
+    { id: 'risk-fp', actual: 'GREETING', outOfDomain: false,
+        rawPrediction: 'THREATEN', score: 0.82, margin: 0.08 },
+    { id: 'risk-tp', actual: 'THREATEN', outOfDomain: false,
+        rawPrediction: 'THREATEN', score: 0.9, margin: 0.12 },
+    { id: 'ood', actual: 'UNKNOWN', outOfDomain: true,
+        rawPrediction: 'GREETING', score: 0.4, margin: 0.01 }
+];
+const fitted = fitEmbeddingCalibration(calibrationRows);
+const calibrated = summarizeEmbeddingRows(calibrationRows, fitted.calibration);
+assert.equal(calibrated.highRiskFalsePositiveCount, 0);
+assert.equal(calibrated.count, 4);
 
 process.stdout.write(JSON.stringify({
     ok: true,

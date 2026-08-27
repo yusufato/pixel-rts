@@ -1538,3 +1538,17 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Ortak kapı yalnız `preview + execute` sahibi gerçek motor bağlayıcılarını kabul eder. Başarılı sonuç `worldMutation=true` ve domain defterini adlandıran kanonik makbuz taşımıyorsa oyuncu başarı makbuzu yazılmaz. Retler ayrı sayılır; dünya sonucu gibi gösterilmez.
 - Yürütme, şirket sahibi ve komutan fixture'ları birlikte 18/18 gerçek mutasyon üretti. Yürütme askerî makamı miras alamadı; şirket sahibi yalnız kendi kanonik şirketiyle işlem yaptı. İstifa fiziksel halefiyet üretti. Save/load `15` yürütme makbuzunu ve sıra numarasını korudu.
 - Bu kayıt **sistem derinliği tamamlandı** demek değildir. Her ailede ilk güvenli oyuncu dikeyi kapanmıştır. Çok seçenekli alan formları, kapsamlı rol navigasyonu, satış/vergilendirme/para politikası, dava yaşam döngüsü, çok taraflı diplomasi, medya kuruluşu yönetimi ve modern teknoloji DAG'ı ilgili ana faz borçlarında kalır.
+
+## 2026-08-27 — Faz 38 Türkçe semantik embedding spike (`measured / candidates-rejected`)
+
+- Corpus `279` cümle, `239` aile ve `179` tekil Codex gold taşır; model seçimi
+  ayrımı `89/45/45`, ürün kapısı `179/1000`dır.
+- Deterministik kör macro-F1 `0,233333`tür. E5'in kalibrasyonla seçilen
+  `query/query` ve `query/passage` kolları `0,097571/0,086325` ile geriledi.
+  BGE-M3 `0,348664` ile yalnız `+0,115331` kazandı ve gereken `+0,15`i
+  karşılamadı.
+- Kör yüksek-risk yanlış pozitif sayısı deterministik `3`, E5 kollarında `1`,
+  BGE-M3'te `4`tür. Sıfır güvenlik kapısını hiçbir aday geçmedi.
+- Sonuç olarak yönlendirici, IPC, paketleme ve mekanik entegrasyon yapılmadı;
+  mevcut deterministik konuşma yolu değişmedi. Adım 3 yeni ve kabul edilmiş bir
+  model/temsil hipotezi olmadan kapalıdır.

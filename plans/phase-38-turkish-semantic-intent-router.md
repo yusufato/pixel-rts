@@ -457,3 +457,27 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - Bu kabul yalnız iki aday embedding modelini ölçme yetkisidir. Model seçimi,
   runtime/EXE paketi veya ürün entegrasyonu henüz yapılmadı; ürün kapısı
   `179/1000` seviyesinde kapalıdır.
+
+### 27 Ağustos 2026 — Adım 2 model/runtime adayları reddedildi
+
+- Aynı `89/45/45` prototip/kalibrasyon/kör gold ayrımında mevcut deterministik
+  yol, `multilingual-e5-small` Q8 ve BGE-M3 Q8 ölçüldü. Eşikler ve sınıf başına
+  çapa sayısı yalnız kalibrasyon splitinden seçildi; kör test seçim yapmadı.
+- Deterministik kör macro-F1 `0,233333`, OOD yanlış kabul `1,0` ve yüksek-risk
+  yanlış pozitif `3`tür. E5 `query/query` ve `query/passage` kolları sırasıyla
+  `0,097571` ve `0,086325` macro-F1 verdi; ikisinde de yüksek-risk yanlış
+  pozitif `1`dir. E5 reddedildi.
+- BGE-M3 düz giriş ve kalibrasyonun seçtiği sınıf başına `20` çapayla kör
+  macro-F1 `0,348664`, OOD yanlış kabul `0` ve yüksek-risk yanlış pozitif `4`
+  verdi. Tabana farkı `+0,115331`, gerekli `+0,15`in altındadır; ayrıca
+  yüksek-risk kapısını `3 → 4` geriletti. BGE-M3 reddedildi.
+- Nihai CPU-only E5 ölçümü: `3.529,90 ms` soğuk yükleme,
+  `53,53–54,59/90,23–91,19 ms` sıcak p50/p95, `778,40 MiB` gözlenen tepe RSS
+  artışı ve `126,30 MiB` model. BGE-M3: `3.464,52 ms`,
+  `584,11/1.013,90 ms`, `499,04 MiB` tepe RSS artışı ve `605,16 MiB`.
+- Normalize dot/kosinüs farkı her profilde `≤4,45e-16`dır. Güven, ham kosinüs
+  olasılık sayılmadan kalibrasyon splitindeki skor-dilimi doğruluğundan türetildi.
+- Hiçbir aday kalite ve yüksek-risk kapısını geçmediği için ürün bağı, Electron
+  IPC, paketleme ve eşzamanlı LLM/EXE kabulü açılmadı. Adım 3'e geçiş durmuştur;
+  sonraki çalışma yeni aday/temsil hipotezini ayrı ölçmeli veya corpus
+  genişletmelidir. Ürün kapısı `179/1000` seviyesinde kapalıdır.

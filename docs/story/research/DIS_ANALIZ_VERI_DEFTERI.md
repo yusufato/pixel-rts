@@ -1092,3 +1092,31 @@ parametrik ele alınır.
   ActorBelief, ham ilişki veya yetki verisi görmez.
 - CPU p50/p95, soğuk yükleme, RAM ve paket boyutu gerçek Electron EXE'de
   ölçülür; “birkaç milisaniye” varsayımı kanıt sayılmaz.
+
+### 27 Ağustos ölçümü — iki yerel aday da ürün için reddedildi
+
+- `node-llama-cpp 3.19.1` CPU yolu üzerinde iki çokdilli GGUF aynı 179 gold
+  corpusla ölçüldü. E5 Q8 kimliği
+  `e011debc…0a877c93` (`132.439.008` bayt), BGE-M3 Q8 kimliği
+  `aa473d51…4047a173` (`634.553.760` bayt) olarak makbuzlandı.
+- CrispEmbed için üretilmiş `cstr/multilingual-e5-small-GGUF` artefaktı doğru
+  SHA'ya rağmen kurulu llama.cpp tarafından eksik BERT `token_type_count`
+  metadatasıyla reddedildi; kalite adayına katılmadı. Llama.cpp uyumlu E5
+  dönüşümü ayrı kimlikle ölçüldü. Format/quantization modeli adlandırmak için
+  yeterli değildir.
+- Kör deterministik taban `0,233333` macro-F1'dır. E5 `query/query`
+  `0,097571`, E5 `query/passage` `0,086325`; iki kol da tabandan kötüdür.
+  BGE-M3 `0,348664` ile `+0,115331` kazandı fakat planın `+0,15` kapısını
+  geçmedi.
+- OOD yanlış kabul E5 ve BGE-M3'te `0`a indi. Buna rağmen kör yüksek-risk
+  yanlış pozitif E5 kollarında `1`, BGE-M3'te `4`tür; mevcut taban `3`tür.
+  Sıfır şartı sağlanmadı ve BGE güvenlik sonucunu geriletti.
+- E5 profilleri sıcak p50/p95 `53,53–54,59/90,23–91,19 ms`, BGE-M3
+  `584,11/1.013,90 ms` ölçüldü. Her embedding sonrasında örneklenen tepe RSS
+  artışı E5'te `778,40 MiB`, BGE-M3'te `499,04 MiB` oldu. Bu değerler Node CPU
+  spike'ıdır, paketli Electron EXE kabulü değildir; yalnız koşu sonu RSS değeri
+  tepe bellek diye raporlanmaz.
+- Sonuç: `rejected-for-product`. Embedding fikri genel olarak çürütülmedi;
+  bu iki model + en-yakın sınıf çapası + mevcut 179-gold temsilinin kabul
+  şartlarını karşılamadığı gösterildi. Kalite kapısını geçmeyen adaylar için
+  pahalı eşzamanlı LLM/EXE testi yapılmadı ve mekanik hatta hiçbir kod bağlanmadı.

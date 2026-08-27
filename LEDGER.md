@@ -1429,3 +1429,10 @@
 - **What happened:** Üç ekonomik rapor, üç eylem talebi ve on iki olumsuz/varsayımsal hard-negative tek tek incelendi. Doğru söz etiketi yeni `MAKE_PROMISE` kalibrasyon açığını gösterdi; mevcut kalibrasyon kuyruğunda saf söz bulunmadığı için bir aday eklenip ayrıca tekil gold yapıldı.
 - **Evidence:** Corpus `279` cümle, `239` aile ve `179` Codex gold; split `89/45/45`. Preflight `experimentGatePass=true`, `modelSelectionPass=true` ve `issues=[]` raporladı. Router, review-server, SemanticFrameV2 ve gece kapısı testleri exit `0`.
 - **Implication for future audits:** Kapsam preflight'ını artık kapalı sayma; iki adaylı model/runtime ölçümü başlayabilir. Bu sonucu model kabulü veya ürün entegrasyonu sayma: ürün kapısı `179/1000` seviyesinde kapalıdır ve gerçek kalite/latans/RAM/paket ölçümleri henüz yoktur.
+
+## 2026-08-27 — İki yerel embedding adayı kalite ve güvenlik kapısında reddedildi
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 2 model/runtime spike
+- **What happened:** `multilingual-e5-small` Q8 iki resmî prefix profiliyle ve BGE-M3 Q8 düz girişle aynı `89/45/45` gold ayrımında CPU üzerinde ölçüldü. Sınıf eşikleri, güven eşlemesi ve `1/3/5/10/20` çapa seçimi yalnız kalibrasyondan öğrenildi; kör test seçim yapmadı.
+- **Evidence:** Deterministik kör macro-F1 `0,233333`, OOD yanlış kabul `1,0`, yüksek-risk yanlış pozitif `3`. E5 `query/query` ve `query/passage` macro-F1 `0,097571/0,086325`, yüksek-risk yanlış pozitif `1/1`. BGE-M3 macro-F1 `0,348664` (`+0,115331`), OOD yanlış kabul `0`, yüksek-risk yanlış pozitif `4`. BGE artışı gereken `+0,15`in altında kaldı ve güvenlik sonucunu geriletti. E5 profillerinin sıcak p95 aralığı `90,23–91,19 ms`, BGE p95 `1.013,90 ms`; gözlenen tepe RSS artışları `778,40/499,04 MiB`, model boyutları `126,30/605,16 MiB`.
+- **Implication for future audits:** Bu iki artefaktı kabul edilmiş model veya ürün bağı sayma. Adım 3, Electron IPC/paketleme ve mekanik entegrasyon kapalıdır. Yeni aday/temsil çalışması aynı kör ayrımı ve sıfır yüksek-risk yanlış pozitif kapısını yeniden geçmeden ilerleme sayılmaz; ürün kapısı `179/1000`dır.

@@ -50,6 +50,11 @@ const LABEL_AXES = Object.freeze(Object.keys(LABEL_VALUES));
 const REQUIRED_LABEL_FIELDS = Object.freeze([...LABEL_AXES, 'outOfDomain']);
 const SPLITS = Object.freeze(['prototype', 'calibration', 'blind_test']);
 const GOLD_REVIEWERS = Object.freeze(['LOCAL_HUMAN', 'CODEX_INDIVIDUAL_REVIEW']);
+const HIGH_RISK_ACTS = Object.freeze([
+    'THREATEN', 'REQUEST_ACTION', 'PROPOSE_COMMERCIAL_DEAL', 'SHARE_SECRET',
+    'BLUFF_CANDIDATE'
+]);
+const EMBEDDING_ANCHOR_COUNTS = Object.freeze([1, 3, 5, 10, 20]);
 const ERROR_FAMILY_DEFINITIONS = Object.freeze({
     OUT_OF_DOMAIN_GATE: Object.freeze({ rootCauseLayer: 'CALIBRATION', scope: 'Known game language must not be rejected as OOD, and real OOD must not be forced in-domain.' }),
     SPEECH_ACT_DISAMBIGUATION: Object.freeze({ rootCauseLayer: 'PRAGMATICS', scope: 'Topic and surface form must not replace the utterance action.' }),
@@ -277,6 +282,344 @@ function expectedCalibrationError(rows) {
     return weighted;
 }
 
+function l2Normalize(vector) {
+    const values = Array.from(vector || [], Number);
+    const norm = Math.sqrt(values.reduce((sum, value) => sum + value * value, 0));
+    if (!norm || !Number.isFinite(norm)) throw new Error('EMBEDDING_VECTOR_NORM');
+    return values.map(value => value / norm);
+}
+
+function dotProduct(left, right) {
+    if (!left || !right || left.length !== right.length || !left.length) {
+        throw new Error('EMBEDDING_VECTOR_DIMENSION');
+    }
+    return left.reduce((sum, value, index) => sum + value * right[index], 0);
+}
+
+function cosineSimilarity(left, right) {
+    const leftNorm = Math.sqrt(dotProduct(left, left));
+    const rightNorm = Math.sqrt(dotProduct(right, right));
+    if (!leftNorm || !rightNorm) throw new Error('EMBEDDING_VECTOR_NORM');
+    return dotProduct(left, right) / (leftNorm * rightNorm);
+}
+
+function percentile(values, ratio) {
+    if (!values.length) return null;
+    const sorted = values.slice().sort((left, right) => left - right);
+    const index = Math.min(sorted.length - 1,
+        Math.max(0, Math.ceil(sorted.length * ratio) - 1));
+    return sorted[index];
+}
+
+function rankEmbeddingCandidates(queryVector, anchors, perClassLimit) {
+    const grouped = new Map();
+    for (const anchor of (anchors || []).slice().sort((left, right) =>
+        String(left.id).localeCompare(String(right.id)))) {
+        if (!grouped.has(anchor.label)) grouped.set(anchor.label, []);
+        if (grouped.get(anchor.label).length < perClassLimit) grouped.get(anchor.label).push(anchor);
+    }
+    return [...grouped.entries()].map(([label, rows]) => {
+        const scored = rows.map(row => ({ row,
+            score: cosineSimilarity(queryVector, row.vector) }))
+            .sort((left, right) => right.score - left.score
+                || String(left.row.id).localeCompare(String(right.row.id)));
+        return { label, score: scored[0].score, anchorId: scored[0].row.id };
+    }).sort((left, right) => right.score - left.score
+        || left.label.localeCompare(right.label));
+}
+
+function rawEmbeddingRows(rows, vectors, anchors, perClassLimit) {
+    return rows.map(row => {
+        const ranked = rankEmbeddingCandidates(vectors.get(row.id), anchors, perClassLimit);
+        const first = ranked[0] || { label: 'UNKNOWN', score: 0, anchorId: null };
+        const second = ranked[1] || { score: 0 };
+        return { id: row.id, actual: row.adjudication.labels.speechAct,
+            outOfDomain: row.adjudication.labels.outOfDomain,
+            rawPrediction: first.label, score: first.score,
+            margin: first.score - second.score, anchorId: first.anchorId };
+    });
+}
+
+function applyEmbeddingCalibration(row, calibration) {
+    if (!row || row.margin < calibration.minimumMargin) return 'UNKNOWN';
+    const threshold = calibration.classThresholds[row.rawPrediction]
+        ?? calibration.defaultThreshold;
+    return row.score >= threshold ? row.rawPrediction : 'UNKNOWN';
+}
+
+function summarizeEmbeddingRows(rows, calibration) {
+    const evaluated = rows.map(row => {
+        const predicted = applyEmbeddingCalibration(row, calibration);
+        const scoreBin = Math.min(9, Math.max(0, Math.floor(row.score * 10)));
+        const calibratedConfidence = calibration.confidenceByScoreBin
+            && calibration.confidenceByScoreBin[scoreBin] != null
+            ? calibration.confidenceByScoreBin[scoreBin]
+            : calibration.fallbackConfidence;
+        return { ...row, predicted,
+            confidenceBps: Math.round(Math.max(0, Math.min(1,
+                calibratedConfidence == null ? 0.5 : calibratedConfidence)) * 10000) };
+    });
+    const actual = evaluated.map(row => row.actual);
+    const predicted = evaluated.map(row => row.predicted);
+    const perClassRecall = Object.fromEntries([...new Set(actual)].sort().map(label => {
+        const classRows = evaluated.filter(row => row.actual === label);
+        return [label, classRows.filter(row => row.predicted === label).length / classRows.length];
+    }));
+    const ood = evaluated.filter(row => row.outOfDomain);
+    const highRiskFalsePositives = evaluated.filter(row =>
+        HIGH_RISK_ACTS.includes(row.predicted) && row.actual !== row.predicted);
+    const confusionKeys = [...new Set(evaluated.map(row =>
+        `${row.actual}=>${row.predicted}`))].sort();
+    return {
+        count: evaluated.length,
+        speechActMacroF1: macroF1(actual, predicted),
+        perClassRecall,
+        oodFalseAcceptanceRate: ood.length
+            ? ood.filter(row => row.predicted !== 'UNKNOWN').length / ood.length : null,
+        highRiskFalsePositiveCount: highRiskFalsePositives.length,
+        highRiskFalsePositiveIds: highRiskFalsePositives.map(row => row.id),
+        top1Top2Margin: { p50: percentile(evaluated.map(row => row.margin), 0.5),
+            p95: percentile(evaluated.map(row => row.margin), 0.95) },
+        expectedCalibrationError: expectedCalibrationError(evaluated.map(row => ({
+            confidenceBps: row.confidenceBps, correct: row.actual === row.predicted }))),
+        confusion: Object.fromEntries(confusionKeys.map(key => [key,
+            evaluated.filter(row => `${row.actual}=>${row.predicted}` === key).length]))
+    };
+}
+
+function fitEmbeddingCalibration(rows) {
+    const marginCandidates = [0, ...new Set(rows.map(row => Number(row.margin.toFixed(6))))]
+        .sort((left, right) => left - right);
+    let best = null;
+    for (const minimumMargin of marginCandidates) {
+        const classThresholds = {};
+        for (const label of LABEL_VALUES.speechAct.filter(value => value !== 'UNKNOWN')) {
+            const labelRows = rows.filter(row => row.rawPrediction === label
+                && row.margin >= minimumMargin);
+            const thresholds = [0, ...new Set(labelRows.map(row =>
+                Number((row.score + 1e-9).toFixed(9)))), 1.000001].sort((a, b) => a - b);
+            let selected = thresholds[0];
+            let selectedF1 = -1;
+            for (const threshold of thresholds) {
+                let tp = 0; let fp = 0; let fn = 0;
+                for (const row of rows) {
+                    const accepted = row.rawPrediction === label
+                        && row.margin >= minimumMargin && row.score >= threshold;
+                    if (accepted && row.actual === label) tp += 1;
+                    else if (accepted) fp += 1;
+                    else if (row.actual === label) fn += 1;
+                }
+                if (HIGH_RISK_ACTS.includes(label) && fp) continue;
+                const f1 = (2 * tp) / Math.max(1, 2 * tp + fp + fn);
+                if (f1 > selectedF1 || (f1 === selectedF1 && threshold < selected)) {
+                    selected = threshold; selectedF1 = f1;
+                }
+            }
+            classThresholds[label] = selected;
+        }
+        const calibration = { minimumMargin, defaultThreshold: 1.000001,
+            classThresholds };
+        const metrics = summarizeEmbeddingRows(rows, calibration);
+        const candidate = { calibration, metrics };
+        if (!best || metrics.highRiskFalsePositiveCount
+                < best.metrics.highRiskFalsePositiveCount
+            || (metrics.highRiskFalsePositiveCount === best.metrics.highRiskFalsePositiveCount
+                && metrics.speechActMacroF1 > best.metrics.speechActMacroF1)
+            || (metrics.highRiskFalsePositiveCount === best.metrics.highRiskFalsePositiveCount
+                && metrics.speechActMacroF1 === best.metrics.speechActMacroF1
+                && minimumMargin < best.calibration.minimumMargin)) best = candidate;
+    }
+    const calibratedRows = rows.map(row => ({ row,
+        predicted: applyEmbeddingCalibration(row, best.calibration) }));
+    best.calibration.fallbackConfidence = calibratedRows.filter(item =>
+        item.row.actual === item.predicted).length / Math.max(1, calibratedRows.length);
+    best.calibration.confidenceByScoreBin = {};
+    for (let bin = 0; bin < 10; bin++) {
+        const binRows = calibratedRows.filter(item =>
+            Math.min(9, Math.max(0, Math.floor(item.row.score * 10))) === bin);
+        if (binRows.length) best.calibration.confidenceByScoreBin[bin] =
+            binRows.filter(item => item.row.actual === item.predicted).length / binRows.length;
+    }
+    best.metrics = summarizeEmbeddingRows(rows, best.calibration);
+    return best;
+}
+
+function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
+    return EMBEDDING_ANCHOR_COUNTS.map(perClassLimit => {
+        const calibrationRows = rawEmbeddingRows(rowsBySplit.calibration,
+            vectors, anchors, perClassLimit);
+        const fitted = fitEmbeddingCalibration(calibrationRows);
+        const blindRows = rawEmbeddingRows(rowsBySplit.blind_test,
+            vectors, anchors, perClassLimit);
+        return { perClassLimit, calibration: fitted.metrics,
+            thresholds: fitted.calibration,
+            blindTest: summarizeEmbeddingRows(blindRows, fitted.calibration) };
+    });
+}
+
+function hashFile(filePath) {
+    return new Promise((resolve, reject) => {
+        const hash = require('node:crypto').createHash('sha256');
+        fs.createReadStream(filePath).on('data', chunk => hash.update(chunk))
+            .on('error', reject).on('end', () => resolve(hash.digest('hex')));
+    });
+}
+
+async function runEmbeddingModel(spec, rowsBySplit) {
+    const started = performance.now();
+    const rssBefore = process.memoryUsage().rss;
+    let peakObservedRssBytes = rssBefore;
+    const { getLlama } = await import('node-llama-cpp');
+    const llama = await getLlama({ gpu: false });
+    const model = await llama.loadModel({ modelPath: spec.modelPath, gpuLayers: 0 });
+    const loadedAt = performance.now();
+    const context = await model.createEmbeddingContext({
+        contextSize: spec.contextSize || 511, threads: 0 });
+    const profiles = [];
+    try {
+        for (const profile of spec.profiles) {
+            const durations = [];
+            const vectors = new Map();
+            const anchors = [];
+            for (const row of rowsBySplit.prototype) {
+                const before = performance.now();
+                const result = await context.getEmbeddingFor(
+                    `${profile.anchorPrefix}${row.text}`);
+                peakObservedRssBytes = Math.max(peakObservedRssBytes,
+                    process.memoryUsage().rss);
+                durations.push(performance.now() - before);
+                const vector = l2Normalize(result.vector);
+                vectors.set(row.id, vector);
+                anchors.push({ id: row.id,
+                    label: row.adjudication.labels.speechAct, vector });
+            }
+            for (const split of ['calibration', 'blind_test']) {
+                for (const row of rowsBySplit[split]) {
+                    const before = performance.now();
+                    const result = await context.getEmbeddingFor(
+                        `${profile.queryPrefix}${row.text}`);
+                    peakObservedRssBytes = Math.max(peakObservedRssBytes,
+                        process.memoryUsage().rss);
+                    durations.push(performance.now() - before);
+                    vectors.set(row.id, l2Normalize(result.vector));
+                }
+            }
+            const normalizationProbe = anchors.length > 1 ? {
+                cosine: cosineSimilarity(anchors[0].vector, anchors[1].vector),
+                normalizedDot: dotProduct(anchors[0].vector, anchors[1].vector)
+            } : null;
+            const curve = evaluateEmbeddingVectors(rowsBySplit, vectors, anchors);
+            const selected = curve.slice().sort((left, right) =>
+                right.calibration.speechActMacroF1
+                    - left.calibration.speechActMacroF1
+                || left.calibration.highRiskFalsePositiveCount
+                    - right.calibration.highRiskFalsePositiveCount
+                || left.perClassLimit - right.perClassLimit)[0];
+            profiles.push({ id: profile.id,
+                encoding: { queryPrefix: profile.queryPrefix,
+                    anchorPrefix: profile.anchorPrefix },
+                vectorDimension: anchors[0] ? anchors[0].vector.length : null,
+                normalizedDotCosineDelta: normalizationProbe
+                    ? Math.abs(normalizationProbe.cosine
+                        - normalizationProbe.normalizedDot) : null,
+                warmLatencyMs: { p50: percentile(durations, 0.5),
+                    p95: percentile(durations, 0.95) },
+                selectedByCalibration: selected.perClassLimit,
+                anchorCurve: curve });
+        }
+        return { id: spec.id, modelPath: path.basename(spec.modelPath),
+            fileBytes: fs.statSync(spec.modelPath).size,
+            sha256: await hashFile(spec.modelPath),
+            runtime: { package: 'node-llama-cpp',
+                version: readJson(path.join(ROOT, 'node_modules', 'node-llama-cpp',
+                    'package.json'), {}).version || null,
+                cpuOnly: true, coldLoadMs: loadedAt - started,
+                peakObservedRssBytes,
+                rssDeltaBytes: Math.max(0, peakObservedRssBytes - rssBefore) },
+            profiles };
+    } finally {
+        await context.dispose(); await model.dispose(); await llama.dispose();
+    }
+}
+
+function embeddingGoldSplits(corpus) {
+    const candidateIds = new Set((corpus.candidates || []).map(row => row.id));
+    const gold = (corpus.candidates || []).filter(row => row.adjudication
+        && isGoldReview(row.adjudication, candidateIds));
+    return Object.fromEntries(SPLITS.map(split =>
+        [split, gold.filter(row => row.split === split)]));
+}
+
+function buildDeterministicBlindBaseline(rows) {
+    const proposals = buildBaselineProposals(rows);
+    const evaluated = rows.map(row => {
+        const proposal = proposals.get(row.id);
+        return { id: row.id, actual: row.adjudication.labels.speechAct,
+            predicted: proposal.labels.speechAct,
+            outOfDomain: row.adjudication.labels.outOfDomain,
+            confidenceBps: proposal.confidenceBps };
+    });
+    const actual = evaluated.map(row => row.actual);
+    const predicted = evaluated.map(row => row.predicted);
+    const ood = evaluated.filter(row => row.outOfDomain);
+    const highRiskFalsePositives = evaluated.filter(row =>
+        HIGH_RISK_ACTS.includes(row.predicted) && row.actual !== row.predicted);
+    return { count: evaluated.length,
+        speechActMacroF1: macroF1(actual, predicted),
+        perClassRecall: Object.fromEntries([...new Set(actual)].sort().map(label => {
+            const classRows = evaluated.filter(row => row.actual === label);
+            return [label, classRows.filter(row => row.predicted === label).length
+                / classRows.length];
+        })),
+        oodFalseAcceptanceRate: ood.length
+            ? ood.filter(row => row.predicted !== 'UNKNOWN').length / ood.length : null,
+        highRiskFalsePositiveCount: highRiskFalsePositives.length,
+        highRiskFalsePositiveIds: highRiskFalsePositives.map(row => row.id),
+        expectedCalibrationError: expectedCalibrationError(evaluated.map(row => ({
+            confidenceBps: row.confidenceBps,
+            correct: row.actual === row.predicted }))) };
+}
+
+async function runEmbeddingSpike(options) {
+    const corpus = options.corpus || readJson(DEFAULT_CORPUS_PATH, null);
+    const preflight = buildEmbeddingSpikePreflight({ corpus });
+    if (!preflight.modelSelectionPass) {
+        throw new Error('EMBEDDING_MODEL_SELECTION_PREFLIGHT');
+    }
+    const rowsBySplit = embeddingGoldSplits(corpus);
+    const deterministicBlindBaseline = buildDeterministicBlindBaseline(
+        rowsBySplit.blind_test);
+    const models = [];
+    for (const spec of options.models || []) {
+        models.push(await runEmbeddingModel(spec, rowsBySplit));
+    }
+    const acceptance = models.map(model => {
+        const profileCandidates = model.profiles.map(profile => ({ profile,
+            point: profile.anchorCurve.find(point =>
+                point.perClassLimit === profile.selectedByCalibration) }))
+            .sort((left, right) =>
+                right.point.calibration.speechActMacroF1
+                    - left.point.calibration.speechActMacroF1
+                || left.profile.id.localeCompare(right.profile.id));
+        const selected = profileCandidates[0];
+        const macroF1Delta = selected.point.blindTest.speechActMacroF1
+            - deterministicBlindBaseline.speechActMacroF1;
+        const qualityPass = macroF1Delta >= 0.15;
+        const highRiskPass = selected.point.blindTest.highRiskFalsePositiveCount === 0;
+        return { modelId: model.id, profileId: selected.profile.id,
+            perClassLimit: selected.point.perClassLimit, macroF1Delta,
+            qualityPass, highRiskPass, pass: qualityPass && highRiskPass,
+            reasons: [!qualityPass && 'BLIND_MACRO_F1_DELTA_BELOW_0_15',
+                !highRiskPass && 'BLIND_HIGH_RISK_FALSE_POSITIVE']
+                .filter(Boolean) };
+    });
+    return { schemaVersion: 1, kind: 'STORY_SEMANTIC_EMBEDDING_SPIKE_V1',
+        generatedAt: new Date().toISOString(), preflight,
+        deterministicBlindBaseline, models,
+        selection: { acceptedModelIds: acceptance.filter(row => row.pass)
+            .map(row => row.modelId), acceptance } };
+}
+
 function buildBenchmark(options) {
     options = options && typeof options === 'object' ? options : {};
     const corpus = options.corpus || readJson(DEFAULT_CORPUS_PATH, null);
@@ -423,6 +766,34 @@ function buildEmbeddingSpikePreflight(options) {
 }
 
 if (require.main === module) {
+    if (process.argv.includes('--embedding-spike')) {
+        const value = name => {
+            const prefix = `--${name}=`;
+            const item = process.argv.find(argument => argument.startsWith(prefix));
+            return item ? item.slice(prefix.length) : null;
+        };
+        const e5Path = value('e5-model');
+        const bgePath = value('bge-model');
+        if (!e5Path || !bgePath) throw new Error('EMBEDDING_MODEL_PATHS_REQUIRED');
+        runEmbeddingSpike({ models: [
+            { id: 'multilingual-e5-small-q8_0', modelPath: e5Path,
+                contextSize: 511, profiles: [
+                    { id: 'e5-query-query', queryPrefix: 'query: ',
+                        anchorPrefix: 'query: ' },
+                    { id: 'e5-query-passage', queryPrefix: 'query: ',
+                        anchorPrefix: 'passage: ' }
+                ] },
+            { id: 'bge-m3-q8_0', modelPath: bgePath, contextSize: 512,
+                profiles: [{ id: 'bge-m3-plain', queryPrefix: '',
+                    anchorPrefix: '' }] }
+        ] }).then(report => {
+            const output = value('output');
+            if (output) fs.writeFileSync(path.resolve(output),
+                `${JSON.stringify(report, null, 2)}\n`);
+            process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+        }).catch(error => { console.error(error); process.exitCode = 2; });
+        return;
+    }
     if (process.argv.includes('--embedding-spike-preflight')) {
         const preflight = buildEmbeddingSpikePreflight();
         process.stdout.write(`${JSON.stringify(preflight, null, 2)}\n`);
@@ -440,5 +811,8 @@ module.exports = {
     LABEL_VALUES, LABEL_AXES, REQUIRED_LABEL_FIELDS, SPLITS, GOLD_REVIEWERS,
     ERROR_FAMILY_DEFINITIONS, classifyErrorFamilies, summarizeErrorFamilies,
     normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
-    labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight
+    labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight,
+    l2Normalize, dotProduct, cosineSimilarity, rankEmbeddingCandidates,
+    fitEmbeddingCalibration, summarizeEmbeddingRows, evaluateEmbeddingVectors,
+    runEmbeddingSpike
 };
