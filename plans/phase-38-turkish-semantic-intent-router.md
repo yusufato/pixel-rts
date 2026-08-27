@@ -441,3 +441,19 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - Model seçimi yalnız `REPORT_ECONOMIC` ve `REQUEST_ACTION` kalibrasyon
   örnekleri eksik olduğu için kapalıdır. Sıradaki hedefli partinin ilk altı
   kaydı bu iki açığı kapatmaya ayrılmıştır.
+
+### 27 Ağustos 2026 — Hedefli tekil inceleme partisi 4 ve preflight kabulü
+
+- Üç ekonomik rapor, üç eylem talebi ve on iki olumsuz/varsayımsal
+  hard-negative ayrı ayrı incelendi. Saldırmama sözü tehditten; sır vermeme
+  sırrı paylaşmaktan; teklif inkârı ticari tekliften ayrıldı.
+- Doğru hard-negative etiketleri kör testte `MAKE_PROMISE` sınıfını görünür
+  kıldı ve yeni bir kalibrasyon açığı oluşturdu. Mevcut 17 etiketsiz
+  kalibrasyon kaydında saf söz bulunmadığı doğrulandı; bir açık askerî söz
+  adayı eklenip ayrıca tekil incelendi.
+- Corpus `279` cümle, `239` aile ve `179` gold oldu. Gold dağılımı prototip
+  `89`, kalibrasyon `45`, kör test `45`tir. `experimentGatePass=true`,
+  `modelSelectionPass=true` ve preflight açık listesi boştur.
+- Bu kabul yalnız iki aday embedding modelini ölçme yetkisidir. Model seçimi,
+  runtime/EXE paketi veya ürün entegrasyonu henüz yapılmadı; ürün kapısı
+  `179/1000` seviyesinde kapalıdır.

@@ -1422,3 +1422,10 @@
 - **What happened:** Beş ticari teklif, dokuz askerî rapor, üç meydan okuma ve üç selamlaşma cümle ve bağlamıyla tek tek incelendi; 20 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu.
 - **Evidence:** Preflight `160` gold ve `85/34/41` split dağılımı raporlar. Ticari teklif `3/4/3`; askerî rapor prototip ve kalibrasyonu mevcut; kapsam açıkları `7 → 2`. Router, review-server, SemanticFrameV2 ve gece kapısı testleri exit `0`.
 - **Implication for future audits:** Ticari teklif, askerî rapor, meydan okuma veya selamlaşma açığını yeniden raporlama. Yalnız `REPORT_ECONOMIC` ve `REQUEST_ACTION` kalibrasyonları tamamlanmadan `modelSelectionPass=false` durumunu koru ve embedding modeli seçme.
+
+## 2026-08-27 — Embedding model seçimi preflight'ı 179 gold ile açıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 2 / hedefli Codex partisi 4
+- **What happened:** Üç ekonomik rapor, üç eylem talebi ve on iki olumsuz/varsayımsal hard-negative tek tek incelendi. Doğru söz etiketi yeni `MAKE_PROMISE` kalibrasyon açığını gösterdi; mevcut kalibrasyon kuyruğunda saf söz bulunmadığı için bir aday eklenip ayrıca tekil gold yapıldı.
+- **Evidence:** Corpus `279` cümle, `239` aile ve `179` Codex gold; split `89/45/45`. Preflight `experimentGatePass=true`, `modelSelectionPass=true` ve `issues=[]` raporladı. Router, review-server, SemanticFrameV2 ve gece kapısı testleri exit `0`.
+- **Implication for future audits:** Kapsam preflight'ını artık kapalı sayma; iki adaylı model/runtime ölçümü başlayabilir. Bu sonucu model kabulü veya ürün entegrasyonu sayma: ürün kapısı `179/1000` seviyesinde kapalıdır ve gerçek kalite/latans/RAM/paket ölçümleri henüz yoktur.

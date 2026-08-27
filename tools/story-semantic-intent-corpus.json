@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kind": "STORY_SEMANTIC_INTENT_CORPUS_V1",
   "createdAt": "2026-08-27",
-  "selectionVersion": "observed-s0-plus-frontier-round-robin-targeted-v2",
+  "selectionVersion": "observed-s0-plus-frontier-round-robin-targeted-v3",
   "gates": {
     "prototypeHumanGold": 100,
     "productHumanGold": 1000
@@ -24,12 +24,12 @@
     "secondarySpeechActsMax": 3
   },
   "summary": {
-    "total": 278,
+    "total": 279,
     "observedPlayer": 46,
-    "modelGeneratedCandidate": 232,
+    "modelGeneratedCandidate": 233,
     "splits": {
       "prototype": 149,
-      "calibration": 61,
+      "calibration": 62,
       "blind_test": 68
     }
   },
@@ -7152,6 +7152,28 @@
       },
       {
         "id": "semantic-intent:targeted0061",
+        "adjudication": {
+          "id": "semantic-intent:targeted0061",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_ECONOMIC",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "WORLD",
+            "polarity": "NEGATIVE",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Aylık enflasyon artışını sayısal, olumsuz ve kesin ekonomik durum olarak bildiriyor; eylem istemiyor.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Enflasyon bu ay yüzde iki yükseldi.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0061",
@@ -7164,6 +7186,28 @@
       },
       {
         "id": "semantic-intent:targeted0062",
+        "adjudication": {
+          "id": "semantic-intent:targeted0062",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_ECONOMIC",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Hazine gelirlerindeki geçmiş çeyrek düşüşünü kurumsal ve kesin ekonomik rapor olarak iletiyor.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Hazine gelirleri geçen çeyrekte azaldı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0062",
@@ -7176,6 +7220,28 @@
       },
       {
         "id": "semantic-intent:targeted0063",
+        "adjudication": {
+          "id": "semantic-intent:targeted0063",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_ECONOMIC",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "WORLD",
+            "polarity": "NEGATIVE",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "CONTINUATION",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Buğday fiyatının bugün yeniden arttığını, tekrar sinyaliyle devam eden olumsuz ekonomik rapor olarak bildiriyor.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Buğday fiyatı bugün yeniden arttı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0063",
@@ -7188,6 +7254,28 @@
       },
       {
         "id": "semantic-intent:targeted0064",
+        "adjudication": {
+          "id": "semantic-intent:targeted0064",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REQUEST_ACTION",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "IMPERATIVE",
+            "predicate": "MILITARY",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Dinleyiciden sınır birliklerini geri çekmesini isteyen doğrudan askerî emir/talep.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sınırdaki birlikleri geri çekin.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0064",
@@ -7200,6 +7288,28 @@
       },
       {
         "id": "semantic-intent:targeted0065",
+        "adjudication": {
+          "id": "semantic-intent:targeted0065",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REQUEST_ACTION",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "IMPERATIVE",
+            "predicate": "WORK",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Dinleyiciden belirli son tarihe kadar bütçe raporu hazırlamasını isteyen iş eylemi.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bütçe raporunu yarına kadar hazırlayın.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0065",
@@ -7212,6 +7322,28 @@
     },
     {
         "id": "semantic-intent:targeted0066",
+        "adjudication": {
+          "id": "semantic-intent:targeted0066",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REQUEST_ACTION",
+            "communicativeFunction": "REQUEST",
+            "surfaceForm": "IMPERATIVE",
+            "predicate": "ECONOMY",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Dinleyiciden sevkiyat rotasını hemen değiştirmesini isteyen lojistik-ekonomik eylem talebi.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sevkiyat rotasını hemen değiştirin.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0066",
@@ -7224,6 +7356,28 @@
       },
       {
         "id": "semantic-intent:targeted0067",
+        "adjudication": {
+          "id": "semantic-intent:targeted0067",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "MAKE_PROMISE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACKNOWLEDGEMENT",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Gelecekte dinleyiciye saldırmama taahhüdü; saldırı sözcüğüne rağmen tehdit değil olumsuz askerî sözdür.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Size saldırmayacağız.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0067",
@@ -7236,6 +7390,28 @@
       },
       {
         "id": "semantic-intent:targeted0068",
+        "adjudication": {
+          "id": "semantic-intent:targeted0068",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REJECT",
+            "communicativeFunction": "REJECT",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACKNOWLEDGEMENT",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Gizli bilgiyi dinleyiciyle paylaşmayı açıkça reddediyor; sır paylaşımı gerçekleştirmiyor.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Gizli bilgiyi seninle paylaşmayacağım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0068",
@@ -7248,6 +7424,28 @@
       },
       {
         "id": "semantic-intent:targeted0069",
+        "adjudication": {
+          "id": "semantic-intent:targeted0069",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "CORRECT_STATEMENT",
+            "communicativeFunction": "CORRECT",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "PLAYER_AND_LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "CORRECTION",
+            "requestedOutcome": "ACKNOWLEDGEMENT",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Ticari anlaşma teklifinde bulunulduğu çıkarımını açıkça inkâr ediyor; yeni teklif veya ret cevabı üretmiyor.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Ticaret anlaşması teklif etmiyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0069",
@@ -7260,6 +7458,28 @@
       },
       {
         "id": "semantic-intent:targeted0070",
+        "adjudication": {
+          "id": "semantic-intent:targeted0070",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "MIXED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Var olmayan asker koşulunda olası geri çekilmeyi anlatan askerî karşı-olgusal; gerçek birlik raporu veya emir değildir.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sınırda asker olsaydı geri çekilebilirdik.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0070",
@@ -7272,6 +7492,28 @@
       },
       {
         "id": "semantic-intent:targeted0071",
+        "adjudication": {
+          "id": "semantic-intent:targeted0071",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "CORRECT_STATEMENT",
+            "communicativeFunction": "CORRECT",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "CORRECTION",
+            "requestedOutcome": "ACKNOWLEDGEMENT",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Liman kapatma tehdidinde bulunduğu çıkarımını açıkça reddeden düzeltici inkâr; tehdit değildir.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Limanlarınızı kapatmakla tehdit etmiyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0071",
@@ -7284,6 +7526,28 @@
       },
       {
         "id": "semantic-intent:targeted0072",
+        "adjudication": {
+          "id": "semantic-intent:targeted0072",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REJECT",
+            "communicativeFunction": "REJECT",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "THIRD_PARTY",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACKNOWLEDGEMENT",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Üçüncü taraf ajanın kimliğini açıklamayı kesin biçimde reddediyor; gizli bilgi paylaşmıyor.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Ajanın kimliğini açıklamam.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0072",
@@ -7296,6 +7560,28 @@
       },
       {
         "id": "semantic-intent:targeted0073",
+        "adjudication": {
+          "id": "semantic-intent:targeted0073",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REJECT",
+            "communicativeFunction": "REJECT",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACKNOWLEDGEMENT",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Dinleyicinin yatırım teklifini açıkça kabul etmeyen ekonomik ret; yeni ticari teklif değildir.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bu yatırım teklifini kabul etmiyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0073",
@@ -7308,6 +7594,28 @@
       },
       {
         "id": "semantic-intent:targeted0074",
+        "adjudication": {
+          "id": "semantic-intent:targeted0074",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Birliklerin gelmesi koşulunda cephenin güçlenebileceğini bildiren askerî varsayım; gerçekleşmiş rapor veya talep değildir.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Birlikler gelirse cephe güçlenebilir.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0074",
@@ -7320,6 +7628,28 @@
       },
       {
         "id": "semantic-intent:targeted0075",
+        "adjudication": {
+          "id": "semantic-intent:targeted0075",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "MAKE_PROMISE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "PLAYER_AND_LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACKNOWLEDGEMENT",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Savaş başlatmama konusunda açık gelecek taahhüdü; savaş sözcüğüne rağmen tehdit değildir.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Savaş başlatmayacağımıza söz veriyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0075",
@@ -7332,6 +7662,28 @@
       },
       {
         "id": "semantic-intent:targeted0076",
+        "adjudication": {
+          "id": "semantic-intent:targeted0076",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REJECT",
+            "communicativeFunction": "REJECT",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "SECRET",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACKNOWLEDGEMENT",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Operasyon kod adını söylemeyi kesin biçimde reddediyor; gizli içerik aktarımı gerçekleşmiyor.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Operasyonun kod adını söylemeyeceğim.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0076",
@@ -7344,6 +7696,28 @@
       },
       {
         "id": "semantic-intent:targeted0077",
+        "adjudication": {
+          "id": "semantic-intent:targeted0077",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "CORRECT_STATEMENT",
+            "communicativeFunction": "CORRECT",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "CORRECTION",
+            "requestedOutcome": "ACKNOWLEDGEMENT",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Dinleyiciye ticari anlaşma önerdiği çıkarımını açıkça inkâr ediyor; teklif sınıfının olumsuz karşı örneğidir.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Size herhangi bir ticari anlaşma önermiyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0077",
@@ -7356,12 +7730,68 @@
       },
       {
         "id": "semantic-intent:targeted0078",
+        "adjudication": {
+          "id": "semantic-intent:targeted0078",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "WORLD",
+            "polarity": "NEGATIVE",
+            "temporality": "PAST",
+            "epistemicStatus": "HYPOTHETICAL",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Filonun ulaşmadığı geçmiş karşı-olguda limanın tehlikeye gireceğini anlatıyor; gerçekleşmiş askerî olay iddiası değildir.",
+          "reviewedAt": "2026-08-27T17:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Filo ulaşmış olsaydı liman tehlikeye girerdi.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0078",
         "familyId": "TARGETED_EMBEDDING_V1|MILITARY_HYPOTHETICAL|blind_test|0078",
         "speakerFamily": "COMPANY_EXECUTIVE",
         "split": "blind_test",
+        "history": [],
+        "proposalSpeechAct": null,
+        "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:targeted0079",
+        "adjudication": {
+          "id": "semantic-intent:targeted0079",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "MAKE_PROMISE",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACKNOWLEDGEMENT",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Sınır birliklerini ertesi gün geri çekme eylemini dinleyiciye açıkça taahhüt eden askerî söz; emir veya gerçekleşmiş rapor değildir.",
+          "reviewedAt": "2026-08-27T17:20:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Yarın sınır birliklerini geri çekeceğime söz veriyorum.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE",
+        "sourceId": "targeted-embedding-spike:0079",
+        "familyId": "TARGETED_EMBEDDING_V2|MAKE_PROMISE|calibration|0079",
+        "speakerFamily": "COMMANDER",
+        "split": "calibration",
         "history": [],
         "proposalSpeechAct": null,
         "labelStatus": "CANDIDATE_UNREVIEWED"
