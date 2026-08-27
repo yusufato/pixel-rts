@@ -6452,6 +6452,30 @@
       },
       {
         "id": "semantic-intent:targeted0041",
+        "adjudication": {
+          "id": "semantic-intent:targeted0041",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+            "communicativeFunction": "OFFER",
+            "surfaceForm": "IMPERATIVE",
+            "predicate": "ECONOMY",
+            "target": "PLAYER_AND_LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "REQUEST_ACTION"
+            ]
+          },
+          "notes": "Demiryolu yatırımının ortak finansmanını birinci çoğul biçimde öneren ticari anlaşma.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Demiryolu yatırımını birlikte finanse etmek için anlaşma yapalım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0041",
@@ -6464,6 +6488,30 @@
       },
       {
         "id": "semantic-intent:targeted0042",
+        "adjudication": {
+          "id": "semantic-intent:targeted0042",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+            "communicativeFunction": "OFFER",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "ORGANIZATION",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "REQUEST_ACTION"
+            ]
+          },
+          "notes": "Bankaya sermaye sağlama karşılığında pay isteyen açık yatırım anlaşması önerisi.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bankanıza sermaye koymamız karşılığında pay talep ediyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0042",
@@ -6476,6 +6524,30 @@
       },
       {
         "id": "semantic-intent:targeted0043",
+        "adjudication": {
+          "id": "semantic-intent:targeted0043",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+            "communicativeFunction": "OFFER",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "PLAYER_AND_LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "REQUEST_ACTION"
+            ]
+          },
+          "notes": "On yıllık enerji alımını iki taraflı sözleşme olarak teklif eden ticari öneri.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "On yıllık enerji alım anlaşması teklif ediyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0043",
@@ -6488,6 +6560,30 @@
       },
       {
         "id": "semantic-intent:targeted0044",
+        "adjudication": {
+          "id": "semantic-intent:targeted0044",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+            "communicativeFunction": "OFFER",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "ECONOMY",
+            "target": "PLAYER_AND_LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "REQUEST_ACTION"
+            ]
+          },
+          "notes": "Fabrikanın ortak işletilmesi ve gelirin paylaşılması için geleceğe dönük ticari ortaklık önerisi.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Fabrikayı ortak işletip geliri paylaşmayı öneriyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0044",
@@ -6500,6 +6596,30 @@
       },
       {
         "id": "semantic-intent:targeted0045",
+        "adjudication": {
+          "id": "semantic-intent:targeted0045",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+            "communicativeFunction": "OFFER",
+            "surfaceForm": "IMPERATIVE",
+            "predicate": "ECONOMY",
+            "target": "PLAYER_AND_LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "FUTURE",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "ACTION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "REQUEST_ACTION"
+            ]
+          },
+          "notes": "İhracat kotası artışını kredi sağlama karşılığı yapan birinci çoğul ticari teklif.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "İhracat kotasını artırmanız karşılığında kredi sağlayalım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0045",
@@ -6512,6 +6632,28 @@
       },
       {
         "id": "semantic-intent:targeted0046",
+        "adjudication": {
+          "id": "semantic-intent:targeted0046",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Kuzey cephesindeki iki taburun geri çekildiğini kesin geçmiş askerî durum olarak bildiriyor; emir vermiyor.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Kuzey cephesinde iki tabur geri çekildi.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0046",
@@ -6524,6 +6666,28 @@
       },
       {
         "id": "semantic-intent:targeted0047",
+        "adjudication": {
+          "id": "semantic-intent:targeted0047",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Garnizon mühimmatındaki azalmayı geçmişte oluşmuş olumsuz askerî durum olarak raporluyor.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sınır garnizonunun mühimmatı azaldı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0047",
@@ -6536,6 +6700,28 @@
       },
       {
         "id": "semantic-intent:targeted0048",
+        "adjudication": {
+          "id": "semantic-intent:targeted0048",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "THIRD_PARTY",
+            "polarity": "NEGATIVE",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Düşman filosunun limana ulaştığını kesin geçmiş askerî hareket olarak bildiriyor.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Düşman filosu doğu limanına ulaştı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0048",
@@ -6548,6 +6734,28 @@
       },
       {
         "id": "semantic-intent:targeted0049",
+        "adjudication": {
+          "id": "semantic-intent:targeted0049",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Hava savunma birliklerinin bu sabah konuşlandığını tarafsız askerî durum raporu olarak iletiyor.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Hava savunma birimleri bu sabah konuşlandı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0049",
@@ -6560,6 +6768,28 @@
       },
       {
         "id": "semantic-intent:targeted0050",
+        "adjudication": {
+          "id": "semantic-intent:targeted0050",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Üç keşif aracının üsse dönüşünü sayısal ve kesin geçmiş askerî rapor olarak bildiriyor.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Üç keşif aracı üsse geri döndü.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0050",
@@ -6572,6 +6802,28 @@
       },
       {
         "id": "semantic-intent:targeted0051",
+        "adjudication": {
+          "id": "semantic-intent:targeted0051",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Batı cephesi ikmal hattının kesilmesini olumsuz ve kesin askerî durum olarak raporluyor.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Batı cephesindeki ikmal hattı kesildi.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0051",
@@ -6584,6 +6836,28 @@
       },
       {
         "id": "semantic-intent:targeted0052",
+        "adjudication": {
+          "id": "semantic-intent:targeted0052",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Yedek birliklerin başkentin güneyinde toplandığını geçmiş askerî konuşlanma olarak bildiriyor.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Yedek birlikler başkentin güneyinde toplandı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0052",
@@ -6596,6 +6870,28 @@
     },
     {
         "id": "semantic-intent:targeted0053",
+        "adjudication": {
+          "id": "semantic-intent:targeted0053",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "ORGANIZATION",
+            "polarity": "NEGATIVE",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Konuşanın donanmasının iki gemi kaybettiğini sayısal, olumsuz ve kesin askerî rapor olarak veriyor.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Donanmamız iki devriye gemisini kaybetti.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0053",
@@ -6608,6 +6904,28 @@
       },
       {
         "id": "semantic-intent:targeted0054",
+        "adjudication": {
+          "id": "semantic-intent:targeted0054",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "REPORT_MILITARY",
+            "communicativeFunction": "TELL",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "MILITARY",
+            "target": "THIRD_PARTY",
+            "polarity": "NEGATIVE",
+            "temporality": "PAST",
+            "epistemicStatus": "CLAIMED_CERTAIN",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Karşı tarafın sınır boyunca tahkimat kurduğunu geçmiş ve olumsuz askerî hareket olarak raporluyor.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Karşı taraf sınır boyunca yeni siperler kazdı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0054",
@@ -6620,6 +6938,30 @@
       },
       {
         "id": "semantic-intent:targeted0055",
+        "adjudication": {
+          "id": "semantic-intent:targeted0055",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "CHALLENGE",
+            "communicativeFunction": "ASK",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "OPINION",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "INFORMATION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "ASK_INFORMATION"
+            ]
+          },
+          "notes": "Dinleyicinin kararının mantığını kabul etmek yerine kanıt isteyen sorgulayıcı meydan okuma.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bu kararınızın gerçekten mantıklı olduğunu kanıtlayabilir misiniz?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0055",
@@ -6632,6 +6974,30 @@
       },
       {
         "id": "semantic-intent:targeted0056",
+        "adjudication": {
+          "id": "semantic-intent:targeted0056",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "CHALLENGE",
+            "communicativeFunction": "ASK",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "MILITARY",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "INFORMATION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "ASK_INFORMATION"
+            ]
+          },
+          "notes": "Ordunun hazır olduğu iddiasına neden inanılması gerektiğini sorarak askerî iddiaya meydan okuyor.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Ordunun hazır olduğunu söylüyorsunuz; buna neden inanayım?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0056",
@@ -6644,6 +7010,30 @@
       },
       {
         "id": "semantic-intent:targeted0057",
+        "adjudication": {
+          "id": "semantic-intent:targeted0057",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "CHALLENGE",
+            "communicativeFunction": "ASK",
+            "surfaceForm": "INTERROGATIVE",
+            "predicate": "ECONOMY",
+            "target": "LISTENER",
+            "polarity": "NEGATIVE",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "QUESTIONED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "INFORMATION",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "ASK_INFORMATION"
+            ]
+          },
+          "notes": "Bütçe hesabının doğruluğunu şüpheyle sorgulayan ekonomik meydan okuma.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bu bütçe hesabınızın doğru olduğundan emin misiniz?",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0057",
@@ -6656,6 +7046,28 @@
       },
       {
         "id": "semantic-intent:targeted0058",
+        "adjudication": {
+          "id": "semantic-intent:targeted0058",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "GREETING",
+            "communicativeFunction": "GREET",
+            "surfaceForm": "FRAGMENT",
+            "predicate": "IDENTITY",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": []
+          },
+          "notes": "Komutan unvanıyla dinleyiciye yöneltilmiş zaman belirten doğal selamlaşma.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Günaydın komutanım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0058",
@@ -6668,6 +7080,30 @@
       },
       {
         "id": "semantic-intent:targeted0059",
+        "adjudication": {
+          "id": "semantic-intent:targeted0059",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "GREETING",
+            "communicativeFunction": "GREET",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "RELATIONSHIP",
+            "target": "LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "CURRENT_OR_UNMARKED",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "SMALL_TALK"
+            ]
+          },
+          "notes": "Akşam selamını görüşmeden duyulan memnuniyetle birleştiren ilişki odaklı selamlaşma.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "İyi akşamlar, sizinle görüşmek güzel.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0059",
@@ -6680,6 +7116,30 @@
       },
       {
         "id": "semantic-intent:targeted0060",
+        "adjudication": {
+          "id": "semantic-intent:targeted0060",
+          "verdict": "ACCEPT",
+          "annotationContractVersion": 1,
+          "labels": {
+            "speechAct": "GREETING",
+            "communicativeFunction": "GREET",
+            "surfaceForm": "DECLARATIVE",
+            "predicate": "RELATIONSHIP",
+            "target": "PLAYER_AND_LISTENER",
+            "polarity": "POSITIVE_OR_UNMARKED",
+            "temporality": "PAST",
+            "epistemicStatus": "UNMARKED",
+            "continuity": "NEW_OR_UNMARKED",
+            "requestedOutcome": "NONE",
+            "outOfDomain": false,
+            "secondarySpeechActs": [
+              "SMALL_TALK"
+            ]
+          },
+          "notes": "Selamı iki tarafın sonunda tanışmış olmasıyla birleştiren olumlu ilişki açılışı.",
+          "reviewedAt": "2026-08-27T16:00:00.000+03:00",
+          "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Merhaba, sonunda tanışabildik.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0060",

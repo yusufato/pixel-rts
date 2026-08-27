@@ -427,3 +427,17 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - Model seçimi kapalı kalır. Sıradaki hedefli parti ticari teklifin kör testini,
   askerî rapor çapası/kalibrasyonunu ve eksik kalibrasyon sınıflarını
   tamamlamalıdır.
+
+### 27 Ağustos 2026 — Hedefli tekil inceleme partisi 3
+
+- Beş ticari teklif, dokuz askerî rapor, üç meydan okuma ve üç selamlaşma
+  cümle ve bağlamıyla ayrı ayrı incelendi. Geçmiş askerî durum bildirimi
+  emirden; kanıt talep eden meydan okuma sıradan bilgi sorusundan ayrıldı.
+- Toplam gold `160/100` deney ve `160/1000` ürün seviyesine çıktı. Split
+  dağılımı prototip `85`, kalibrasyon `34`, kör test `41`dir.
+- Ticari teklif yüksek-risk kapsamı `3/4/3` oldu. Kör askerî rapor prototip
+  çapası ve kalibrasyonu; meydan okuma ve selamlaşma kalibrasyonları kapandı.
+  Preflight açıkları `7 → 2` düştü.
+- Model seçimi yalnız `REPORT_ECONOMIC` ve `REQUEST_ACTION` kalibrasyon
+  örnekleri eksik olduğu için kapalıdır. Sıradaki hedefli partinin ilk altı
+  kaydı bu iki açığı kapatmaya ayrılmıştır.

@@ -8,18 +8,22 @@ const report = buildEmbeddingSpikePreflight();
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 140);
+assert.equal(report.gold.total, 160);
 assert.deepEqual(report.gold.bySplit, {
-    prototype: 82,
-    calibration: 23,
-    blind_test: 35
+    prototype: 85,
+    calibration: 34,
+    blind_test: 41
 });
 assert.equal(report.modelSelectionPass, false);
-assert.ok(report.classCoverage.missingBlindAnchors.includes('REPORT_MILITARY'));
+assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
+assert.deepEqual(report.classCoverage.missingBlindCalibration, [
+    'REPORT_ECONOMIC',
+    'REQUEST_ACTION'
+]);
 assert.deepEqual(report.oodBySplit, {
-    prototype: { inDomain: 79, outOfDomain: 3 },
-    calibration: { inDomain: 20, outOfDomain: 3 },
-    blind_test: { inDomain: 32, outOfDomain: 3 }
+    prototype: { inDomain: 82, outOfDomain: 3 },
+    calibration: { inDomain: 31, outOfDomain: 3 },
+    blind_test: { inDomain: 38, outOfDomain: 3 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,
@@ -38,15 +42,18 @@ assert.deepEqual(report.highRiskCoverage.BLUFF_CANDIDATE, {
 });
 assert.deepEqual(report.highRiskCoverage.PROPOSE_COMMERCIAL_DEAL, {
     prototype: 3,
-    calibration: 2,
-    blind_test: 0
+    calibration: 4,
+    blind_test: 3
 });
-assert.equal(report.issues.length, 7);
+assert.deepEqual(report.issues, [
+    'BLIND_ACT_WITHOUT_CALIBRATION:REPORT_ECONOMIC',
+    'BLIND_ACT_WITHOUT_CALIBRATION:REQUEST_ACTION'
+]);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:SHARE_SECRET'));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:BLUFF_CANDIDATE'));
-assert.ok(report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:PROPOSE_COMMERCIAL_DEAL'));
+assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:PROPOSE_COMMERCIAL_DEAL'));
 
 process.stdout.write(JSON.stringify({
     ok: true,

@@ -1415,3 +1415,10 @@
 - **What happened:** Yedi sır paylaşımı, dokuz blöf adayı ve dört ticari teklif cümle ve bağlamıyla tek tek incelendi; 20 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu.
 - **Evidence:** Preflight `140` gold ve `82/23/35` split dağılımı raporlar. `SHARE_SECRET` ve `BLUFF_CANDIDATE` her splitte `3`; ticari teklif `3/2/0`; kapsam açıkları `9 → 7`. Router, review-server, SemanticFrameV2 ve gece kapısı testleri exit `0`.
 - **Implication for future audits:** Sır paylaşımı veya blöf split kapsamını eksik sayma; fakat kör ticari teklif, askerî rapor çapası ve beş kalibrasyon açığı kapanmadan `modelSelectionPass=false` durumunu koru ve modeli ürün hattına bağlama.
+
+## 2026-08-27 — Askerî rapor ve ticari teklif kapsamı 160 gold ile kapatıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` Adım 2 / hedefli Codex partisi 3
+- **What happened:** Beş ticari teklif, dokuz askerî rapor, üç meydan okuma ve üç selamlaşma cümle ve bağlamıyla tek tek incelendi; 20 kayıt `CODEX_INDIVIDUAL_REVIEW` gold oldu.
+- **Evidence:** Preflight `160` gold ve `85/34/41` split dağılımı raporlar. Ticari teklif `3/4/3`; askerî rapor prototip ve kalibrasyonu mevcut; kapsam açıkları `7 → 2`. Router, review-server, SemanticFrameV2 ve gece kapısı testleri exit `0`.
+- **Implication for future audits:** Ticari teklif, askerî rapor, meydan okuma veya selamlaşma açığını yeniden raporlama. Yalnız `REPORT_ECONOMIC` ve `REQUEST_ACTION` kalibrasyonları tamamlanmadan `modelSelectionPass=false` durumunu koru ve embedding modeli seçme.
