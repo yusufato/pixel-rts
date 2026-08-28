@@ -1485,3 +1485,10 @@
 - **What happened:** Aynı BGE-M3 vektörlerinde tek maksimum çapa, sınıf-dengeli top-3 ortalama ve SemanticFrameV2 uyumlu top-3 ortalama yalnız kalibrasyonla karşılaştırıldı. Güvenlik öncelikli seçim mevcut `single-max / N=20` kolunda kaldı.
 - **Evidence:** Seçilen kol kör macro-F1 `0,348664` ve yüksek-risk yanlış pozitif `4` verdi. Seçilmemiş `class-top3-mean / N=20` kör `0,415212/1`, `frame-top3-mean / N=20` kör `0,428776/2` macro-F1/yüksek-risk yanlış pozitif verdi; kalibrasyon macro-F1'ları yalnız `0,316044/0,286343`tü.
 - **Implication for future audits:** Seçilmemiş kör kolu geriye dönük model seçimi veya `%90` ilerlemesi sayma. Aynı kör sonuç görüldüğü için yeni temsil/weight seçimini bu sette yapma; yeni ailelerden dengeli kalibrasyon ve dokunulmamış holdout üretmeden Adım 3'e geçme.
+
+## 2026-08-28 — Temsil seçimi sınıf başına üçlü destek kapısına bağlandı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` temsil kalibrasyonu
+- **What happened:** Tarihsel model-spike preflight'ından ayrı `representationSelectionPass` eklendi. Kör sette bulunan her ana eylem için prototype, calibration ve blind splitlerinde en az üç bağımsız gold kayıt zorunlu oldu.
+- **Evidence:** Mevcut corpus `modelSelectionPass=true` durumunu korurken yeni kapıda `false` ve 17 sınıf/split açığı verir. Açıkları üçe tamamlamak için asgari 32 yeni, aile-sızıntısız tekil gold kayıt gerekir; hedef test beklenen exit `2` ile durur.
+- **Implication for future audits:** Splitte tek kayıt bulunmasını kararlı temsil seçimi sayma. Yeni BGE/temsil ölçümünü 32 destek açığı yeni ailelerle kapanmadan ve yeni kör örnekler dokunulmamış kalmadan başlatma.

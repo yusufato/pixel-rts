@@ -54,6 +54,7 @@ const HIGH_RISK_ACTS = Object.freeze([
     'THREATEN', 'REQUEST_ACTION', 'PROPOSE_COMMERCIAL_DEAL', 'SHARE_SECRET',
     'BLUFF_CANDIDATE'
 ]);
+const MIN_REPRESENTATION_CLASS_SUPPORT = 3;
 const EMBEDDING_ANCHOR_COUNTS = Object.freeze([1, 3, 5, 10, 20]);
 const EMBEDDING_REPRESENTATIONS = Object.freeze([
     Object.freeze({ id: 'single-max', aggregation: 'max', topCount: 1,
@@ -627,8 +628,8 @@ function buildDeterministicBlindBaseline(rows) {
 async function runEmbeddingSpike(options) {
     const corpus = options.corpus || readJson(DEFAULT_CORPUS_PATH, null);
     const preflight = buildEmbeddingSpikePreflight({ corpus });
-    if (!preflight.modelSelectionPass) {
-        throw new Error('EMBEDDING_MODEL_SELECTION_PREFLIGHT');
+    if (!preflight.representationSelectionPass) {
+        throw new Error('EMBEDDING_REPRESENTATION_SELECTION_PREFLIGHT');
     }
     const rowsBySplit = embeddingGoldSplits(corpus);
     const deterministicBlindBaseline = buildDeterministicBlindBaseline(
@@ -792,12 +793,26 @@ function buildEmbeddingSpikePreflight(options) {
             issues.push(`HIGH_RISK_SPLIT_COVERAGE_MISSING:${act}`);
         }
     }
+    const representationSupport = Object.fromEntries([...blindActs].sort().map(act =>
+        [act, Object.fromEntries(SPLITS.map(split => [split,
+            bySplit[split].filter(row => row.adjudication.labels.speechAct === act).length]))]));
+    const representationIssues = [];
+    for (const [act, coverage] of Object.entries(representationSupport)) {
+        for (const split of SPLITS) {
+            if (coverage[split] < MIN_REPRESENTATION_CLASS_SUPPORT) {
+                representationIssues.push(`REPRESENTATION_CLASS_SUPPORT:${act}:${split}`
+                    + `:${coverage[split]}/${MIN_REPRESENTATION_CLASS_SUPPORT}`);
+            }
+        }
+    }
     const threshold = Number(corpus && corpus.gates
         && corpus.gates.prototypeHumanGold) || 100;
     return {
         ok: validation.ok,
         experimentGatePass: validation.ok && gold.length >= threshold,
         modelSelectionPass: validation.ok && gold.length >= threshold && issues.length === 0,
+        representationSelectionPass: validation.ok && gold.length >= threshold
+            && issues.length === 0 && representationIssues.length === 0,
         gold: { total: gold.length,
             bySplit: Object.fromEntries(SPLITS.map(split => [split, bySplit[split].length])) },
         classCoverage: {
@@ -809,6 +824,11 @@ function buildEmbeddingSpikePreflight(options) {
         },
         oodBySplit,
         highRiskCoverage,
+        representationSupport: {
+            minimumPerClassPerSplit: MIN_REPRESENTATION_CLASS_SUPPORT,
+            byClass: representationSupport,
+            issues: representationIssues
+        },
         issues
     };
 }
@@ -848,7 +868,9 @@ if (require.main === module) {
         const preflight = buildEmbeddingSpikePreflight();
         process.stdout.write(`${JSON.stringify(preflight, null, 2)}\n`);
         if (!preflight.ok || (process.argv.includes('--require-model-selection')
-            && !preflight.modelSelectionPass)) process.exitCode = 2;
+            && !preflight.modelSelectionPass)
+            || (process.argv.includes('--require-representation-selection')
+                && !preflight.representationSelectionPass)) process.exitCode = 2;
         return;
     }
     const report = buildBenchmark({ includePredictions: !process.argv.includes('--inventory-only') });

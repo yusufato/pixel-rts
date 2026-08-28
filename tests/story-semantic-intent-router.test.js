@@ -17,6 +17,15 @@ assert.deepEqual(report.gold.bySplit, {
     blind_test: 45
 });
 assert.equal(report.modelSelectionPass, true);
+assert.equal(report.representationSelectionPass, false);
+assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
+assert.equal(report.representationSupport.issues.length, 17);
+assert.ok(report.representationSupport.issues.includes(
+    'REPRESENTATION_CLASS_SUPPORT:OFFER_SUPPORT:prototype:1/3'));
+assert.ok(report.representationSupport.issues.includes(
+    'REPRESENTATION_CLASS_SUPPORT:OFFER_SUPPORT:calibration:1/3'));
+assert.ok(report.representationSupport.issues.includes(
+    'REPRESENTATION_CLASS_SUPPORT:OFFER_SUPPORT:blind_test:1/3'));
 assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {

@@ -1567,6 +1567,11 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   Bu kör set sonuçları görüldüğünden sonraki temsil ayarı aynı kör setle
   seçilemez; yeni ailelerden dengeli kalibrasyon ve dokunulmamış nihai holdout
   olmadan Adım 3 kapalı kalır.
+- Yeni `representationSelectionPass`, kör sette bulunan her ana eylem sınıfı
+  için prototype, calibration ve blind tarafında en az üç bağımsız gold aile
+  ister. Eski `modelSelectionPass=true` tarihsel spike koşulunu korurken yeni
+  kapı `false` ve 17 sınıf/split açığı raporlar; asgari açık 32 yeni tekil gold
+  kayıttır.
 - Sonuç olarak yönlendirici, IPC, paketleme ve mekanik entegrasyon yapılmadı;
   mevcut deterministik konuşma yolu değişmedi. Adım 3 yeni ve kabul edilmiş bir
   model/temsil hipotezi olmadan kapalıdır.
