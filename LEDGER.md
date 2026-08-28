@@ -1436,3 +1436,45 @@
 - **What happened:** `multilingual-e5-small` Q8 iki resmî prefix profiliyle ve BGE-M3 Q8 düz girişle aynı `89/45/45` gold ayrımında CPU üzerinde ölçüldü. Sınıf eşikleri, güven eşlemesi ve `1/3/5/10/20` çapa seçimi yalnız kalibrasyondan öğrenildi; kör test seçim yapmadı.
 - **Evidence:** Deterministik kör macro-F1 `0,233333`, OOD yanlış kabul `1,0`, yüksek-risk yanlış pozitif `3`. E5 `query/query` ve `query/passage` macro-F1 `0,097571/0,086325`, yüksek-risk yanlış pozitif `1/1`. BGE-M3 macro-F1 `0,348664` (`+0,115331`), OOD yanlış kabul `0`, yüksek-risk yanlış pozitif `4`. BGE artışı gereken `+0,15`in altında kaldı ve güvenlik sonucunu geriletti. E5 profillerinin sıcak p95 aralığı `90,23–91,19 ms`, BGE p95 `1.013,90 ms`; gözlenen tepe RSS artışları `778,40/499,04 MiB`, model boyutları `126,30/605,16 MiB`.
 - **Implication for future audits:** Bu iki artefaktı kabul edilmiş model veya ürün bağı sayma. Adım 3, Electron IPC/paketleme ve mekanik entegrasyon kapalıdır. Yeni aday/temsil çalışması aynı kör ayrımı ve sıfır yüksek-risk yanlış pozitif kapısını yeniden geçmeden ilerleme sayılmaz; ürün kapısı `179/1000`dır.
+
+## 2026-08-28 — Codex sandbox yama arızası bozuk ACL state dosyasından kaynaklandı
+- **Type:** Confirmed
+- **Source:** `RCA.md` — Windows sandbox ACL/yama arızası
+- **What happened:** `deny_read_acl_state.json` geçerli JSON yerine 22 NUL baytı taşıdığı için bütün sandbox setup çağrıları JSON ayrıştırma aşamasında duruyordu.
+- **Evidence:** Sandbox günlüğü 7/7 çağrıda `expected value at line 1 column 1` gösterdi. Bozuk dosya tarihli yedeğe taşınınca `{"principals":{}}` yeniden üretildi, setup `errors=[]` verdi ve `apply_patch` çalıştı.
+- **Implication for future audits:** Aynı `apply deny-read ACLs` üst hatasında önce repo izinlerini değiştirme; `.codex/.sandbox/deny_read_acl_state.json` içeriğini ve sandbox günlüğündeki iç hata zincirini doğrula.
+
+## 2026-08-28 — Repo ACL'sindeki geçici sandbox SID'si kök neden değildi
+- **Type:** Refuted
+- **Source:** `RCA.md` — Windows sandbox ACL/yama arızası
+- **What happened:** Çözümlenemeyen SID'nin eski Windows kalıntısı olduğu ilk hipotezi ölçümle reddedildi.
+- **Evidence:** SID kaldırma komutları 0 nesne işledi; giriş sandbox setup çağrılarında yeniden görünürken gerçek hata hedef repo ACL'si değil bozuk JSON state dosyasıydı.
+- **Implication for future audits:** Codex'in geçici sandbox SID ACE'lerini yalnız çevrilemediği için stale sayma veya topluca silme; günlükteki gerçek setup aşamasını önce bul.
+
+## 2026-08-28 — Sandbox setup geçersiz state'i otomatik iyileştirmiyor
+- **Type:** Confirmed
+- **Source:** `RCA.md` — detection failure
+- **What happened:** Geçersiz yardımcı JSON otomatik karantinaya alınmadı; hedef dosya adı kullanıcıya gösterilmeden bütün yerel araçlar durdu.
+- **Evidence:** Üst hata yalnız `apply deny-read ACLs` dedi; iç `deny_read_acl_state.json` parse yolu yalnız günlükteydi. Dosya güvenli biçimde devreden çıkarılana kadar setup tekrarlandı.
+- **Implication for future audits:** Aynı hata sınıfında state dosyasını geçerli JSON/schema açısından ölç; yazıcı tarafı atomik/self-healing olmadan tekrar ihtimalini kapalı sayma.
+
+## 2026-08-28 — Embedding deneyi uçtan uca karakter anlayışını ölçmüyor
+- **Type:** Confirmed
+- **Source:** 28 Ağustos Türkçe semantik kök neden incelemesi
+- **What happened:** Güncel embedding spike bağlamlı ve çok eksenli oyuncu anlamını yalnız ana `speechAct` sınıfına indiriyor ve sınıf skorunu en yakın tek prototipten alıyor.
+- **Evidence:** BGE-M3 kör sette `22/45` (`%48,89`) ana eylem doğruluğu ve `0,348664` macro-F1 verdi; kalibrasyonda yüksek-risk yanlış pozitif `0` iken kör sette `4`. 179 gold kaydın 32'si ikincil konuşma eylemi taşıyor.
+- **Implication for future audits:** Ana `speechAct` sonucunu karakterin genel anlama oranı diye raporlama. Sonraki deney SemanticFrameV2 eksenlerini, bağlamı, hard-negative doğrulamasını ve `UNKNOWN/CLARIFY` kapısını ayrı ölçmelidir.
+
+## 2026-08-28 — Türkçe semantik sinyal yokluğu tek kök neden değildir
+- **Type:** Refuted
+- **Source:** 28 Ağustos Türkçe semantik kök neden incelemesi
+- **What happened:** BGE-M3'ün Türkçe semantik sinyal taşımadığı varsayımı başarısızlığın tek açıklaması olarak reddedildi.
+- **Evidence:** BGE-M3 deterministik kör tabanı macro-F1'da `+0,115331` geçti ve OOD yanlış kabulünü `1,0 -> 0` indirdi; yine de kalite ve güvenlik kapılarını geçemedi.
+- **Implication for future audits:** Daha büyük modeli tek başına çözüm sayma; model sinyali ile temsil/sınıflandırma etkisini aynı vektörler üzerindeki ablation ile ayır.
+
+## 2026-08-28 — E5 prefix seçimi tek başarısızlık nedeni değildir
+- **Type:** Refuted
+- **Source:** 28 Ağustos Türkçe semantik kök neden incelemesi
+- **What happened:** E5 başarısızlığının yalnız query/passage prefix seçimine bağlı olduğu varsayımı iki resmî kolun ölçümüyle desteklenmedi.
+- **Evidence:** `query/query` ve `query/passage` macro-F1 sonuçları `0,097571/0,086325`; ikisi de deterministik `0,233333` tabanın altında kaldı.
+- **Implication for future audits:** Prefix'i modele özel doğrula, fakat aynı tek-etiket/en-yakın-çapa tasarımını yalnız prefix değiştirerek yeniden kabul adayı yapma.
