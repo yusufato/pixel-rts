@@ -1478,3 +1478,10 @@
 - **What happened:** E5 başarısızlığının yalnız query/passage prefix seçimine bağlı olduğu varsayımı iki resmî kolun ölçümüyle desteklenmedi.
 - **Evidence:** `query/query` ve `query/passage` macro-F1 sonuçları `0,097571/0,086325`; ikisi de deterministik `0,233333` tabanın altında kaldı.
 - **Implication for future audits:** Prefix'i modele özel doğrula, fakat aynı tek-etiket/en-yakın-çapa tasarımını yalnız prefix değiştirerek yeniden kabul adayı yapma.
+
+## 2026-08-28 — Çoklu çapa temsil sinyali verdi fakat kalibrasyon seçemedi
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` temsil ablation'ı
+- **What happened:** Aynı BGE-M3 vektörlerinde tek maksimum çapa, sınıf-dengeli top-3 ortalama ve SemanticFrameV2 uyumlu top-3 ortalama yalnız kalibrasyonla karşılaştırıldı. Güvenlik öncelikli seçim mevcut `single-max / N=20` kolunda kaldı.
+- **Evidence:** Seçilen kol kör macro-F1 `0,348664` ve yüksek-risk yanlış pozitif `4` verdi. Seçilmemiş `class-top3-mean / N=20` kör `0,415212/1`, `frame-top3-mean / N=20` kör `0,428776/2` macro-F1/yüksek-risk yanlış pozitif verdi; kalibrasyon macro-F1'ları yalnız `0,316044/0,286343`tü.
+- **Implication for future audits:** Seçilmemiş kör kolu geriye dönük model seçimi veya `%90` ilerlemesi sayma. Aynı kör sonuç görüldüğü için yeni temsil/weight seçimini bu sette yapma; yeni ailelerden dengeli kalibrasyon ve dokunulmamış holdout üretmeden Adım 3'e geçme.

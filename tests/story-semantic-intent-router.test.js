@@ -2,7 +2,8 @@
 
 const assert = require('node:assert/strict');
 const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
-    rankEmbeddingCandidates, fitEmbeddingCalibration, summarizeEmbeddingRows } =
+    frameCompatibility, rankEmbeddingCandidates, fitEmbeddingCalibration,
+    summarizeEmbeddingRows } =
     require('../tools/story-semantic-intent-benchmark');
 
 const report = buildEmbeddingSpikePreflight();
@@ -68,6 +69,29 @@ const ranked = rankEmbeddingCandidates([1, 0], [
 ], 1);
 assert.equal(ranked[0].label, 'GREETING');
 assert.equal(ranked[0].anchorId, 'a');
+
+const balanced = rankEmbeddingCandidates([1, 0], [
+    { id: 'g1', label: 'GREETING', vector: [1, 0] },
+    { id: 'g2', label: 'GREETING', vector: [0, 1] },
+    { id: 't1', label: 'THREATEN', vector: [0.8, 0.2] },
+    { id: 't2', label: 'THREATEN', vector: [0.8, 0.2] }
+], 2, { aggregation: 'top_mean', topCount: 2 });
+assert.equal(balanced[0].label, 'THREATEN',
+    'class-balanced aggregation must not let one outlier anchor dominate');
+
+const offerFrame = { communicativeFunction: 'OFFER', polarity: 'POSITIVE_OR_UNMARKED',
+    temporality: 'CURRENT_OR_UNMARKED', epistemicStatus: 'QUESTIONED',
+    requestedOutcome: 'ACTION' };
+const requestFrame = { ...offerFrame, communicativeFunction: 'REQUEST' };
+assert.equal(frameCompatibility(offerFrame, offerFrame), 1);
+assert.equal(frameCompatibility(offerFrame, requestFrame), 0.8);
+const reranked = rankEmbeddingCandidates([1, 0], [
+    { id: 'offer', label: 'OFFER_SUPPORT', vector: [0.79, 0.21], labels: offerFrame },
+    { id: 'request', label: 'REQUEST_ACTION', vector: [0.8, 0.2], labels: requestFrame }
+], 1, { aggregation: 'max', topCount: 1,
+    frameCompatibilityWeight: 0.08, queryFrame: offerFrame });
+assert.equal(reranked[0].label, 'OFFER_SUPPORT',
+    'frame compatibility must be able to resolve a close semantic tie');
 
 const calibrationRows = [
     { id: 'safe', actual: 'GREETING', outOfDomain: false,

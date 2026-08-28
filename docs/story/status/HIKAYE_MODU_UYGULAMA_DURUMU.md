@@ -1549,6 +1549,24 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   karşılamadı.
 - Kör yüksek-risk yanlış pozitif sayısı deterministik `3`, E5 kollarında `1`,
   BGE-M3'te `4`tür. Sıfır güvenlik kapısını hiçbir aday geçmedi.
+
+## 2026-08-28 — Faz 38 temsil ablation'ı (`measured / not-selected`)
+
+- Aynı BGE-M3 vektörleri üzerinde mevcut sınıf başı tek maksimum çapa,
+  sınıf-dengeli en iyi üç çapa ortalaması ve beş SemanticFrameV2 ekseniyle
+  yeniden sıralanan en iyi üç çapa karşılaştırıldı. Model ve `89/45/45` aile
+  ayrımı değişmedi; kör test hiçbir seçim yapmadı.
+- Kalibrasyon güvenlik öncelikli seçimde yine `single-max / N=20` kolunu seçti.
+  Bu seçilmiş kolun kör sonucu değişmedi: macro-F1 `0,348664`, OOD yanlış kabul
+  `0`, yüksek-risk yanlış pozitif `4`; model kabul edilmedi.
+- Seçilmemiş `class-top3-mean / N=20` ve `frame-top3-mean / N=20` kolları kör
+  sette sırasıyla `0,415212/0,428776` macro-F1 ve `1/2` yüksek-risk yanlış
+  pozitif verdi. Bu değerler temsil sinyali gösterir fakat kalibrasyon onları
+  seçmediği için ürün sonucu veya yeni seçim kuralı değildir.
+- 45 satırlık kalibrasyonun 17 sınıfa bölünmesi temsil seçimini kararsız bıraktı.
+  Bu kör set sonuçları görüldüğünden sonraki temsil ayarı aynı kör setle
+  seçilemez; yeni ailelerden dengeli kalibrasyon ve dokunulmamış nihai holdout
+  olmadan Adım 3 kapalı kalır.
 - Sonuç olarak yönlendirici, IPC, paketleme ve mekanik entegrasyon yapılmadı;
   mevcut deterministik konuşma yolu değişmedi. Adım 3 yeni ve kabul edilmiş bir
   model/temsil hipotezi olmadan kapalıdır.

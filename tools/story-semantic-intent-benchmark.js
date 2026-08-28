@@ -55,6 +55,18 @@ const HIGH_RISK_ACTS = Object.freeze([
     'BLUFF_CANDIDATE'
 ]);
 const EMBEDDING_ANCHOR_COUNTS = Object.freeze([1, 3, 5, 10, 20]);
+const EMBEDDING_REPRESENTATIONS = Object.freeze([
+    Object.freeze({ id: 'single-max', aggregation: 'max', topCount: 1,
+        frameCompatibilityWeight: 0 }),
+    Object.freeze({ id: 'class-top3-mean', aggregation: 'top_mean', topCount: 3,
+        frameCompatibilityWeight: 0 }),
+    Object.freeze({ id: 'frame-top3-mean', aggregation: 'top_mean', topCount: 3,
+        frameCompatibilityWeight: 0.08 })
+]);
+const FRAME_COMPATIBILITY_AXES = Object.freeze([
+    'communicativeFunction', 'polarity', 'temporality', 'epistemicStatus',
+    'requestedOutcome'
+]);
 const ERROR_FAMILY_DEFINITIONS = Object.freeze({
     OUT_OF_DOMAIN_GATE: Object.freeze({ rootCauseLayer: 'CALIBRATION', scope: 'Known game language must not be rejected as OOD, and real OOD must not be forced in-domain.' }),
     SPEECH_ACT_DISAMBIGUATION: Object.freeze({ rootCauseLayer: 'PRAGMATICS', scope: 'Topic and surface form must not replace the utterance action.' }),
@@ -311,7 +323,18 @@ function percentile(values, ratio) {
     return sorted[index];
 }
 
-function rankEmbeddingCandidates(queryVector, anchors, perClassLimit) {
+function frameCompatibility(left, right) {
+    if (!left || !right) return 0.5;
+    const matches = FRAME_COMPATIBILITY_AXES.filter(axis => left[axis] === right[axis]);
+    return matches.length / FRAME_COMPATIBILITY_AXES.length;
+}
+
+function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
+    options = options && typeof options === 'object' ? options : {};
+    const aggregation = options.aggregation || 'max';
+    const topCount = Math.max(1, Number(options.topCount) || 1);
+    const frameWeight = Math.max(0, Math.min(1,
+        Number(options.frameCompatibilityWeight) || 0));
     const grouped = new Map();
     for (const anchor of (anchors || []).slice().sort((left, right) =>
         String(left.id).localeCompare(String(right.id)))) {
@@ -319,18 +342,32 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit) {
         if (grouped.get(anchor.label).length < perClassLimit) grouped.get(anchor.label).push(anchor);
     }
     return [...grouped.entries()].map(([label, rows]) => {
-        const scored = rows.map(row => ({ row,
-            score: cosineSimilarity(queryVector, row.vector) }))
+        const scored = rows.map(row => {
+            const semanticScore = cosineSimilarity(queryVector, row.vector);
+            const compatibility = frameCompatibility(options.queryFrame, row.labels);
+            return { row, semanticScore, compatibility,
+                score: semanticScore * (1 - frameWeight) + compatibility * frameWeight };
+        })
             .sort((left, right) => right.score - left.score
                 || String(left.row.id).localeCompare(String(right.row.id)));
-        return { label, score: scored[0].score, anchorId: scored[0].row.id };
+        const selected = scored.slice(0, Math.min(topCount, scored.length));
+        const score = aggregation === 'top_mean'
+            ? selected.reduce((sum, item) => sum + item.score, 0) / selected.length
+            : scored[0].score;
+        return { label, score, anchorId: scored[0].row.id,
+            anchorIds: selected.map(item => item.row.id) };
     }).sort((left, right) => right.score - left.score
         || left.label.localeCompare(right.label));
 }
 
-function rawEmbeddingRows(rows, vectors, anchors, perClassLimit) {
+function rawEmbeddingRows(rows, vectors, anchors, perClassLimit, representation,
+    proposalById) {
     return rows.map(row => {
-        const ranked = rankEmbeddingCandidates(vectors.get(row.id), anchors, perClassLimit);
+        const proposal = proposalById && proposalById.get(row.id);
+        const ranked = rankEmbeddingCandidates(vectors.get(row.id), anchors,
+            perClassLimit, Object.assign({}, representation, {
+                queryFrame: proposal && proposal.labels
+            }));
         const first = ranked[0] || { label: 'UNKNOWN', score: 0, anchorId: null };
         const second = ranked[1] || { score: 0 };
         return { id: row.id, actual: row.adjudication.labels.speechAct,
@@ -445,16 +482,20 @@ function fitEmbeddingCalibration(rows) {
 }
 
 function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
-    return EMBEDDING_ANCHOR_COUNTS.map(perClassLimit => {
-        const calibrationRows = rawEmbeddingRows(rowsBySplit.calibration,
-            vectors, anchors, perClassLimit);
-        const fitted = fitEmbeddingCalibration(calibrationRows);
-        const blindRows = rawEmbeddingRows(rowsBySplit.blind_test,
-            vectors, anchors, perClassLimit);
-        return { perClassLimit, calibration: fitted.metrics,
-            thresholds: fitted.calibration,
-            blindTest: summarizeEmbeddingRows(blindRows, fitted.calibration) };
-    });
+    const proposalById = buildBaselineProposals([
+        ...rowsBySplit.calibration, ...rowsBySplit.blind_test
+    ]);
+    return EMBEDDING_REPRESENTATIONS.flatMap(representation =>
+        EMBEDDING_ANCHOR_COUNTS.map(perClassLimit => {
+            const calibrationRows = rawEmbeddingRows(rowsBySplit.calibration,
+                vectors, anchors, perClassLimit, representation, proposalById);
+            const fitted = fitEmbeddingCalibration(calibrationRows);
+            const blindRows = rawEmbeddingRows(rowsBySplit.blind_test,
+                vectors, anchors, perClassLimit, representation, proposalById);
+            return { representationId: representation.id, perClassLimit,
+                calibration: fitted.metrics, thresholds: fitted.calibration,
+                blindTest: summarizeEmbeddingRows(blindRows, fitted.calibration) };
+        }));
 }
 
 function hashFile(filePath) {
@@ -491,7 +532,8 @@ async function runEmbeddingModel(spec, rowsBySplit) {
                 const vector = l2Normalize(result.vector);
                 vectors.set(row.id, vector);
                 anchors.push({ id: row.id,
-                    label: row.adjudication.labels.speechAct, vector });
+                    label: row.adjudication.labels.speechAct,
+                    labels: row.adjudication.labels, vector });
             }
             for (const split of ['calibration', 'blind_test']) {
                 for (const row of rowsBySplit[split]) {
@@ -510,10 +552,11 @@ async function runEmbeddingModel(spec, rowsBySplit) {
             } : null;
             const curve = evaluateEmbeddingVectors(rowsBySplit, vectors, anchors);
             const selected = curve.slice().sort((left, right) =>
-                right.calibration.speechActMacroF1
-                    - left.calibration.speechActMacroF1
-                || left.calibration.highRiskFalsePositiveCount
+                left.calibration.highRiskFalsePositiveCount
                     - right.calibration.highRiskFalsePositiveCount
+                || right.calibration.speechActMacroF1
+                    - left.calibration.speechActMacroF1
+                || left.representationId.localeCompare(right.representationId)
                 || left.perClassLimit - right.perClassLimit)[0];
             profiles.push({ id: profile.id,
                 encoding: { queryPrefix: profile.queryPrefix,
@@ -525,6 +568,7 @@ async function runEmbeddingModel(spec, rowsBySplit) {
                 warmLatencyMs: { p50: percentile(durations, 0.5),
                     p95: percentile(durations, 0.95) },
                 selectedByCalibration: selected.perClassLimit,
+                selectedRepresentation: selected.representationId,
                 anchorCurve: curve });
         }
         return { id: spec.id, modelPath: path.basename(spec.modelPath),
@@ -596,9 +640,12 @@ async function runEmbeddingSpike(options) {
     const acceptance = models.map(model => {
         const profileCandidates = model.profiles.map(profile => ({ profile,
             point: profile.anchorCurve.find(point =>
-                point.perClassLimit === profile.selectedByCalibration) }))
+                point.perClassLimit === profile.selectedByCalibration
+                    && point.representationId === profile.selectedRepresentation) }))
             .sort((left, right) =>
-                right.point.calibration.speechActMacroF1
+                left.point.calibration.highRiskFalsePositiveCount
+                    - right.point.calibration.highRiskFalsePositiveCount
+                || right.point.calibration.speechActMacroF1
                     - left.point.calibration.speechActMacroF1
                 || left.profile.id.localeCompare(right.profile.id));
         const selected = profileCandidates[0];
@@ -607,13 +654,14 @@ async function runEmbeddingSpike(options) {
         const qualityPass = macroF1Delta >= 0.15;
         const highRiskPass = selected.point.blindTest.highRiskFalsePositiveCount === 0;
         return { modelId: model.id, profileId: selected.profile.id,
+            representationId: selected.point.representationId,
             perClassLimit: selected.point.perClassLimit, macroF1Delta,
             qualityPass, highRiskPass, pass: qualityPass && highRiskPass,
             reasons: [!qualityPass && 'BLIND_MACRO_F1_DELTA_BELOW_0_15',
                 !highRiskPass && 'BLIND_HIGH_RISK_FALSE_POSITIVE']
                 .filter(Boolean) };
     });
-    return { schemaVersion: 1, kind: 'STORY_SEMANTIC_EMBEDDING_SPIKE_V1',
+    return { schemaVersion: 2, kind: 'STORY_SEMANTIC_EMBEDDING_SPIKE_V2',
         generatedAt: new Date().toISOString(), preflight,
         deterministicBlindBaseline, models,
         selection: { acceptedModelIds: acceptance.filter(row => row.pass)
@@ -774,19 +822,21 @@ if (require.main === module) {
         };
         const e5Path = value('e5-model');
         const bgePath = value('bge-model');
-        if (!e5Path || !bgePath) throw new Error('EMBEDDING_MODEL_PATHS_REQUIRED');
-        runEmbeddingSpike({ models: [
-            { id: 'multilingual-e5-small-q8_0', modelPath: e5Path,
+        const models = [];
+        if (e5Path) models.push({
+            id: 'multilingual-e5-small-q8_0', modelPath: e5Path,
                 contextSize: 511, profiles: [
                     { id: 'e5-query-query', queryPrefix: 'query: ',
                         anchorPrefix: 'query: ' },
                     { id: 'e5-query-passage', queryPrefix: 'query: ',
                         anchorPrefix: 'passage: ' }
-                ] },
-            { id: 'bge-m3-q8_0', modelPath: bgePath, contextSize: 512,
+                ] });
+        if (bgePath) models.push({
+            id: 'bge-m3-q8_0', modelPath: bgePath, contextSize: 512,
                 profiles: [{ id: 'bge-m3-plain', queryPrefix: '',
-                    anchorPrefix: '' }] }
-        ] }).then(report => {
+                    anchorPrefix: '' }] });
+        if (!models.length) throw new Error('EMBEDDING_MODEL_PATH_REQUIRED');
+        runEmbeddingSpike({ models }).then(report => {
             const output = value('output');
             if (output) fs.writeFileSync(path.resolve(output),
                 `${JSON.stringify(report, null, 2)}\n`);
@@ -812,7 +862,8 @@ module.exports = {
     ERROR_FAMILY_DEFINITIONS, classifyErrorFamilies, summarizeErrorFamilies,
     normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
     labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight,
-    l2Normalize, dotProduct, cosineSimilarity, rankEmbeddingCandidates,
+    l2Normalize, dotProduct, cosineSimilarity, frameCompatibility,
+    rankEmbeddingCandidates,
     fitEmbeddingCalibration, summarizeEmbeddingRows, evaluateEmbeddingVectors,
     runEmbeddingSpike
 };
