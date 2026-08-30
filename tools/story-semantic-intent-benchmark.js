@@ -633,6 +633,10 @@ function crossValidateEmbeddingCalibration(rows, foldCount) {
     });
     const macroF1 = results.map(row => row.metrics.speechActMacroF1);
     const highRisk = results.map(row => row.metrics.highRiskFalsePositiveCount);
+    const meanPerClassRecall = Object.fromEntries([...new Set(results.flatMap(row =>
+        Object.keys(row.metrics.perClassRecall)))].sort().map(label => [label,
+        average(results.map(row => row.metrics.perClassRecall[label] ?? 0))]));
+    const highRiskRecall = HIGH_RISK_ACTS.map(label => meanPerClassRecall[label] ?? 0);
     const ood = results.map(row => row.metrics.oodFalseAcceptanceRate)
         .filter(value => value != null);
     return { schemaVersion: 1, method: 'STRATIFIED_OUTER_CALIBRATION_V1',
@@ -640,6 +644,9 @@ function crossValidateEmbeddingCalibration(rows, foldCount) {
         meanSpeechActMacroF1: average(macroF1),
         minimumSpeechActMacroF1: Math.min(...macroF1),
         speechActMacroF1StdDev: standardDeviation(macroF1),
+        meanPerClassRecall,
+        minimumHighRiskRecall: Math.min(...highRiskRecall),
+        meanHighRiskRecall: average(highRiskRecall),
         totalHighRiskFalsePositiveCount: highRisk.reduce((sum, value) => sum + value, 0),
         worstFoldHighRiskFalsePositiveCount: Math.max(...highRisk),
         meanOodFalseAcceptanceRate: average(ood),
@@ -654,6 +661,8 @@ function compareSelectionEvidence(left, right) {
             - rightEvidence.worstFoldHighRiskFalsePositiveCount
         || leftEvidence.totalHighRiskFalsePositiveCount
             - rightEvidence.totalHighRiskFalsePositiveCount
+        || rightEvidence.minimumHighRiskRecall - leftEvidence.minimumHighRiskRecall
+        || rightEvidence.meanHighRiskRecall - leftEvidence.meanHighRiskRecall
         || rightEvidence.meanSpeechActMacroF1 - leftEvidence.meanSpeechActMacroF1
         || leftEvidence.speechActMacroF1StdDev
             - rightEvidence.speechActMacroF1StdDev
@@ -832,6 +841,18 @@ function buildDeterministicBlindBaseline(rows) {
             correct: row.actual === row.predicted }))) };
 }
 
+function evaluateHighRiskRecall(metrics, baseline) {
+    const observed = Object.fromEntries(HIGH_RISK_ACTS.map(label =>
+        [label, Number(metrics && metrics.perClassRecall
+            && metrics.perClassRecall[label]) || 0]));
+    const required = Object.fromEntries(HIGH_RISK_ACTS.map(label => [label,
+        Math.max(1 / MIN_REPRESENTATION_CLASS_SUPPORT,
+            Number(baseline && baseline.perClassRecall
+                && baseline.perClassRecall[label]) || 0)]));
+    const failures = HIGH_RISK_ACTS.filter(label => observed[label] < required[label]);
+    return { pass: failures.length === 0, observed, required, failures };
+}
+
 async function runEmbeddingSpike(options) {
     const corpus = options.corpus || readJson(DEFAULT_CORPUS_PATH, null);
     const preflight = buildEmbeddingSpikePreflight({ corpus });
@@ -858,13 +879,17 @@ async function runEmbeddingSpike(options) {
             - deterministicBlindBaseline.speechActMacroF1;
         const qualityPass = macroF1Delta >= 0.15;
         const highRiskPass = selected.point.blindTest.highRiskFalsePositiveCount === 0;
+        const highRiskRecall = evaluateHighRiskRecall(selected.point.blindTest,
+            deterministicBlindBaseline);
         return { modelId: model.id, profileId: selected.profile.id,
             representationId: selected.point.representationId,
             perClassLimit: selected.point.perClassLimit, macroF1Delta,
             anchorSelectionPolicy: selected.point.anchorSelectionPolicy,
-            qualityPass, highRiskPass, pass: qualityPass && highRiskPass,
+            qualityPass, highRiskPass, highRiskRecall,
+            pass: qualityPass && highRiskPass && highRiskRecall.pass,
             reasons: [!qualityPass && 'BLIND_MACRO_F1_DELTA_BELOW_0_15',
-                !highRiskPass && 'BLIND_HIGH_RISK_FALSE_POSITIVE']
+                !highRiskPass && 'BLIND_HIGH_RISK_FALSE_POSITIVE',
+                !highRiskRecall.pass && 'BLIND_HIGH_RISK_RECALL_REGRESSION_OR_ZERO']
                 .filter(Boolean) };
     });
     return { schemaVersion: 2, kind: 'STORY_SEMANTIC_EMBEDDING_SPIKE_V2',
@@ -891,15 +916,21 @@ function buildCalibrationStudyRecommendation(models,
             .worstFoldHighRiskFalsePositiveCount === 0
             && selected.point.selectionValidation
                 .totalHighRiskFalsePositiveCount === 0;
+        const highRiskRecall = evaluateHighRiskRecall({
+            perClassRecall: selected.point.selectionValidation.meanPerClassRecall
+        }, deterministicCalibrationBaseline);
         return { modelId: model.id, profileId: selected.profile.id,
             representationId: selected.point.representationId,
             perClassLimit: selected.point.perClassLimit,
             anchorSelectionPolicy: selected.point.anchorSelectionPolicy,
             selectionValidation: selected.point.selectionValidation,
-            macroF1Delta, qualityPass, highRiskPass,
-            eligibleForNewBlindEpoch: qualityPass && highRiskPass,
+            macroF1Delta, qualityPass, highRiskPass, highRiskRecall,
+            eligibleForNewBlindEpoch: qualityPass && highRiskPass
+                && highRiskRecall.pass,
             reasons: [!qualityPass && 'OUTER_CALIBRATION_MACRO_F1_DELTA_BELOW_0_15',
-                !highRiskPass && 'OUTER_CALIBRATION_HIGH_RISK_FALSE_POSITIVE']
+                !highRiskPass && 'OUTER_CALIBRATION_HIGH_RISK_FALSE_POSITIVE',
+                !highRiskRecall.pass
+                    && 'OUTER_CALIBRATION_HIGH_RISK_RECALL_REGRESSION_OR_ZERO']
                 .filter(Boolean) };
     });
     return {
@@ -1241,6 +1272,6 @@ module.exports = {
     crossValidateEmbeddingCalibration, compareSelectionEvidence,
     summarizeEmbeddingRows, evaluateEmbeddingVectors,
     embeddingEvaluationSplits, embeddingCalibrationStudySplits,
-    buildCalibrationStudyRecommendation, runEmbeddingSpike,
+    evaluateHighRiskRecall, buildCalibrationStudyRecommendation, runEmbeddingSpike,
     runEmbeddingCalibrationStudy
 };

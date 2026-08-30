@@ -6,7 +6,8 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     buildPrototypeClassCentroids, rankEmbeddingCandidates, fitEmbeddingCalibration,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
-    embeddingCalibrationStudySplits, buildCalibrationStudyRecommendation } =
+    embeddingCalibrationStudySplits, evaluateHighRiskRecall,
+    buildCalibrationStudyRecommendation } =
     require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
 
@@ -264,17 +265,32 @@ assert.throws(() => buildStratifiedCalibrationFolds(nestedRows.slice(0, 2), 3),
 const nested = crossValidateEmbeddingCalibration(nestedRows, 3);
 assert.equal(nested.method, 'STRATIFIED_OUTER_CALIBRATION_V1');
 assert.equal(nested.rowCount, 6);
+assert.equal(nested.minimumHighRiskRecall, 0);
 assert.equal(nested.folds.every(fold => fold.fitCount === 4
     && fold.validationCount === 2), true);
 assert.equal(compareSelectionEvidence({ representationId: 'a', perClassLimit: 1,
     selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
         totalHighRiskFalsePositiveCount: 0, meanSpeechActMacroF1: 0.4,
+        minimumHighRiskRecall: 1, meanHighRiskRecall: 1,
         speechActMacroF1StdDev: 0.1 } },
 { representationId: 'b', perClassLimit: 1,
     selectionValidation: { worstFoldHighRiskFalsePositiveCount: 1,
         totalHighRiskFalsePositiveCount: 1, meanSpeechActMacroF1: 0.9,
+        minimumHighRiskRecall: 1, meanHighRiskRecall: 1,
         speechActMacroF1StdDev: 0 } }) < 0, true,
 'outer-fold high-risk safety must outrank mean macro-F1');
+
+const riskRecallPass = evaluateHighRiskRecall({ perClassRecall: {
+    THREATEN: 1 / 3, REQUEST_ACTION: 1 / 3, PROPOSE_COMMERCIAL_DEAL: 1 / 3,
+    SHARE_SECRET: 2 / 3, BLUFF_CANDIDATE: 1 / 3
+} }, { perClassRecall: { SHARE_SECRET: 2 / 3 } });
+assert.equal(riskRecallPass.pass, true);
+const riskRecallFail = evaluateHighRiskRecall({ perClassRecall: {
+    THREATEN: 0, REQUEST_ACTION: 1, PROPOSE_COMMERCIAL_DEAL: 1,
+    SHARE_SECRET: 1, BLUFF_CANDIDATE: 1
+} }, { perClassRecall: {} });
+assert.equal(riskRecallFail.pass, false);
+assert.deepEqual(riskRecallFail.failures, ['THREATEN']);
 
 const recommendation = buildCalibrationStudyRecommendation([{
     id: 'safe-but-weak', profiles: [{ id: 'safe-profile',
@@ -282,6 +298,9 @@ const recommendation = buildCalibrationStudyRecommendation([{
         anchorCurve: [{ representationId: 'single-max', perClassLimit: 1,
             selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
                 totalHighRiskFalsePositiveCount: 0,
+                meanPerClassRecall: { THREATEN: 1, REQUEST_ACTION: 1,
+                    PROPOSE_COMMERCIAL_DEAL: 1, SHARE_SECRET: 1,
+                    BLUFF_CANDIDATE: 1 },
                 meanSpeechActMacroF1: 0.4, speechActMacroF1StdDev: 0.1 } }] }]
 }, {
     id: 'strong-but-risky', profiles: [{ id: 'risky-profile',
@@ -289,6 +308,9 @@ const recommendation = buildCalibrationStudyRecommendation([{
         anchorCurve: [{ representationId: 'single-max', perClassLimit: 1,
             selectionValidation: { worstFoldHighRiskFalsePositiveCount: 1,
                 totalHighRiskFalsePositiveCount: 1,
+                meanPerClassRecall: { THREATEN: 1, REQUEST_ACTION: 1,
+                    PROPOSE_COMMERCIAL_DEAL: 1, SHARE_SECRET: 1,
+                    BLUFF_CANDIDATE: 1 },
                 meanSpeechActMacroF1: 0.7, speechActMacroF1StdDev: 0.1 } }] }]
 }], { speechActMacroF1: 0.3 });
 assert.deepEqual(recommendation.eligibleModelIds, []);
