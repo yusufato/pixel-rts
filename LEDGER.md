@@ -1513,3 +1513,10 @@
 - **What happened:** Altı gerçek oyun-dışı istek, altı koşullu tehdit, altı gerçekleşmiş/girişilmiş sır paylaşımı ve iki doğrulanabilir bilgi sorusu bütün SemanticFrameV2 eksenleriyle ayrı ayrı incelenerek `representation-stability-v1` kohortuna eklendi.
 - **Evidence:** Corpus `331` benzersiz cümle, `291` aile ve `231` Codex gold; yeni kohort `10/20/22` splitinde `52` gold taşır. Dokunulmamış destek açıkları `36 → 27`; OOD, `THREATEN` ve `SHARE_SECRET` kalibrasyon+kör desteği en az `3`, `ASK_INFORMATION` kalibrasyonu `3` oldu. Router/review-server testleri exit `0`, dokunulmamış preflight beklenen exit `2` verdi.
 - **Implication for future audits:** Yeni kohortta OOD, tehdit, sır paylaşımı veya bilgi-sorusu kalibrasyon açığını yeniden raporlama. Kalan asgari iş `31` kalibrasyon + `29` kör-test = `60` tekil kayıttır; model koşusu ve Adım 3 hâlâ kapalıdır.
+
+## 2026-08-30 — Dokunulmamış blöf, meydan okuma ve ticaret dilimleri tamamlandı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` dokunulmamış corpus partileri / `ac0006d`, `ced7fb7`
+- **What happened:** Üç doğrulanabilir bilgi sorusu, altı kanıtı açıkça bulunmayan/ertelenen blöf adayı, beş retorik yetki-dayanak meydan okuması ve altı açık bedelli ticari teklif bütün eksenleriyle tek tek incelendi.
+- **Evidence:** Corpus `351` benzersiz cümle, `311` aile ve `251` Codex gold; yeni kohort `10/29/33` splitinde `72` gold taşır. Dokunulmamış destek açıkları `27 → 20`; `ASK_INFORMATION`, `BLUFF_CANDIDATE`, `CHALLENGE` ve `PROPOSE_COMMERCIAL_DEAL` kalibrasyon+kör desteği en az `3` oldu. İlgili testler exit `0`, dokunulmamış preflight beklenen exit `2` verdi.
+- **Implication for future audits:** Bu dört sınıfın yeni değerlendirme desteğini yeniden açma. Kalan asgari iş `22` kalibrasyon + `18` kör-test = `40` tekil kayıttır; model koşusu ve Adım 3 hâlâ kapalıdır.
