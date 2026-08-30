@@ -64,7 +64,10 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
     Object.freeze({ id: 'frame-top3-mean', aggregation: 'top_mean', topCount: 3,
         frameCompatibilityWeight: 0.08 }),
     Object.freeze({ id: 'class-centroid', aggregation: 'centroid', topCount: 1,
-        frameCompatibilityWeight: 0, anchorCountIndependent: true })
+        frameCompatibilityWeight: 0, anchorCountIndependent: true }),
+    Object.freeze({ id: 'frame-centroid-guard', aggregation: 'centroid', topCount: 1,
+        frameCompatibilityWeight: 0, highRiskMinimumFrameCompatibility: 0.8,
+        anchorCountIndependent: true })
 ]);
 const FRAME_COMPATIBILITY_AXES = Object.freeze([
     'communicativeFunction', 'polarity', 'temporality', 'epistemicStatus',
@@ -387,7 +390,8 @@ function buildPrototypeClassCentroids(anchors) {
         const mean = Array.from({ length: dimension }, (_, index) =>
             rows.reduce((sum, row) => sum + row.vector[index], 0) / rows.length);
         return { id: `centroid:${label}`, label, vector: l2Normalize(mean),
-            sourceAnchorIds: rows.map(row => row.id) };
+            sourceAnchorIds: rows.map(row => row.id),
+            sourceLabels: rows.map(row => row.labels).filter(Boolean) };
     });
 }
 
@@ -408,9 +412,16 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
     return [...grouped.entries()].map(([label, rows]) => {
         const scored = rows.map(row => {
             const semanticScore = cosineSimilarity(queryVector, row.vector);
-            const compatibility = frameCompatibility(options.queryFrame, row.labels);
+            const compatibility = aggregation === 'centroid'
+                ? Math.max(...(row.sourceLabels || []).map(labels =>
+                    frameCompatibility(options.queryFrame, labels)), 0)
+                : frameCompatibility(options.queryFrame, row.labels);
+            const blockedByFrameGuard = HIGH_RISK_ACTS.includes(row.label)
+                && options.highRiskMinimumFrameCompatibility != null
+                && compatibility < options.highRiskMinimumFrameCompatibility;
             return { row, semanticScore, compatibility,
-                score: semanticScore * (1 - frameWeight) + compatibility * frameWeight };
+                score: blockedByFrameGuard ? -Infinity
+                    : semanticScore * (1 - frameWeight) + compatibility * frameWeight };
         })
             .sort((left, right) => right.score - left.score
                 || String(left.row.id).localeCompare(String(right.row.id)));
@@ -642,8 +653,10 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
             const blindRows = rawEmbeddingRows(rowsBySplit.blind_test,
                 vectors, anchors, perClassLimit, representation, proposalById);
             return { representationId: representation.id, perClassLimit,
-                anchorSelectionPolicy: representation.anchorCountIndependent
-                    ? 'PROTOTYPE_CLASS_CENTROID_V1'
+                anchorSelectionPolicy: representation.id === 'frame-centroid-guard'
+                    ? 'PROTOTYPE_CLASS_CENTROID_FRAME_GUARD_V1'
+                    : representation.anchorCountIndependent
+                        ? 'PROTOTYPE_CLASS_CENTROID_V1'
                     : 'PROTOTYPE_GREEDY_COVERAGE_V1',
                 selectionValidation,
                 calibration: fitted.metrics, thresholds: fitted.calibration,

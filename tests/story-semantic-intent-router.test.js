@@ -162,6 +162,25 @@ assert.throws(() => buildPrototypeClassCentroids([
     { id: 'long', label: 'GREETING', vector: [1, 0] }
 ]), /EMBEDDING_VECTOR_DIMENSION/);
 
+const greetingFrame = { communicativeFunction: 'GREET',
+    polarity: 'POSITIVE_OR_UNMARKED', temporality: 'CURRENT_OR_UNMARKED',
+    epistemicStatus: 'UNMARKED', requestedOutcome: 'NONE' };
+const actionFrame = { communicativeFunction: 'REQUEST',
+    polarity: 'POSITIVE_OR_UNMARKED', temporality: 'CURRENT_OR_UNMARKED',
+    epistemicStatus: 'UNMARKED', requestedOutcome: 'ACTION' };
+const guardedCentroid = rankEmbeddingCandidates([1, 0], [
+    { id: 'action-1', label: 'REQUEST_ACTION', vector: [1, 0], labels: actionFrame },
+    { id: 'action-2', label: 'REQUEST_ACTION', vector: [0.99, 0.01],
+        labels: actionFrame },
+    { id: 'greeting-1', label: 'GREETING', vector: [0.8, 0.2],
+        labels: greetingFrame }
+], null, { aggregation: 'centroid', queryFrame: greetingFrame,
+    highRiskMinimumFrameCompatibility: 0.8 });
+assert.equal(guardedCentroid[0].label, 'GREETING',
+    'high-risk centroid must not outrank a frame-compatible safe class');
+assert.equal(guardedCentroid.find(row => row.label === 'REQUEST_ACTION').score,
+    -Infinity, 'incompatible high-risk centroid must be deterministically vetoed');
+
 const balanced = rankEmbeddingCandidates([1, 0], [
     { id: 'g1', label: 'GREETING', vector: [1, 0] },
     { id: 'g2', label: 'GREETING', vector: [0, 1] },
