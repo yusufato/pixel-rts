@@ -162,9 +162,18 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     const apologyEvidence = storySemanticFrameEvidence(tokens, ['ozur', 'affet', 'kusura']);
     const requestEvidence = storySemanticFrameEvidence(tokens,
         ['ver', 'yap', 'gonder', 'yonlendir', 'baslat', 'artir', 'getir', 'bosalt',
-            'ode', 'cagir', 'dondur', 'ister', 'istiyor', 'rica', 'lazim', 'gerekiyor']);
+            'ode', 'cagir', 'dondur', 'istiyorum', 'istiyoruz', 'isterim', 'isteriz',
+            'rica', 'lazim', 'gerekiyor']);
     const offerEvidence = storySemanticFrameEvidence(tokens,
-        ['ederim', 'olurum', 'sunarim', 'sunuyor', 'sagliyorum', 'teklif', 'oner']);
+        ['ederim', 'olurum', 'sunarim', 'sunuyor', 'sagliyorum', 'oner']);
+    const offerNounEvidence = storySemanticFrameEvidence(tokens, ['teklif']);
+    const explicitOfferVerbEvidence = storySemanticFrameEvidence(tokens,
+        ['ediyorum', 'ediyoruz', 'ederiz', 'sunuyorum', 'sunuyoruz']);
+    if (offerNounEvidence.length && explicitOfferVerbEvidence.length) {
+        offerEvidence.push(...offerNounEvidence, ...explicitOfferVerbEvidence);
+    }
+    const conditionalOfferEvidence = storySemanticFrameEvidence(tokens,
+        ['istersen', 'isterseniz', 'dilersen', 'dilerseniz']);
     const rejectEvidence = storySemanticFrameEvidence(tokens,
         ['reddet', 'istemiyorum', 'kabul', 'olmaz']);
     const predicateIds = new Set([predicate.primary].concat(predicate.secondary || []));
@@ -180,7 +189,7 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
             .test(token));
     const modalAbilityEvidence = tokens.filter(token => /(?:abil|ebil)/.test(token));
     const firstPersonAbilityEvidence = modalAbilityEvidence.filter(token =>
-        /(?:abilirim|ebilirim)$/.test(token));
+        /(?:abilirim|ebilirim|abiliriz|ebiliriz)$/.test(token));
     const conditionalThreatEvidence = tokens.filter(token => token === 'yoksa'
         || /(?:mazsan|mezsen|mazsaniz|mezseniz|mazsiniz|mezsiniz)$/.test(token));
     const inclusiveQuestionEvidence = storySemanticFrameEvidence(tokens,
@@ -213,6 +222,9 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     if (questionEvidence.length && modalAbilityEvidence.length
         && hasActionPredicate) {
         return { value: 'REQUEST', evidence: modalAbilityEvidence.concat(questionEvidence), score: 3200 };
+    }
+    if (conditionalOfferEvidence.length && firstPersonAbilityEvidence.length) {
+        return { value: 'OFFER', evidence: conditionalOfferEvidence.concat(firstPersonAbilityEvidence), score: 3200 };
     }
     if (requestEvidence.length) {
         return { value: 'REQUEST', evidence: requestEvidence, score: 3100 };

@@ -51,7 +51,11 @@ try {
         ['Ajanınızı geri çağırın, yoksa belgeleri basına veririm.',
             'TELL', 'ACTION', 'THREATEN'],
         ['Rakibinizin bütün şifreleri elimde, ama şimdi gösteremem.',
-            'TELL', 'NONE', 'UNKNOWN']
+            'TELL', 'NONE', 'UNKNOWN'],
+        ['Sen olsan bu barış teklifini kabul eder miydin?',
+            'ASK', 'INFORMATION', 'ASK_INFORMATION'],
+        ['İsterseniz tahliye planını birlikte gözden geçirebiliriz.',
+            'OFFER', 'ACTION', 'UNKNOWN']
     ];
     for (const [text, fn, outcome, speechAct] of directionalFamilies) {
         const result = analyze(text);
