@@ -1541,3 +1541,24 @@
 - **What happened:** Aynı doğrulanmış E5 ve BGE-M3 model karmaları, ayarlarını yalnız 51 kalibrasyon ailesinden seçerek 51 mühürlü kör ailede bir kez ölçüldü. Kör sonuç görüldükten sonra epoch tüketilmiş olarak kilitlendi; aynı veriyle ikinci model koşusu preflight'ta model yüklenmeden durur.
 - **Evidence:** Deterministik kör macro-F1 `0,262698` ve yüksek-risk yanlış pozitif `0`dır. Seçilen E5 kolu `0,318783` (`+0,056085`) ve `6`, BGE-M3 kolu `0,309023` (`+0,046324`) ve `3` yüksek-risk yanlış pozitif verdi. İkisi de `+0,15` kalite ve sıfır yüksek-risk kapılarını geçmedi; kabul edilen model yoktur.
 - **Implication for future audits:** Bu kör sonuçlardan yeni temsil/threshold seçme ve aynı epoch'u yeniden “untouched” sayma. Ürün/EXE/IPC entegrasyonu kapalıdır. Yeni model veya sınıflandırıcı hipotezi önce yeni kalibrasyonda tanımlanmalı, ardından ayrı mühürlü değerlendirme epoch'unda bir kez sınanmalıdır; `%90+` oyuncu anlama iddiası hâlâ kanıtsızdır.
+
+## 2026-08-31 — Embedding seçimi aynı kalibrasyonda fit ve puanlama yapıyor
+- **Type:** Confirmed
+- **Source:** `RCA.md` — taze semantik adayların genelleme çöküşü
+- **What happened:** Sınıf eşikleri, minimum margin ve güven eşlemesi 51 kalibrasyon satırından öğreniliyor; aynı satırların yeniden puanı temsil, profil ve çapa sayısını seçiyor. Ayrı outer validation yoktur.
+- **Evidence:** E5 seçili kolu calibration `0,551852/0` macro-F1/yüksek-risk yanlıştan blind `0,318783/6`ya; BGE `0,528070/0`dan `0,309023/3`e düştü. Kod `fitEmbeddingCalibration(rows)` içinde fit sonrası yine `summarizeEmbeddingRows(rows, ...)` çağırır ve `runEmbeddingModel` bu metriği seçer.
+- **Implication for future audits:** Yeni model eklemeden önce stratified outer calibration ayrımı kur; fit edilen satırdaki resubstitution metriğini temsil veya threshold seçimi sayma.
+
+## 2026-08-31 — Üçlü sınıf kapsamı tek başına genellemeyi çözmedi
+- **Type:** Refuted
+- **Source:** `RCA.md` — H2 sınıf kapsaması
+- **What happened:** Her sınıfın calibration ve blind desteğini üç bağımsız aileye tamamlamanın mevcut seçiciyi güvenli kılacağı hipotezi taze ölçümle reddedildi.
+- **Evidence:** `10/51/51` dengeli kohortta iki aday da `+0,15` kalite ve sıfır yüksek-risk kapısını geçmedi.
+- **Implication for future audits:** Aynı algoritma için yalnız kayıt sayısını artırmayı kök çözüm sayma; yeni veri yeni seçim hipotezi ve ayrı epoch sınırıyla gelmelidir.
+
+## 2026-08-31 — Çoklu çapa ve frame ağırlığı tek başına yeterli değildi
+- **Type:** Refuted
+- **Source:** `RCA.md` — H3 temsil yeterliliği
+- **What happened:** Kalibrasyonun seçtiği BGE `frame-top3-mean/N=10` temsili bağımsız blind kalite ve güvenlik kapılarını geçemedi.
+- **Evidence:** Blind macro-F1 `0,309023`, tabana fark `+0,046324`, yüksek-risk yanlış pozitif `3`.
+- **Implication for future audits:** Görülmüş blind sonuçtan top-K/ağırlık seçme; önce nested calibration ve açık çapa-alt-küme sözleşmesi kur.
