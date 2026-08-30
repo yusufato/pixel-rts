@@ -1633,3 +1633,13 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Kör erişimi yoktur (`99/51/0`); `createNewBlindEpoch=false`. Centroid oyun
   çalışma zamanına bağlanmadı. Sonraki güvenlik hipotezi SemanticFrameV2 ile
   yüksek-risk eylem yönünü deterministik ön-kabulde doğrulamaktır.
+
+## 2026-08-31 — SemanticFrameV2 centroid vetosu (`measured / safe-but-weak`)
+
+- BGE-M3'te yüksek-risk adaylar için en az `4/5` yön ekseni uyumu, centroid
+  riskini `3 → 0` düşürdü. Dış-kat macro-F1 `0,383007`, taban farkı
+  `+0,079575`; gerekli `+0,15` kalite farkı sağlanmadı.
+- E5 güvenli seçimi `0,237908`, `-0,065523` ve sıfır risk verdi. Otomatik kapı
+  yine `eligibleModelIds=[]`, `createNewBlindEpoch=false` üretti.
+- Oyun konuşma davranışı değişmedi. Sonraki adım global eşik ayarı değil,
+  yüksek-risk eylem başına zorunlu SemanticFrameV2 eksen sözleşmesidir.

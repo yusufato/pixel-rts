@@ -1583,3 +1583,10 @@
 - **What happened:** Her sınıfın bütün normalize prototiplerinden, N veya değerlendirme-verisi seçimi olmadan `PROTOTYPE_CLASS_CENTROID_V1` merkezi üretildi ve dış kalibrasyonda ölçüldü.
 - **Evidence:** `99/51/0`, `blindTestAccessed=false`. BGE-M3 centroid `0,532026` ortalama macro-F1, `0,490196` minimum kat, `+0,228595` taban farkı ve `3/3` toplam/en-kötü-kat yüksek-risk verdi. Hatalar `BLUFF_CANDIDATE→SHARE_SECRET`, `GREETING→REQUEST_ACTION`, `REPORT_ECONOMIC→PROPOSE_COMMERCIAL_DEAL`dır. E5 centroid `0,347712`, `+0,044281`, `1/1` risk verdi. `createNewBlindEpoch=false`.
 - **Implication for future audits:** Centroid kalite sinyalini kaybetme, fakat güvenli aday veya ürün modeli sayma. Yeni çapa/N deneyi yerine SemanticFrameV2 iletişim işlevi, predicate ve requested-outcome alanlarıyla yüksek-risk ön-kabul veto hipotezini yalnız dış kalibrasyonda sınamadan yeni kör epoch üretme.
+
+## 2026-08-31 — Global SemanticFrameV2 vetosu riski sıfırladı fakat kaliteyi aşırı düşürdü
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` frame-centroid güvenliği / `a8b9be1`
+- **What happened:** Yüksek-risk centroid adayları, gerçek prototip çerçevelerinden biriyle beş yön ekseninin en az dördünde uyuşma şartına bağlandı ve kör erişimsiz dış kalibrasyonda ölçüldü.
+- **Evidence:** `99/51/0`, `blindTestAccessed=false`. BGE-M3 `0,383007` ortalama macro-F1, `0,317647` minimum kat, `+0,079575` taban farkı ve `0/0` toplam/en-kötü-kat yüksek-risk verdi. Saf centroid riski `3/3 → 0/0`, kalite farkı `+0,228595 → +0,079575` oldu. E5 güvenli seçimi `0,237908`, `-0,065523`, `0/0` verdi. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+- **Implication for future audits:** SemanticFrame yön kapısını kaldırma; risk sıfırlama kanıtını koru. Fakat global `4/5` eşiğini ürün çözümü veya kalite geçişi sayma ve kör veriden eşik tarama. Sonraki hipotezde her yüksek-risk eylemin prototiplerden türetilmiş zorunlu çekirdek eksen sözleşmesini ayrı tanımla.

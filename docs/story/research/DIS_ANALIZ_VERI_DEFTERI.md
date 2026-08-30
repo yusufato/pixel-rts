@@ -1196,3 +1196,22 @@ parametrik ele alınır.
   Sıradaki deney daha fazla çapa üretmek değil, mevcut SemanticFrameV2'nin
   iletişim işlevi, predicate ve requested-outcome alanlarıyla yüksek-risk adayı
   embedding kabulünden önce deterministik olarak veto etmektir.
+
+### 31 Ağustos yöntem deneyi — SemanticFrameV2 yüksek-risk vetosu
+
+- Yüksek-risk centroid adayı, aynı sınıfın gerçek prototip çerçevelerinden
+  biriyle `communicativeFunction`, `polarity`, `temporality`, `epistemicStatus`
+  ve `requestedOutcome` eksenlerinin en az dördünde uyuşmadan kabul edilmedi.
+  Kural sorgu metnine veya kör sonuçlara özel değildir.
+- BGE-M3 dış-kat macro-F1 `0,383007`, minimum kat `0,317647`, tabana fark
+  `+0,079575`; toplam/en-kötü-kat yüksek-risk `0/0` oldu. Böylece saf centroidin
+  üç yüksek-risk yanlışı kaldırıldı, fakat kalite farkı `+0,228595`ten
+  `+0,079575`e indi.
+- E5'in seçilen güvenli `query/query` kolu `0,237908`, `-0,065523`, `0/0`;
+  `query/passage` kolu `0,262092`, `-0,041340`, `1/1` verdi. Hiçbir model iki
+  kapıyı birlikte geçmedi ve yeni kör epoch açılmadı.
+- Ölçüm yön doğrulamanın gerekli olduğunu, fakat bütün yüksek-risk sınıflarına
+  tek `4/5` benzerlik eşiğinin fazla kaba olduğunu gösterir. Yeni deney eşik
+  gezdirmek yerine sınıf sözleşmesi kullanmalıdır: ticari teklif için `OFFER`
+  ve `ACTION`, sır paylaşımı için `CONFIDE` ve `CONFIDENTIAL_HANDLING`, eylem
+  talebi için `REQUEST` ve `ACTION` gibi zorunlu eksen çiftleri.

@@ -566,3 +566,22 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   sonraki hipotez embedding skorundan sonra SemanticFrameV2 iletişim işlevi,
   predicate ve requested-outcome uyumsuzluğuyla yüksek-risk ön-kabulünü
   deterministik olarak engellemelidir.
+
+### 31 Ağustos 2026 — SemanticFrameV2 vetosu riski sıfırladı, kaliteyi koruyamadı
+
+- `PROTOTYPE_CLASS_CENTROID_FRAME_GUARD_V1`, yüksek-risk centroid adayını
+  kanonik prototip çerçevelerinden biriyle beş yön ekseninin en az dördünde
+  (`≥0,8`) uyuşmadan sıralamaya kabul etmez. Bir predicate/üslup farklılığına
+  tolerans verir; eşik kör veriden öğrenilmez.
+- Kör erişimsiz `99/51/0` dış kalibrasyonda BGE-M3 güvenli seçimi bu kol oldu:
+  ortalama macro-F1 `0,383007`, minimum kat `0,317647`, taban farkı `+0,079575`,
+  toplam/en-kötü-kat yüksek-risk `0/0`, ortalama OOD yanlış kabul `0,666667`.
+  Saf centroidin `3/3` riski sıfıra indi fakat `+0,228595` kalite farkı
+  `+0,079575`e düştü.
+- E5 güvenli `query/query` seçimi `0,237908`, taban farkı `-0,065523`, risk
+  `0/0` verdi. `query/passage` kolu `0,262092` ve `1/1` riskle ayrıca elendi.
+- `eligibleModelIds=[]`, `createNewBlindEpoch=false`. Yön doğrulama kök nedeni
+  hedefliyor fakat tek global `4/5` kuralı fazla bilgi kaybediyor. Sonraki
+  hipotez yeni threshold taraması değil; her yüksek-risk eylem için zorunlu
+  çekirdek eksenleri (ör. teklif=`OFFER+ACTION`, sır paylaşımı=
+  `CONFIDE+CONFIDENTIAL_HANDLING`) prototip sözleşmesinden açıkça türetmektir.
