@@ -847,6 +847,10 @@ function buildEmbeddingSpikePreflight(options) {
         || !evaluationSplits.includes('blind_test')) {
         evaluationIssues.push('REPRESENTATION_EVALUATION_POLICY_INVALID');
     } else {
+        if (evaluationPolicy.blindStatus !== 'SEALED_UNTOUCHED') {
+            evaluationIssues.push('UNTOUCHED_EVALUATION_ALREADY_SPENT:'
+                + String(evaluationPolicy.blindStatus || 'UNMARKED'));
+        }
         for (const [act, coverage] of Object.entries(evaluationSupport)) {
             for (const split of evaluationSplits) {
                 if (coverage[split] < evaluationMinimum) {
@@ -893,6 +897,11 @@ function buildEmbeddingSpikePreflight(options) {
             epoch: evaluationPolicy && evaluationPolicy.epoch || null,
             sourceIdPrefix: evaluationPrefix || null,
             priorBlindStatus: evaluationPolicy && evaluationPolicy.priorBlindStatus || null,
+            blindStatus: evaluationPolicy && evaluationPolicy.blindStatus || null,
+            evaluatedAt: evaluationPolicy && evaluationPolicy.evaluatedAt || null,
+            evaluatedModelIds: evaluationPolicy
+                && Array.isArray(evaluationPolicy.evaluatedModelIds)
+                ? evaluationPolicy.evaluatedModelIds.slice() : [],
             minimumPerClassPerEvaluationSplit: evaluationMinimum,
             gold: { total: evaluationGold.length,
                 bySplit: Object.fromEntries(SPLITS.map(split =>
