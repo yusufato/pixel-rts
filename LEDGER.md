@@ -1506,3 +1506,10 @@
 - **What happened:** `representation-stability-v1:` kaynak öneki sürümlü ve mühürlü değerlendirme kohortu oldu. Embedding koşucusu tüm prototip gold kayıtlarını çapa olarak kullanabilir; eşik seçimi yalnız bu kohortun kalibrasyonundan, nihai skor yalnız bu kohortun kör testinden yapılır. Kapı kapanmadan model yüklenmez.
 - **Evidence:** Genel temsil desteği `true` kalırken `untouchedEvaluationPass=false` verir. Yeni kohort `10/9/13` splitinde `32` gold ve `36` sınıf/OOD açık satırı taşır; açıkların kayıt cinsinden toplamı kalibrasyon `42` + kör test `38` = en az `80`dir. `UNKNOWN` kayıtları gerçek OOD seçilirse altı OOD kaydı bu toplamla örtüşür. Hedef testler exit `0`, `--require-untouched-evaluation` beklenen exit `2` verdi.
 - **Implication for future audits:** Eski 45 kör kaydı yeni temsil veya ağırlık seçimine katma; `36` açık satırını `36` gerekli cümle diye yorumlama. En az 80 yeni, aile-sızıntısız, tekil incelenmiş kalibrasyon/kör kaydı tamamlanmadan model koşma veya Adım 3'e geçme.
+
+## 2026-08-30 — Dokunulmamış OOD, tehdit ve sır dilimleri tamamlandı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` dokunulmamış corpus partileri / `21012d0`, `69fb6a9`
+- **What happened:** Altı gerçek oyun-dışı istek, altı koşullu tehdit, altı gerçekleşmiş/girişilmiş sır paylaşımı ve iki doğrulanabilir bilgi sorusu bütün SemanticFrameV2 eksenleriyle ayrı ayrı incelenerek `representation-stability-v1` kohortuna eklendi.
+- **Evidence:** Corpus `331` benzersiz cümle, `291` aile ve `231` Codex gold; yeni kohort `10/20/22` splitinde `52` gold taşır. Dokunulmamış destek açıkları `36 → 27`; OOD, `THREATEN` ve `SHARE_SECRET` kalibrasyon+kör desteği en az `3`, `ASK_INFORMATION` kalibrasyonu `3` oldu. Router/review-server testleri exit `0`, dokunulmamış preflight beklenen exit `2` verdi.
+- **Implication for future audits:** Yeni kohortta OOD, tehdit, sır paylaşımı veya bilgi-sorusu kalibrasyon açığını yeniden raporlama. Kalan asgari iş `31` kalibrasyon + `29` kör-test = `60` tekil kayıttır; model koşusu ve Adım 3 hâlâ kapalıdır.
