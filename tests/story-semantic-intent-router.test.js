@@ -5,7 +5,7 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     frameCompatibility, rankEmbeddingCandidates, fitEmbeddingCalibration,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
-    embeddingCalibrationStudySplits } =
+    embeddingCalibrationStudySplits, buildCalibrationStudyRecommendation } =
     require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
 
@@ -202,6 +202,28 @@ assert.equal(compareSelectionEvidence({ representationId: 'a', perClassLimit: 1,
         totalHighRiskFalsePositiveCount: 1, meanSpeechActMacroF1: 0.9,
         speechActMacroF1StdDev: 0 } }) < 0, true,
 'outer-fold high-risk safety must outrank mean macro-F1');
+
+const recommendation = buildCalibrationStudyRecommendation([{
+    id: 'safe-but-weak', profiles: [{ id: 'safe-profile',
+        selectedByCalibration: 1, selectedRepresentation: 'single-max',
+        anchorCurve: [{ representationId: 'single-max', perClassLimit: 1,
+            selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
+                totalHighRiskFalsePositiveCount: 0,
+                meanSpeechActMacroF1: 0.4, speechActMacroF1StdDev: 0.1 } }] }]
+}, {
+    id: 'strong-but-risky', profiles: [{ id: 'risky-profile',
+        selectedByCalibration: 1, selectedRepresentation: 'single-max',
+        anchorCurve: [{ representationId: 'single-max', perClassLimit: 1,
+            selectionValidation: { worstFoldHighRiskFalsePositiveCount: 1,
+                totalHighRiskFalsePositiveCount: 1,
+                meanSpeechActMacroF1: 0.7, speechActMacroF1StdDev: 0.1 } }] }]
+}], { speechActMacroF1: 0.3 });
+assert.deepEqual(recommendation.eligibleModelIds, []);
+assert.equal(recommendation.createNewBlindEpoch, false);
+assert.deepEqual(recommendation.selection.map(row => row.reasons), [
+    ['OUTER_CALIBRATION_MACRO_F1_DELTA_BELOW_0_15'],
+    ['OUTER_CALIBRATION_HIGH_RISK_FALSE_POSITIVE']
+]);
 
 process.stdout.write(JSON.stringify({
     ok: true,

@@ -764,6 +764,41 @@ async function runEmbeddingSpike(options) {
             .map(row => row.modelId), acceptance } };
 }
 
+function buildCalibrationStudyRecommendation(models,
+    deterministicCalibrationBaseline) {
+    const selection = (models || []).map(model => {
+        const candidates = model.profiles.map(profile => ({ profile,
+            point: profile.anchorCurve.find(point =>
+                point.perClassLimit === profile.selectedByCalibration
+                    && point.representationId === profile.selectedRepresentation) }))
+            .sort((left, right) => compareSelectionEvidence(left.point, right.point)
+                || left.profile.id.localeCompare(right.profile.id));
+        const selected = candidates[0];
+        const macroF1Delta = selected.point.selectionValidation.meanSpeechActMacroF1
+            - deterministicCalibrationBaseline.speechActMacroF1;
+        const qualityPass = macroF1Delta >= 0.15;
+        const highRiskPass = selected.point.selectionValidation
+            .worstFoldHighRiskFalsePositiveCount === 0
+            && selected.point.selectionValidation
+                .totalHighRiskFalsePositiveCount === 0;
+        return { modelId: model.id, profileId: selected.profile.id,
+            representationId: selected.point.representationId,
+            perClassLimit: selected.point.perClassLimit,
+            selectionValidation: selected.point.selectionValidation,
+            macroF1Delta, qualityPass, highRiskPass,
+            eligibleForNewBlindEpoch: qualityPass && highRiskPass,
+            reasons: [!qualityPass && 'OUTER_CALIBRATION_MACRO_F1_DELTA_BELOW_0_15',
+                !highRiskPass && 'OUTER_CALIBRATION_HIGH_RISK_FALSE_POSITIVE']
+                .filter(Boolean) };
+    });
+    return {
+        eligibleModelIds: selection.filter(row => row.eligibleForNewBlindEpoch)
+            .map(row => row.modelId),
+        createNewBlindEpoch: selection.some(row => row.eligibleForNewBlindEpoch),
+        selection
+    };
+}
+
 async function runEmbeddingCalibrationStudy(options) {
     const corpus = options.corpus || readJson(DEFAULT_CORPUS_PATH, null);
     const preflight = buildEmbeddingSpikePreflight({ corpus });
@@ -779,23 +814,12 @@ async function runEmbeddingCalibrationStudy(options) {
     }
     const rowsBySplit = embeddingCalibrationStudySplits(corpus,
         evaluation.sourceIdPrefix);
+    const deterministicCalibrationBaseline = buildDeterministicBlindBaseline(
+        rowsBySplit.calibration);
     const models = [];
     for (const spec of options.models || []) {
         models.push(await runEmbeddingModel(spec, rowsBySplit));
     }
-    const selection = models.map(model => {
-        const candidates = model.profiles.map(profile => ({ profile,
-            point: profile.anchorCurve.find(point =>
-                point.perClassLimit === profile.selectedByCalibration
-                    && point.representationId === profile.selectedRepresentation) }))
-            .sort((left, right) => compareSelectionEvidence(left.point, right.point)
-                || left.profile.id.localeCompare(right.profile.id));
-        const selected = candidates[0];
-        return { modelId: model.id, profileId: selected.profile.id,
-            representationId: selected.point.representationId,
-            perClassLimit: selected.point.perClassLimit,
-            selectionValidation: selected.point.selectionValidation };
-    });
     return { schemaVersion: 1,
         kind: 'STORY_SEMANTIC_EMBEDDING_CALIBRATION_STUDY_V1',
         generatedAt: new Date().toISOString(), preflight,
@@ -803,7 +827,9 @@ async function runEmbeddingCalibrationStudy(options) {
             prototypeCount: rowsBySplit.prototype.length,
             calibrationCount: rowsBySplit.calibration.length,
             blindTestCount: rowsBySplit.blind_test.length },
-        models, selection };
+        deterministicCalibrationBaseline, models,
+        recommendation: buildCalibrationStudyRecommendation(models,
+            deterministicCalibrationBaseline) };
 }
 
 function embeddingModelSpecs(e5Path, bgePath) {
@@ -1103,5 +1129,6 @@ module.exports = {
     crossValidateEmbeddingCalibration, compareSelectionEvidence,
     summarizeEmbeddingRows, evaluateEmbeddingVectors,
     embeddingEvaluationSplits, embeddingCalibrationStudySplits,
-    runEmbeddingSpike, runEmbeddingCalibrationStudy
+    buildCalibrationStudyRecommendation, runEmbeddingSpike,
+    runEmbeddingCalibrationStudy
 };
