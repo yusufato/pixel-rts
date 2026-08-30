@@ -33,6 +33,33 @@ try {
         assert.equal(result.semanticFrame.proposedCommand, null, text);
     }
 
+    const directionalFamilies = [
+        ['Limandaki gümrük denetimlerini bugün artırın.',
+            'REQUEST', 'ACTION', 'REQUEST_ACTION'],
+        ['Elçiyi öğleden önce toplantı salonuna getirin.',
+            'REQUEST', 'ACTION', 'REQUEST_ACTION'],
+        ['Bin ton buğdayı birim başına kırk dinara satmayı öneriyorum.',
+            'OFFER', 'ACTION', 'PROPOSE_COMMERCIAL_DEAL'],
+        ['Liman işletmesini yüzde on gelir payı karşılığında devralabilirim.',
+            'OFFER', 'ACTION', 'PROPOSE_COMMERCIAL_DEAL'],
+        ['Aramızda kalsın, bakan yarın istifa edecek.',
+            'CONFIDE', 'CONFIDENTIAL_HANDLING', 'SHARE_SECRET'],
+        ['Kimsenin bilmediği şifreleme anahtarı şu dosyada saklı.',
+            'CONFIDE', 'CONFIDENTIAL_HANDLING', 'SHARE_SECRET'],
+        ['Sınır karakolunu boşaltmazsanız topçu ateşi başlatacağız.',
+            'TELL', 'ACTION', 'THREATEN'],
+        ['Ajanınızı geri çağırın, yoksa belgeleri basına veririm.',
+            'TELL', 'ACTION', 'THREATEN'],
+        ['Rakibinizin bütün şifreleri elimde, ama şimdi gösteremem.',
+            'TELL', 'NONE', 'UNKNOWN']
+    ];
+    for (const [text, fn, outcome, speechAct] of directionalFamilies) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, fn, text);
+        assert.equal(result.semanticFrame.requestedOutcome, outcome, text);
+        assert.equal(result.semanticFrame.suggestedSpeechAct, speechAct, text);
+    }
+
     const functions = [
         ['Bana güveniyor musunuz?', 'ASK'],
         ['Size güvenmiyorum.', 'TELL'],

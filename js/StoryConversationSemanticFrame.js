@@ -49,11 +49,12 @@ const STORY_SEMANTIC_PREDICATES = Object.freeze({
         'heyecan', 'kaygi', 'gergin'],
     RELATIONSHIP: ['guven', 'ilisk', 'sadakat', 'dost', 'husumet', 'itibar'],
     WORK: ['gorev', 'is', 'calis', 'ihtiyac', 'yardim', 'destek', 'gelistir'],
-    SECRET: ['sir', 'gizli', 'mahrem'],
+    SECRET: ['sir', 'gizli', 'mahrem', 'aramiz', 'sifre', 'anahtar', 'kimsenin', 'sakli', 'muhbir'],
     TECHNOLOGY: ['teknoloji', 'arastir', 'yapayzeka', 'otomasyon', 'bilim'],
     MILITARY: ['ordu', 'asker', 'birlik', 'dusman', 'cephe', 'savas', 'savun', 'saldir'],
     ECONOMY: ['ekonomi', 'hazine', 'butce', 'enflasyon', 'fiyat', 'piyasa', 'borc', 'ticaret',
-        'issizlik'],
+        'issizlik', 'bugday', 'liman', 'bakim', 'sozlesme', 'gelir', 'dinar', 'gumruk',
+        'fabrika', 'vardiya'],
     LOCATION: ['nerede', 'konum', 'sehir', 'bolge', 'bulun'],
     WEATHER: ['hava', 'yagmur', 'sicak', 'soguk'],
     OPINION: ['fikir', 'gorus', 'dusun', 'sence']
@@ -102,6 +103,24 @@ function storySemanticFrameHas(tokens, roots) {
     return storySemanticFrameEvidence(tokens, roots).length > 0;
 }
 
+function storySemanticFrameQuestionEvidence(tokens) {
+    const particleEvidence = storySemanticFrameEvidence(tokens,
+        ['mi', 'mı', 'mu', 'mü', 'miyim', 'mıyım', 'muyum', 'müyüm']);
+    const questionWordPatterns = [
+        /^kim(?:e|i|in|den|le|dir)?$/,
+        /^ne(?:dir|yi|ye|yle)?$/,
+        /^neden$/,
+        /^nasil(?:sin|siniz|di|mis)?$/,
+        /^nere(?:de|den|ye)(?:dir)?$/,
+        /^hangi(?:si|sini|sine|sinden)?$/,
+        /^kac(?:i|a|tan|tir|inci)?$/
+    ];
+    const wordEvidence = tokens.filter(token =>
+        questionWordPatterns.some(pattern => pattern.test(token)));
+    return particleEvidence.concat(wordEvidence)
+        .filter((value, index, all) => all.indexOf(value) === index);
+}
+
 function storySemanticFramePredicate(tokens) {
     const candidates = Object.entries(STORY_SEMANTIC_PREDICATES).map(([id, roots]) => {
         const evidence = storySemanticFrameEvidence(tokens, roots);
@@ -134,9 +153,7 @@ function storySemanticFrameTarget(tokens) {
 }
 
 function storySemanticFrameFunction(raw, tokens, predicate) {
-    const questionEvidence = storySemanticFrameEvidence(tokens,
-        ['mi', 'mı', 'mu', 'mü', 'miyim', 'mıyım', 'muyum', 'müyüm',
-            'kim', 'ne', 'neden', 'nasil', 'nerede', 'hangi', 'kac']);
+    const questionEvidence = storySemanticFrameQuestionEvidence(tokens);
     const closeEvidence = storySemanticFrameEvidence(tokens,
         ['gorus', 'hosca', 'gule', 'ayril', 'gidiyor', 'doneceg']);
     const greetingEvidence = storySemanticFrameEvidence(tokens,
@@ -144,20 +161,32 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     const thanksEvidence = storySemanticFrameEvidence(tokens, ['tesekkur', 'sagol', 'minnettar']);
     const apologyEvidence = storySemanticFrameEvidence(tokens, ['ozur', 'affet', 'kusura']);
     const requestEvidence = storySemanticFrameEvidence(tokens,
-        ['ver', 'yap', 'gonder', 'yonlendir', 'baslat', 'ister', 'istiyor', 'rica', 'lazim', 'gerekiyor']);
+        ['ver', 'yap', 'gonder', 'yonlendir', 'baslat', 'artir', 'getir', 'bosalt',
+            'ode', 'cagir', 'dondur', 'ister', 'istiyor', 'rica', 'lazim', 'gerekiyor']);
     const offerEvidence = storySemanticFrameEvidence(tokens,
-        ['ederim', 'olurum', 'sunarim', 'sagliyorum', 'teklif']);
+        ['ederim', 'olurum', 'sunarim', 'sunuyor', 'sagliyorum', 'teklif', 'oner']);
     const rejectEvidence = storySemanticFrameEvidence(tokens,
         ['reddet', 'istemiyorum', 'kabul', 'olmaz']);
-    const secretEvidence = predicate.primary === 'SECRET' ? predicate.evidence : [];
+    const predicateIds = new Set([predicate.primary].concat(predicate.secondary || []));
+    const secretEvidence = predicateIds.has('SECRET') ? predicate.evidence : [];
     const confideEvidence = storySemanticFrameEvidence(tokens,
-        ['kalsin', 'soyleme', 'paylas', 'vereceg', 'anlatacag', 'sirrim', 'bilgim']);
+        ['kalsin', 'soyleme', 'paylas', 'vereceg', 'anlat', 'goster', 'emanet', 'sirrim',
+            'bilgim', 'yalniz', 'kimsenin']);
+    const restrictedAudienceEvidence = storySemanticFrameEvidence(tokens, ['yalniz', 'sadece']);
+    const disclosureEvidence = storySemanticFrameEvidence(tokens,
+        ['anlat', 'soyle', 'paylas', 'ver', 'goster', 'emanet']);
+    const negatedDisclosureEvidence = tokens.filter(token =>
+        /^(?:anlat|soyle|paylas|ver|goster|emanet).*(?:amam|emem|mayac|meyece|mam|mem|maz|mez)/
+            .test(token));
     const modalAbilityEvidence = tokens.filter(token => /(?:abil|ebil)/.test(token));
+    const firstPersonAbilityEvidence = modalAbilityEvidence.filter(token =>
+        /(?:abilirim|ebilirim)$/.test(token));
+    const conditionalThreatEvidence = tokens.filter(token => token === 'yoksa'
+        || /(?:mazsan|mezsen|mazsaniz|mezseniz|mazsiniz|mezsiniz)$/.test(token));
     const inclusiveQuestionEvidence = storySemanticFrameEvidence(tokens,
         ['miyiz', 'mıyız', 'muyuz', 'müyüz']);
-    const actionPredicates = new Set([predicate.primary].concat(predicate.secondary || []));
     const hasActionPredicate = ['WORK', 'MILITARY', 'ECONOMY', 'TECHNOLOGY']
-        .some(id => actionPredicates.has(id));
+        .some(id => predicateIds.has(id));
     if (closeEvidence.length) return { value: 'CLOSE', evidence: closeEvidence, score: 3300 };
     if (greetingEvidence.length) return { value: 'GREET', evidence: greetingEvidence, score: 3300 };
     if (thanksEvidence.length) return { value: 'THANK', evidence: thanksEvidence, score: 3300 };
@@ -165,8 +194,16 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     if (rejectEvidence.length && storySemanticFrameHas(tokens, ['degil', 'hayir', 'reddet', 'istemiyorum'])) {
         return { value: 'REJECT', evidence: rejectEvidence, score: 3000 };
     }
-    if (secretEvidence.length && confideEvidence.length && !questionEvidence.length) {
-        return { value: 'CONFIDE', evidence: secretEvidence.concat(confideEvidence), score: 2800 };
+    if (conditionalThreatEvidence.length) {
+        return { value: 'TELL', requestedOutcome: 'ACTION',
+            evidence: conditionalThreatEvidence, score: 3300 };
+    }
+    if (!questionEvidence.length && !negatedDisclosureEvidence.length
+        && ((secretEvidence.length && confideEvidence.length)
+        || (restrictedAudienceEvidence.length && disclosureEvidence.length))) {
+        return { value: 'CONFIDE', evidence: secretEvidence.concat(confideEvidence,
+            restrictedAudienceEvidence, disclosureEvidence)
+            .filter((value, index, all) => all.indexOf(value) === index), score: 2800 };
     }
     if (questionEvidence.length && modalAbilityEvidence.length
         && inclusiveQuestionEvidence.length
@@ -177,8 +214,11 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
         && hasActionPredicate) {
         return { value: 'REQUEST', evidence: modalAbilityEvidence.concat(questionEvidence), score: 3200 };
     }
-    if (requestEvidence.length && hasActionPredicate) {
+    if (requestEvidence.length) {
         return { value: 'REQUEST', evidence: requestEvidence, score: 3100 };
+    }
+    if (!questionEvidence.length && firstPersonAbilityEvidence.length) {
+        return { value: 'OFFER', evidence: firstPersonAbilityEvidence, score: 2900 };
     }
     if (offerEvidence.length) return { value: 'OFFER', evidence: offerEvidence, score: 2700 };
     if (String(raw || '').includes('?') || questionEvidence.length) {
@@ -189,9 +229,7 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
 
 function storySemanticFrameSurfaceForm(raw, tokens) {
     const text = String(raw || '').trim();
-    const questionEvidence = storySemanticFrameEvidence(tokens,
-        ['mi', 'mı', 'mu', 'mü', 'miyim', 'mıyım', 'muyum', 'müyüm',
-            'kim', 'ne', 'neden', 'nasil', 'nerede', 'hangi', 'kac']);
+    const questionEvidence = storySemanticFrameQuestionEvidence(tokens);
     if (text.includes('?') || questionEvidence.length) return { value: 'INTERROGATIVE', evidence: questionEvidence };
     if (text.endsWith('!')) return { value: 'EXCLAMATORY', evidence: ['!'] };
     if (storySemanticFrameHas(tokens, ['yap', 'ver', 'git', 'gel', 'gonder', 'bekle', 'dur'])) {
@@ -250,9 +288,12 @@ function storySemanticFrameSpeechAct(frame) {
     if (fn === 'REJECT') return 'REJECT';
     if (fn === 'CONFIDE') return 'SHARE_SECRET';
     if (fn === 'OFFER' && predicate === 'WORK') return 'OFFER_SUPPORT';
+    if (fn === 'OFFER' && predicate === 'ECONOMY') return 'PROPOSE_COMMERCIAL_DEAL';
+    if (fn === 'TELL' && frame.requestedOutcome === 'ACTION') return 'THREATEN';
     if (fn === 'REQUEST' && predicate === 'WORK') return 'REQUEST_ACTION';
     if (fn === 'REQUEST' && predicate === 'MILITARY') return 'REQUEST_SUPPORT';
     if (fn === 'REQUEST' && ['ECONOMY', 'TECHNOLOGY'].includes(predicate)) return 'REQUEST_ACTION';
+    if (fn === 'REQUEST' && frame.requestedOutcome === 'ACTION') return 'REQUEST_ACTION';
     if (fn === 'ASK' && ['RELATIONSHIP', 'EMOTION'].includes(predicate)) return 'ASK_RELATIONSHIP';
     if (fn === 'ASK' && (predicate === 'OPINION' || frame.secondaryPredicates.includes('OPINION'))) {
         return 'ASK_PERSONAL_OPINION';
@@ -444,9 +485,12 @@ function storyConversationSemanticFrameCompile(raw, context) {
         temporality: temporality.value,
         epistemicStatus: epistemic.value,
         continuity: continuity.value,
-        requestedOutcome: communicative.value === 'ASK' ? 'INFORMATION'
+        requestedOutcome: communicative.requestedOutcome
+            || (communicative.value === 'ASK' ? 'INFORMATION'
             : communicative.value === 'REQUEST' ? 'ACTION'
-                : communicative.value === 'CONFIDE' ? 'CONFIDENTIAL_HANDLING' : 'NONE',
+                : communicative.value === 'OFFER' ? 'ACTION'
+                    : communicative.value === 'CONFIDE'
+                        ? 'CONFIDENTIAL_HANDLING' : 'NONE'),
         evidence: {
             communicativeFunction: communicative.evidence,
             surfaceForm: surfaceForm.evidence,

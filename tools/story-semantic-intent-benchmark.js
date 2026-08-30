@@ -55,7 +55,7 @@ const HIGH_RISK_ACTS = Object.freeze([
     'BLUFF_CANDIDATE'
 ]);
 const HIGH_RISK_FRAME_CONTRACTS = Object.freeze({
-    THREATEN: Object.freeze({ communicativeFunction: 'REQUEST',
+    THREATEN: Object.freeze({ communicativeFunction: Object.freeze(['TELL', 'REQUEST']),
         requestedOutcome: 'ACTION' }),
     REQUEST_ACTION: Object.freeze({ communicativeFunction: 'REQUEST',
         requestedOutcome: 'ACTION' }),
@@ -354,7 +354,8 @@ function matchesHighRiskFrameContract(label, frame) {
     const contract = HIGH_RISK_FRAME_CONTRACTS[label];
     if (!contract) return true;
     if (!frame) return false;
-    return Object.entries(contract).every(([axis, value]) => frame[axis] === value);
+    return Object.entries(contract).every(([axis, value]) => Array.isArray(value)
+        ? value.includes(frame[axis]) : frame[axis] === value);
 }
 
 function selectPrototypeAnchors(anchors, perClassLimit) {

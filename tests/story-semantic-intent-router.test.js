@@ -184,6 +184,8 @@ assert.equal(guardedCentroid.find(row => row.label === 'REQUEST_ACTION').score,
 
 assert.equal(matchesHighRiskFrameContract('REQUEST_ACTION', actionFrame), true);
 assert.equal(matchesHighRiskFrameContract('THREATEN', actionFrame), true);
+assert.equal(matchesHighRiskFrameContract('THREATEN', {
+    communicativeFunction: 'TELL', requestedOutcome: 'ACTION' }), true);
 assert.equal(matchesHighRiskFrameContract('REQUEST_ACTION', greetingFrame), false);
 assert.equal(matchesHighRiskFrameContract('PROPOSE_COMMERCIAL_DEAL', {
     communicativeFunction: 'OFFER', requestedOutcome: 'ACTION' }), true);
