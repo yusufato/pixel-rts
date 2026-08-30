@@ -1643,3 +1643,18 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   yine `eligibleModelIds=[]`, `createNewBlindEpoch=false` üretti.
 - Oyun konuşma davranışı değişmedi. Sonraki adım global eşik ayarı değil,
   yüksek-risk eylem başına zorunlu SemanticFrameV2 eksen sözleşmesidir.
+
+## 2026-08-31 — Türkçe yön aileleri ve recall güvenlik kapısı (`implemented / models-rejected`)
+
+- Yüksek-risk niyet sözleşmesinin bütün gerçek eylemleri reddederek sıfır
+  yanlış pozitife ulaşması engellendi. Her sınıf artık en az `1/3` ve mevcut
+  deterministik taban kadar recall göstermelidir.
+- Türkçe emir, ticari teklif, koşullu tehdit ve sır paylaşımı yön aileleri
+  deterministik SemanticFrameV2'de düzeltildi. Taze kalibrasyon kapsamı
+  `3/15 → 15/15`; olumsuz gizli-ifşa blöfü karşı örnek olarak korunuyor.
+- Kör erişimsiz yeni dış kalibrasyonda taban macro-F1 `0,474259` oldu. E5
+  `0,238598` ve BGE-M3 `0,520915` verdi. BGE farkı yalnız `+0,046656`, toplam
+  yüksek-risk yanlışı `2`; eylem talebi ve blöf recall değeri `0`dır.
+- İki model de reddedildi; `createNewBlindEpoch=false`. Oyun çalışma zamanına
+  embedding, Electron IPC veya yeni mekanik yetki eklenmedi. Faz 38
+  `In Progress`, `%90+` anlama hedefi kanıtsız kalır.

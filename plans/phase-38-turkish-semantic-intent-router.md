@@ -585,3 +585,25 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   hipotez yeni threshold taraması değil; her yüksek-risk eylem için zorunlu
   çekirdek eksenleri (ör. teklif=`OFFER+ACTION`, sır paylaşımı=
   `CONFIDE+CONFIDENTIAL_HANDLING`) prototip sözleşmesinden açıkça türetmektir.
+
+### 31 Ağustos 2026 — Niyet sözleşmesi, recall kapısı ve Türkçe yön aileleri
+
+- Sınıfa özel çerçeve sözleşmeleri global `4/5` vetosunun yerine denendi.
+  İlk ölçüm BGE-M3 riskini sıfırlayıp tabana `+0,103105` fark verdi; ancak beş
+  yüksek-risk sınıfının recall değeri de `0`dı. Sıfır aday kabul ederek güvenli
+  görünme açığı nedeniyle karar kapısına sınıf başına tabanla yarışan ve en az
+  `1/3` recall isteyen anti-vacuity şartı eklendi.
+- Deterministik SemanticFrameV2'nin taze 15 yüksek-risk kalibrasyon kaydındaki
+  sözleşme kapsaması başlangıçta yalnız `3/15`ti. Emir çekimleri, birinci kişi
+  teklifleri, koşullu tehditler, kısıtlı-audiencelı sır paylaşımı, kontrollü
+  soru biçimleri ve olumsuz açıklama vetosu cümle kimliğine dallanmadan ortak
+  Türkçe aileler olarak düzeltildi. Taze kapsama beş sınıfta ayrı ayrı `3/3`,
+  toplam `15/15` oldu; commit `c907137`.
+- Yeni kör-erişimsiz `99/51/0` ölçümde deterministik taban macro-F1
+  `0,474259` ve yüksek-risk yanlış pozitif `3`tür. E5 `0,238598`
+  (`-0,235661`), toplam/en-kötü-kat risk `1/1`; tehdit ve blöf recall kapılarını
+  kaçırdı. BGE-M3 intent-contract centroid `0,520915` (`+0,046656`), risk
+  `2/1`; eylem talebi ve blöf recall kapılarını kaçırdı.
+- `eligibleModelIds=[]`, `createNewBlindEpoch=false`. Parser yön sinyali artık
+  taze güvenlik dilimini kapsıyor, fakat embedding kalite ve yanlış-pozitif
+  kapıları birlikte geçmiyor. Ürün/Electron/IPC entegrasyonu kapalı kalır.

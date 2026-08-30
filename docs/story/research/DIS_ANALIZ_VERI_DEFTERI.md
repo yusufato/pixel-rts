@@ -1215,3 +1215,26 @@ parametrik ele alınır.
   gezdirmek yerine sınıf sözleşmesi kullanmalıdır: ticari teklif için `OFFER`
   ve `ACTION`, sır paylaşımı için `CONFIDE` ve `CONFIDENTIAL_HANDLING`, eylem
   talebi için `REQUEST` ve `ACTION` gibi zorunlu eksen çiftleri.
+
+### 31 Ağustos yöntem deneyi — niyet sözleşmesi ve recall anti-vacuity kapısı
+
+- Sınıfa özel zorunlu eksenler ilk denemede BGE-M3 yüksek-risk yanlış
+  pozitifini `0` yaptı ve macro-F1 farkını `+0,103105`e taşıdı. Bunun güvenlik
+  başarısı olmadığı görüldü: beş yüksek-risk sınıfının tamamında recall `0`dı;
+  kapı bütün gerçek eylemleri reddederek risksiz görünüyordu.
+- Kabul kuralı bu nedenle her yüksek-risk sınıfında en az `1/3` ve
+  deterministik tabanın recall değerinden az olmayan gözlem ister. Sıfır
+  yanlış pozitif artık tek başına model kabulü değildir.
+- Taze 15 kayıt üzerinde deterministik çerçeve sözleşmesi kapsaması `3/15`ten
+  `15/15`e çıktı. Düzeltme tekil cümle ezberi değildir: Türkçe emir kökleri,
+  birinci kişi yeterlik teklifi, koşullu tehdit, kısıtlı dinleyici+ifşa fiili,
+  ikincil SECRET predicate'i, çekimli soru sözcüğü ve olumsuz ifşa morfolojisi
+  ayrı bileşim kanıtlarıdır. Olumsuz “gösteremem” blöfü SHARE_SECRET yapılmaz.
+- Parser iyileşince dış-kat deterministik tabanı `0,474259`a yükseldi. BGE-M3
+  intent-contract centroid `0,520915` ile yalnız `+0,046656` fark ve `2`
+  yüksek-risk yanlış pozitif verdi; `REQUEST_ACTION=0`, `BLUFF_CANDIDATE=0`
+  recall değerleri gerekli `0,666667/0,333333` eşiklerini kaçırdı. E5
+  `0,238598`, `-0,235661`, risk `1` ve tehdit/blöf recall başarısızlığı verdi.
+- Sonuç: parser düzeltmesi değerlidir fakat bu iki embedding adayını ürün
+  seviyesine taşımamıştır. `createNewBlindEpoch=false`; `%90+` oyuncu anlama
+  iddiası için hâlâ uçtan uca kanıt yoktur.

@@ -1590,3 +1590,24 @@
 - **What happened:** Yüksek-risk centroid adayları, gerçek prototip çerçevelerinden biriyle beş yön ekseninin en az dördünde uyuşma şartına bağlandı ve kör erişimsiz dış kalibrasyonda ölçüldü.
 - **Evidence:** `99/51/0`, `blindTestAccessed=false`. BGE-M3 `0,383007` ortalama macro-F1, `0,317647` minimum kat, `+0,079575` taban farkı ve `0/0` toplam/en-kötü-kat yüksek-risk verdi. Saf centroid riski `3/3 → 0/0`, kalite farkı `+0,228595 → +0,079575` oldu. E5 güvenli seçimi `0,237908`, `-0,065523`, `0/0` verdi. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
 - **Implication for future audits:** SemanticFrame yön kapısını kaldırma; risk sıfırlama kanıtını koru. Fakat global `4/5` eşiğini ürün çözümü veya kalite geçişi sayma ve kör veriden eşik tarama. Sonraki hipotezde her yüksek-risk eylemin prototiplerden türetilmiş zorunlu çekirdek eksen sözleşmesini ayrı tanımla.
+
+## 2026-08-31 — Yüksek-risk recall kapısı vacuous güvenliği reddetti
+- **Type:** Confirmed
+- **Source:** `phase-38-turkish-semantic-intent-router` intent-contract ölçümü / `8864b76`
+- **What happened:** Sınıfa özel çerçeve sözleşmeleri yanlış pozitifleri sıfırladı, fakat bütün gerçek yüksek-risk adaylarını da reddetti. Kabul kuralına sınıf başına tabanla yarışan ve en az `1/3` recall şartı eklendi.
+- **Evidence:** İlk BGE intent-contract sonucu macro-F1 farkı `+0,103105`, yüksek-risk yanlış pozitif `0`; THREATEN, REQUEST_ACTION, PROPOSE_COMMERCIAL_DEAL, SHARE_SECRET ve BLUFF_CANDIDATE recall değerlerinin tamamı `0`dı. Yeni kapı iki modeli de başarısız saydı.
+- **Implication for future audits:** Sıfır yüksek-risk yanlış pozitifi tek başına güvenlik başarısı sayma; her yüksek-risk sınıfının recall makbuzunu ve tabana göre gerilemesini birlikte denetle.
+
+## 2026-08-31 — Türkçe yön ailesi kapsamı taze dilimde tamamlandı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` SemanticFrameV2 yön aileleri / `c907137`
+- **What happened:** Emir çekimleri, ticari teklifler, koşullu tehditler, kısıtlı sır açıklamaları, soru sözcüğü çekimleri ve olumsuz açıklama biçimleri cümleye özel dallanmadan deterministik bileşim kurallarına taşındı.
+- **Evidence:** Taze yüksek-risk kalibrasyon sözleşmesi kapsaması `3/15 → 15/15`; beş sınıfın her biri `3/3`. Hedef semantik-frame, router ve review-server testleri exit `0`; olumsuz “gösteremem” hard-negative'i TELL+NONE kaldı.
+- **Implication for future audits:** Bu taze 15 kayıtta yön parser'ı eksik diye yeniden raporlama. Eski kalibrasyon emir/ticaret varyantlarının eksikleri ayrı tarihsel ailelerdir; ürün modeli kabulü olarak yorumlama.
+
+## 2026-08-31 — Parser iyileşmesine rağmen embedding adayları kapıları geçmedi
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` frame-family outer calibration / `c907137`
+- **What happened:** Aynı iki yerel model, düzeltilmiş deterministik yön çerçevesi ve recall anti-vacuity kapısıyla kör sete erişmeden yeniden ölçüldü.
+- **Evidence:** Sınır `99/51/0`, `blindTestAccessed=false`. Taban macro-F1 `0,474259`, risk `3`. E5 `0,238598`, fark `-0,235661`, risk `1/1`, tehdit+blöf recall başarısız. BGE intent-contract centroid `0,520915`, fark `+0,046656`, risk `2/1`, eylem-talebi+blöf recall başarısız. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+- **Implication for future audits:** Parser kapsam artışını embedding kabulü sanma; bu iki model/temsil yeni kör epoch veya ürün/EXE/IPC entegrasyonu açmaz. Sonraki hipotez aynı kalibrasyonda kalite, sıfır yanlış pozitif ve sınıf recall kapılarını birlikte geçmelidir.
