@@ -330,6 +330,46 @@ function frameCompatibility(left, right) {
     return matches.length / FRAME_COMPATIBILITY_AXES.length;
 }
 
+function selectPrototypeAnchors(anchors, perClassLimit) {
+    const limit = Math.max(1, Number(perClassLimit) || 1);
+    const grouped = new Map();
+    for (const anchor of (anchors || []).slice().sort((left, right) =>
+        String(left.id).localeCompare(String(right.id)))) {
+        if (!grouped.has(anchor.label)) grouped.set(anchor.label, []);
+        grouped.get(anchor.label).push(anchor);
+    }
+    const selected = [];
+    for (const rows of grouped.values()) {
+        if (rows.length <= limit) {
+            selected.push(...rows);
+            continue;
+        }
+        const similarities = new Map();
+        const similarity = (left, right) => {
+            const key = `${left.id}\u0000${right.id}`;
+            if (!similarities.has(key)) similarities.set(key,
+                cosineSimilarity(left.vector, right.vector));
+            return similarities.get(key);
+        };
+        const chosen = [];
+        const remaining = rows.slice();
+        while (chosen.length < limit) {
+            const ranked = remaining.map(candidate => {
+                const coverage = rows.reduce((sum, target) => sum + Math.max(
+                    ...chosen.map(anchor => similarity(target, anchor)),
+                    similarity(target, candidate)), 0);
+                return { candidate, coverage };
+            }).sort((left, right) => right.coverage - left.coverage
+                || String(left.candidate.id).localeCompare(String(right.candidate.id)));
+            const winner = ranked[0].candidate;
+            chosen.push(winner);
+            remaining.splice(remaining.indexOf(winner), 1);
+        }
+        selected.push(...chosen);
+    }
+    return selected;
+}
+
 function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
     options = options && typeof options === 'object' ? options : {};
     const aggregation = options.aggregation || 'max';
@@ -337,10 +377,9 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
     const frameWeight = Math.max(0, Math.min(1,
         Number(options.frameCompatibilityWeight) || 0));
     const grouped = new Map();
-    for (const anchor of (anchors || []).slice().sort((left, right) =>
-        String(left.id).localeCompare(String(right.id)))) {
+    for (const anchor of selectPrototypeAnchors(anchors, perClassLimit)) {
         if (!grouped.has(anchor.label)) grouped.set(anchor.label, []);
-        if (grouped.get(anchor.label).length < perClassLimit) grouped.get(anchor.label).push(anchor);
+        grouped.get(anchor.label).push(anchor);
     }
     return [...grouped.entries()].map(([label, rows]) => {
         const scored = rows.map(row => {
@@ -576,6 +615,7 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
             const blindRows = rawEmbeddingRows(rowsBySplit.blind_test,
                 vectors, anchors, perClassLimit, representation, proposalById);
             return { representationId: representation.id, perClassLimit,
+                anchorSelectionPolicy: 'PROTOTYPE_GREEDY_COVERAGE_V1',
                 selectionValidation,
                 calibration: fitted.metrics, thresholds: fitted.calibration,
                 blindTest: summarizeEmbeddingRows(blindRows, fitted.calibration) };
@@ -752,6 +792,7 @@ async function runEmbeddingSpike(options) {
         return { modelId: model.id, profileId: selected.profile.id,
             representationId: selected.point.representationId,
             perClassLimit: selected.point.perClassLimit, macroF1Delta,
+            anchorSelectionPolicy: selected.point.anchorSelectionPolicy,
             qualityPass, highRiskPass, pass: qualityPass && highRiskPass,
             reasons: [!qualityPass && 'BLIND_MACRO_F1_DELTA_BELOW_0_15',
                 !highRiskPass && 'BLIND_HIGH_RISK_FALSE_POSITIVE']
@@ -784,6 +825,7 @@ function buildCalibrationStudyRecommendation(models,
         return { modelId: model.id, profileId: selected.profile.id,
             representationId: selected.point.representationId,
             perClassLimit: selected.point.perClassLimit,
+            anchorSelectionPolicy: selected.point.anchorSelectionPolicy,
             selectionValidation: selected.point.selectionValidation,
             macroF1Delta, qualityPass, highRiskPass,
             eligibleForNewBlindEpoch: qualityPass && highRiskPass,
@@ -1124,7 +1166,7 @@ module.exports = {
     normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
     labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight,
     l2Normalize, dotProduct, cosineSimilarity, frameCompatibility,
-    rankEmbeddingCandidates,
+    selectPrototypeAnchors, rankEmbeddingCandidates,
     fitEmbeddingCalibration, buildStratifiedCalibrationFolds,
     crossValidateEmbeddingCalibration, compareSelectionEvidence,
     summarizeEmbeddingRows, evaluateEmbeddingVectors,

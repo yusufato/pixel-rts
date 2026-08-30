@@ -2,7 +2,8 @@
 
 const assert = require('node:assert/strict');
 const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
-    frameCompatibility, rankEmbeddingCandidates, fitEmbeddingCalibration,
+    frameCompatibility, selectPrototypeAnchors, rankEmbeddingCandidates,
+    fitEmbeddingCalibration,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
     embeddingCalibrationStudySplits, buildCalibrationStudyRecommendation } =
@@ -129,6 +130,21 @@ const ranked = rankEmbeddingCandidates([1, 0], [
 ], 1);
 assert.equal(ranked[0].label, 'GREETING');
 assert.equal(ranked[0].anchorId, 'a');
+
+const coverageAnchors = [
+    { id: 'a-first-outlier', label: 'GREETING', vector: [-1, 0] },
+    { id: 'b-central', label: 'GREETING', vector: [1, 0] },
+    { id: 'c-near-central', label: 'GREETING', vector: [0.9, 0.1] },
+    { id: 't-only', label: 'THREATEN', vector: [0, 1] }
+];
+const selectedCoverage = selectPrototypeAnchors(coverageAnchors, 1);
+assert.deepEqual(selectedCoverage.map(anchor => anchor.id), ['c-near-central', 't-only'],
+    'prototype coverage must select a representative anchor, not the first id');
+assert.deepEqual(selectPrototypeAnchors(coverageAnchors.slice().reverse(), 1)
+    .map(anchor => anchor.id), selectedCoverage.map(anchor => anchor.id),
+    'prototype coverage must be input-order invariant');
+assert.equal(rankEmbeddingCandidates([-1, 0], coverageAnchors, 1)[0].label,
+    'THREATEN', 'query similarity must not change the prototype-only anchor subset');
 
 const balanced = rankEmbeddingCandidates([1, 0], [
     { id: 'g1', label: 'GREETING', vector: [1, 0] },
