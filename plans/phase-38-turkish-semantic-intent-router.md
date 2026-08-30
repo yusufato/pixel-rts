@@ -31,7 +31,7 @@ conflicts_with:
   - bugfix-story-invalid-battle-target-guard
   - electron-story-lifecycle-acceptance
 created: 2026-08-27
-last_touched: 2026-08-27
+last_touched: 2026-08-30
 ---
 
 # Faz 38 — Türkçe Semantik Niyet Yönlendiricisi

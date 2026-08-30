@@ -1492,3 +1492,10 @@
 - **What happened:** Tarihsel model-spike preflight'ından ayrı `representationSelectionPass` eklendi. Kör sette bulunan her ana eylem için prototype, calibration ve blind splitlerinde en az üç bağımsız gold kayıt zorunlu oldu.
 - **Evidence:** Mevcut corpus `modelSelectionPass=true` durumunu korurken yeni kapıda `false` ve 17 sınıf/split açığı verir. Açıkları üçe tamamlamak için asgari 32 yeni, aile-sızıntısız tekil gold kayıt gerekir; hedef test beklenen exit `2` ile durur.
 - **Implication for future audits:** Splitte tek kayıt bulunmasını kararlı temsil seçimi sayma. Yeni BGE/temsil ölçümünü 32 destek açığı yeni ailelerle kapanmadan ve yeni kör örnekler dokunulmamış kalmadan başlatma.
+
+## 2026-08-30 — Temsil destek matrisi 211 gold ile tamamlandı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` temsil kalibrasyonu / `ab5013d`, `a227be3`
+- **What happened:** Bilgi sorusu, kişisel görüş, meydan okuma, düzeltme, selamlaşma, söz, destek teklifi ve ret sınıflarındaki 32 açık; cümle, bütün SemanticFrameV2 eksenleri ve karşıt niyetleri ayrı ayrı incelenmiş, aile-sızıntısız `CODEX_INDIVIDUAL_REVIEW` kayıtlarıyla kapatıldı.
+- **Evidence:** Corpus `311` benzersiz cümle, `271` aile ve `211` gold; gold dağılımı `99/54/58`. `representationSelectionPass=true`, destek sorunları `17 → 0`; router testi, review-server testi ve `--require-representation-selection` preflight'ı exit `0` verdi.
+- **Implication for future audits:** Sınıf/split temsil desteğini artık eksik sayma. Bu sonuç model kabulü veya oyun içi anlama artışı değildir: eski 45 kör kayıt önceki ablation'da görülmüştür, yeni kör dilim yalnız 13 kayıttır ve ürün kapısı `211/1000` seviyesinde kapalıdır. Yeni temsil seçimi, eski kör sonuçları ayar girdisi yapmadan sürümlü seçim/eğitim kohortu ve gerçekten dokunulmamış değerlendirme kohortu tanımlamalıdır.
