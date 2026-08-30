@@ -82,6 +82,9 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
         anchorCountIndependent: true }),
     Object.freeze({ id: 'contract-centroid-guard', aggregation: 'centroid',
         topCount: 1, frameCompatibilityWeight: 0, highRiskFrameContract: true,
+        anchorCountIndependent: true }),
+    Object.freeze({ id: 'contract-frame-centroid-guard', aggregation: 'centroid',
+        topCount: 1, frameCompatibilityWeight: 0.08, highRiskFrameContract: true,
         anchorCountIndependent: true })
 ]);
 const FRAME_COMPATIBILITY_AXES = Object.freeze([
@@ -689,6 +692,8 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
             return { representationId: representation.id, perClassLimit,
                 anchorSelectionPolicy: representation.id === 'contract-centroid-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_V1'
+                    : representation.id === 'contract-frame-centroid-guard'
+                    ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_FRAME_V1'
                     : representation.id === 'frame-centroid-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_FRAME_GUARD_V1'
                     : representation.anchorCountIndependent

@@ -206,6 +206,23 @@ const contractGuardedCentroid = rankEmbeddingCandidates([1, 0], [
     highRiskFrameContract: true });
 assert.equal(contractGuardedCentroid[0].label, 'GREETING');
 
+const bluffFrame = { communicativeFunction: 'TELL',
+    polarity: 'MIXED', temporality: 'CURRENT_OR_UNMARKED',
+    epistemicStatus: 'CLAIMED_CERTAIN', requestedOutcome: 'NONE' };
+const contractFrameWeightedCentroid = rankEmbeddingCandidates([1, 0], [
+    { id: 'bluff-contract', label: 'BLUFF_CANDIDATE', vector: [0.8, 0.2],
+        labels: bluffFrame },
+    { id: 'greeting-nearer', label: 'GREETING', vector: [0.82, 0.18],
+        labels: greetingFrame },
+    { id: 'action-incompatible', label: 'REQUEST_ACTION', vector: [1, 0],
+        labels: actionFrame }
+], null, { aggregation: 'centroid', queryFrame: bluffFrame,
+    frameCompatibilityWeight: 0.08, highRiskFrameContract: true });
+assert.equal(contractFrameWeightedCentroid[0].label, 'BLUFF_CANDIDATE',
+    'bounded frame evidence should break a close semantic tie toward the compatible bluff');
+assert.equal(contractFrameWeightedCentroid.find(row => row.label === 'REQUEST_ACTION').score,
+    -Infinity, 'frame weighting must not bypass the intent-contract veto');
+
 const balanced = rankEmbeddingCandidates([1, 0], [
     { id: 'g1', label: 'GREETING', vector: [1, 0] },
     { id: 'g2', label: 'GREETING', vector: [0, 1] },
