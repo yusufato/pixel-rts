@@ -31,7 +31,7 @@ conflicts_with:
   - bugfix-story-invalid-battle-target-guard
   - electron-story-lifecycle-acceptance
 created: 2026-08-27
-last_touched: 2026-08-30
+last_touched: 2026-08-31
 ---
 
 # Faz 38 — Türkçe Semantik Niyet Yönlendiricisi
@@ -481,3 +481,26 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   IPC, paketleme ve eşzamanlı LLM/EXE kabulü açılmadı. Adım 3'e geçiş durmuştur;
   sonraki çalışma yeni aday/temsil hipotezini ayrı ölçmeli veya corpus
   genişletmelidir. Ürün kapısı `179/1000` seviyesinde kapalıdır.
+
+### 31 Ağustos 2026 — Dokunulmamış değerlendirme ve tek-sefer kilidi
+
+- `representation-stability-v1` kohortu tek tek incelenmiş `10/51/51`
+  prototip/kalibrasyon/kör gold ile bütün 17 sınıfta ve OOD'de değerlendirme
+  split başına en az üç bağımsız aileye ulaştı. Toplam corpus `391` cümle,
+  `351` aile ve `291` gold oldu.
+- Eşik, temsil ve sınıf başı çapa sayısı yalnız 51 kalibrasyon kaydıyla seçildi.
+  Deterministik 51 kör taban macro-F1 `0,262698`, OOD yanlış kabul `1,0` ve
+  yüksek-risk yanlış pozitif `0` verdi.
+- E5 için seçilen `query/passage + single-max + N=20` kolu kör macro-F1
+  `0,318783` (`+0,056085`), OOD yanlış kabul `0`, yüksek-risk yanlış pozitif
+  `6` verdi. BGE-M3 için seçilen `frame-top3-mean + N=10` kolu `0,309023`
+  (`+0,046324`), OOD yanlış kabul `0,333333` ve yüksek-risk yanlış pozitif `3`
+  verdi. İki aday da `+0,15` kalite ve sıfır yüksek-risk kapılarını geçemedi.
+- Aynı model karmaları doğrulandı: E5 `e011debc…0a877c93`, BGE-M3
+  `aa473d51…4047a173`. CPU sıcak p50/p95 E5'te `92,64/127,79 ms`, BGE-M3'te
+  `769,32/1.210,31 ms`; gözlenen RSS artışı yaklaşık `796,34/516,88 MiB` oldu.
+- Kör sonuç görüldükten sonra politika `SPENT_AFTER_2026_08_31_ONE_SHOT`
+  durumuna alındı. Preflight aynı epoch ile ikinci model koşusunu model
+  yüklenmeden reddeder. Plan `In Progress` kalır; ürün/EXE/IPC entegrasyonu ve
+  `%90+` anlama iddiası kapalıdır. Sonraki aday veya temsil hipotezi yeni,
+  önceden mühürlü değerlendirme epoch'u gerektirir.

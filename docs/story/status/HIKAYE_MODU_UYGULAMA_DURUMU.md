@@ -1575,3 +1575,22 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Sonuç olarak yönlendirici, IPC, paketleme ve mekanik entegrasyon yapılmadı;
   mevcut deterministik konuşma yolu değişmedi. Adım 3 yeni ve kabul edilmiş bir
   model/temsil hipotezi olmadan kapalıdır.
+
+## 2026-08-31 — Faz 38 taze değerlendirme (`measured / candidates-rejected`)
+
+- Corpus `391` benzersiz cümle, `351` aile ve `291` gold taşır. Yeni mühürlü
+  kohort `10/51/51` splitindedir; 17 sınıfın tamamı ile OOD, kalibrasyon ve kör
+  testte en az üç bağımsız aileye sahiptir.
+- Deterministik kör taban `0,262698` macro-F1'dır. Kalibrasyonun seçtiği E5
+  `query/passage + single-max + N=20` kolu `0,318783` (`+0,056085`) ve `6`
+  yüksek-risk yanlış pozitif; BGE-M3 `frame-top3-mean + N=10` kolu `0,309023`
+  (`+0,046324`) ve `3` yüksek-risk yanlış pozitif verdi. Gerekli fark `+0,15`,
+  izin verilen yüksek-risk yanlış pozitif `0`dır; iki aday da reddedildi.
+- E5 OOD yanlış kabulü `0`, BGE-M3 `0,333333`; sıcak CPU p50/p95 yaklaşık
+  `92,64/127,79 ms` ve `769,32/1.210,31 ms`dir. Bunlar Node CPU spike
+  değerleridir, Electron kabulü değildir.
+- Kör cohort bir kez görüldüğü için `SPENT_AFTER_2026_08_31_ONE_SHOT` olarak
+  kilitlendi; aynı epoch ile yeniden model koşusu preflight'ta durur. Runtime,
+  IPC ve paketleme eklenmedi; mevcut deterministik konuşma davranışı değişmedi.
+  Faz 38 semantik planı yeni hipotez ve yeni mühürlü epoch için `In Progress`
+  kalır; `%90+` oyuncu dili anlama iddiası desteklenmemektedir.

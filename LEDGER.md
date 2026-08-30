@@ -1534,3 +1534,10 @@
 - **What happened:** İki ekonomik ve altı askerî rapor, altı doğrudan eylem talebi ve altı mekanik olmayan gündelik sohbet kaydı bütün eksenleriyle tek tek incelendi. Rapor–emir, tamamlanmış olay–gelecek eylemi ve sosyal gözlem–oyun komutu ayrımları bağımsız ailelerle mühürlendi.
 - **Evidence:** Corpus `391` benzersiz cümle, `351` aile ve `291` Codex gold; yeni kohort `10/51/51` splitinde `112` gold taşır. On yedi değerlendirilen sınıfın tamamı kalibrasyon ve kör testte en az `3`, OOD her iki splitte `3` oldu; `untouchedEvaluationPass=true`, sorun listesi boştur. Router/review-server testleri ve `--require-untouched-evaluation` preflight'ı exit `0` verdi.
 - **Implication for future audits:** Yeni gold üretimini veri kapısı açmak için sürdürme ve bu kör seti temsil/threshold seçimine katma. Sıradaki adım, yalnız kalibrasyonla aday/ayar seçip mühürlü `51` kör kayıtta bir kez ölçmektir. Bu sonuç henüz model kabulü, Electron entegrasyonu veya oyuncu dilini `%90+` anlama kanıtı değildir.
+
+## 2026-08-31 — Taze semantik ölçüm iki yerel adayı yine reddetti
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` tek-seferlik değerlendirme / `04a5fa2`
+- **What happened:** Aynı doğrulanmış E5 ve BGE-M3 model karmaları, ayarlarını yalnız 51 kalibrasyon ailesinden seçerek 51 mühürlü kör ailede bir kez ölçüldü. Kör sonuç görüldükten sonra epoch tüketilmiş olarak kilitlendi; aynı veriyle ikinci model koşusu preflight'ta model yüklenmeden durur.
+- **Evidence:** Deterministik kör macro-F1 `0,262698` ve yüksek-risk yanlış pozitif `0`dır. Seçilen E5 kolu `0,318783` (`+0,056085`) ve `6`, BGE-M3 kolu `0,309023` (`+0,046324`) ve `3` yüksek-risk yanlış pozitif verdi. İkisi de `+0,15` kalite ve sıfır yüksek-risk kapılarını geçmedi; kabul edilen model yoktur.
+- **Implication for future audits:** Bu kör sonuçlardan yeni temsil/threshold seçme ve aynı epoch'u yeniden “untouched” sayma. Ürün/EXE/IPC entegrasyonu kapalıdır. Yeni model veya sınıflandırıcı hipotezi önce yeni kalibrasyonda tanımlanmalı, ardından ayrı mühürlü değerlendirme epoch'unda bir kez sınanmalıdır; `%90+` oyuncu anlama iddiası hâlâ kanıtsızdır.

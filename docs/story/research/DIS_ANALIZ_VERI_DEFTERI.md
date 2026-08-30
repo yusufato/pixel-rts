@@ -1120,3 +1120,24 @@ parametrik ele alınır.
   bu iki model + en-yakın sınıf çapası + mevcut 179-gold temsilinin kabul
   şartlarını karşılamadığı gösterildi. Kalite kapısını geçmeyen adaylar için
   pahalı eşzamanlı LLM/EXE testi yapılmadı ve mekanik hatta hiçbir kod bağlanmadı.
+
+### 31 Ağustos ölçümü — dengeli taze kohortta adaylar yine reddedildi
+
+- 17 ana eylemin her biri için kalibrasyon ve kör testte üçer bağımsız aile,
+  ayrıca split başına üç OOD kaydı mühürlendi. Seçim yalnız `51` kalibrasyon,
+  son ölçüm yalnız `51` kör kayıtta yapıldı; eski ablation kör seti bu seçime
+  katılmadı.
+- Deterministik taban kör macro-F1 `0,262698`, OOD yanlış kabul `1,0`,
+  yüksek-risk yanlış pozitif `0`dır. E5 kalibrasyonda `query/passage`,
+  `single-max`, sınıf başı `20` çapa seçti; kör sonuç `0,318783`, fark
+  `+0,056085`, OOD yanlış kabul `0`, yüksek-risk yanlış pozitif `6`dır.
+- BGE-M3 kalibrasyonda `frame-top3-mean`, sınıf başı `10` çapa seçti; kör sonuç
+  `0,309023`, fark `+0,046324`, OOD yanlış kabul `0,333333`, yüksek-risk yanlış
+  pozitif `3`tür. Kalibrasyondaki iki adayda da yüksek-risk yanlış pozitif `0`
+  iken körde bozulması temsil/threshold genellemesinin yetersizliğini gösterir.
+- Sonuç yine `rejected-for-product`tır. Daha çok aynı kohort üzerinde ayar
+  denemek bilimsel olarak yeni kanıt üretmez; kör set tek kullanım sonrası
+  tüketilmiş olarak kilitlendi. Yeni çalışma, yeni model veya öğrenilebilir
+  sınıflandırıcı hipotezini ayrı kalibrasyonla kurmalı ve yeni mühürlü epoch'ta
+  bir kez sınamalıdır. Bu ölçüm karakterlerin oyuncuyu `%90+` anlamasını
+  desteklemez ve mevcut deterministik/LLM çalışma zamanını değiştirmez.
