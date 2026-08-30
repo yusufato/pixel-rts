@@ -526,3 +526,22 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   skorlamadan önce ilk kayıt kimliklerini kesmesi yerine yalnız prototiplerden
   deterministik ve açık bir çapa-alt-kümesi seçmesidir. Bu hipotez de yalnız
   kalibrasyonda kanıtlanmadan yeni kör epoch açılamaz.
+
+### 31 Ağustos 2026 — Prototip kapsama seçimi kalite hipotezi reddedildi
+
+- Sınıf başına alfabetik ilk N kaydı alan politika kaldırıldı. Yerine yalnız
+  prototip vektörlerinden sınıf medoidini seçen, sonraki her çapada toplam sınıf
+  kapsamasını en çok artıran `PROTOTYPE_GREEDY_COVERAGE_V1` eklendi. Seçim
+  giriş sırasından ve oyuncu sorgusundan bağımsızdır; politika kimliği raporda
+  makbuzlanır.
+- Kör erişimsiz `99/51/0` dış-kat kalibrasyonunda E5 `query/query +
+  frame-top3-mean + N=10` seçti. Ortalama macro-F1 `0,107791`, taban farkı
+  `-0,195640`, toplam/en-kötü-kat yüksek-risk `0/0` ve ortalama OOD yanlış
+  kabul `0`dır. Önceki dış-kat E5 kalitesi `0,185662` idi.
+- BGE-M3 `plain + frame-top3-mean + N=3` seçti. Ortalama macro-F1 `0,345322`,
+  taban farkı `+0,041890`, toplam/en-kötü-kat yüksek-risk `3/1` ve ortalama OOD
+  yanlış kabul `1,0`dır. Önceki BGE dış-kat kalitesi `0,467550`, riski `2/1`di.
+- Kapsama-açgözlü çapa alt-kümesinin kaliteyi yükselteceği hipotezi reddedildi.
+  `eligibleModelIds=[]`, `createNewBlindEpoch=false`; yeni kör corpus ve ürün
+  entegrasyonu açılmaz. Alfabetik ilk-N davranışına geri dönülmez; sonraki
+  temsil hipotezi yeni kör veri istemeden aynı dış kalibrasyonda sınanmalıdır.

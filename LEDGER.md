@@ -1569,3 +1569,10 @@
 - **What happened:** Temsil/profil/çapa sayısı seçimi, her kalibrasyon ailesini tam bir kez dış doğrulamada tutan üç katlı seçime taşındı. Kalibrasyon-çalışması modu mühürlü kör sete erişmeden otomatik yeni-epoch kararı üretir.
 - **Evidence:** Sınır `99/51/0`, `blindTestAccessed=false`. Deterministik taban `0,303431` macro-F1 ve `3` yüksek-risk yanlış pozitiftir. E5 `query/passage + class-top3-mean + N=3` ile `0,185662`, `-0,117770` fark ve `0/0` toplam/en-kötü-kat yüksek-risk verdi; kalite kapısını kaçırdı. BGE-M3 `plain + frame-top3-mean + N=10` ile `0,467550`, `+0,164118` fark ve `2/1` yüksek-risk verdi; güvenlik kapısını kaçırdı. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
 - **Implication for future audits:** Yeni v2 corpus veya kör epoch üretme; ürün/EXE/IPC entegrasyonuna geçme. Önce `perClassLimit`in skorlamadan önce ilk prototip kimliklerini kesmesi yerine açık, deterministik bir çapa-alt-küme hipotezi kur ve yalnız kalibrasyonda hem `+0,15` kalite hem sıfır yüksek-risk kanıtla.
+
+## 2026-08-31 — Açgözlü prototip kapsaması kaliteyi artırmadı
+- **Type:** Refuted
+- **Source:** `phase-38-turkish-semantic-intent-router` çapa politikası / `b8f4239`
+- **What happened:** Alfabetik ilk-N kesimi, sorgu ve değerlendirme verisinden bağımsız `PROTOTYPE_GREEDY_COVERAGE_V1` medoid/kapsama seçimiyle değiştirildi; kalite artışı hipotezi aynı kör-erişimsiz dış kalibrasyonda ölçüldü.
+- **Evidence:** `99/51/0`, `blindTestAccessed=false`. E5 `0,107791` macro-F1, `-0,195640` taban farkı, `0/0` toplam/en-kötü-kat yüksek-risk; BGE-M3 `0,345322`, `+0,041890`, `3/1` yüksek-risk verdi. Önceki dış-kat ölçümüne göre E5 `-0,077870`, BGE `-0,122228` geriledi ve BGE toplam riski `2 → 3` oldu. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+- **Implication for future audits:** Alfabetik ilk-N politikasını geri getirme, fakat açgözlü medoid/kapsamayı kalite çözümü sayma. Bu sonuç için yeni gold veya kör epoch üretme; sonraki temsil hipotezini yalnız mevcut prototip+kalibrasyonda tanımla ve ölç.

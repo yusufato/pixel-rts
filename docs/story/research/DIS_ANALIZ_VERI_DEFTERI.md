@@ -1163,3 +1163,17 @@ parametrik ele alınır.
   kesmek yerine prototiplerden deterministik temsilci/çeşitli çapa seçmektir.
   Bu politika kalibrasyonda hem `+0,15` kalite hem sıfır yüksek-risk kanıtı
   üretmeden yeni mühürlü epoch oluşturulmaz.
+
+### 31 Ağustos yöntem deneyi — prototip kapsama seçimi
+
+- `PROTOTYPE_GREEDY_COVERAGE_V1`, her sınıfta önce diğer prototiplere ortalama
+  en yakın medoidi, ardından toplam sınıf kapsamasını en çok artıran çapayı
+  seçer. Alfabetik ilk-N yanlılığını kaldırır; sorgu, kalibrasyon ve kör kayıtlar
+  alt-kümeyi etkileyemez. Ters giriş sırası ve karşıt sorgu birim testleri geçti.
+- Aynı `99/51/0` sınırında E5 dış-kat macro-F1 `0,107791`, tabana fark
+  `-0,195640`, yüksek-risk `0/0` ve OOD yanlış kabul `0` verdi. BGE-M3
+  `0,345322`, `+0,041890`, yüksek-risk `3/1` ve OOD yanlış kabul `1,0` verdi.
+- Önceki dış-kat sonuçlarına göre E5 `-0,077870`, BGE-M3 `-0,122228` macro-F1
+  geriledi; BGE toplam yüksek-risk yanlışı `2 → 3` oldu. Dolayısıyla yöntemsel
+  olarak geçerli alt-küme, kalite çözümü değildir. Yeni kör epoch kararı yine
+  `false`tır; bu sonucu düzeltmek için harcanmış kör sete bakılmaz.

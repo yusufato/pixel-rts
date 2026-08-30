@@ -1609,3 +1609,16 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   Oyuncu dilini `%90+` anlama hedefi gerçekleşmiş değildir. Sıradaki çalışma,
   ilk N prototip kaydını körlemesine alan çapa politikasını kalibrasyon içinde
   değiştirecek ayrı ve deterministik bir hipotezdir.
+
+## 2026-08-31 — Prototip kapsama politikası (`measured / hypothesis-rejected`)
+
+- Alfabetik ilk-N çapa kesimi, yalnız prototip vektörlerinden deterministik
+  medoid ve açgözlü sınıf kapsaması seçen `PROTOTYPE_GREEDY_COVERAGE_V1` ile
+  değiştirildi. Politika benchmark makbuzunda görünür; oyun çalışma zamanına
+  bağlanmadı.
+- Kör erişimsiz dış kalibrasyonda E5 `0,107791` macro-F1, `-0,195640` taban
+  farkı ve `0` yüksek-risk yanlış pozitif; BGE-M3 `0,345322`, `+0,041890` ve
+  `3` yüksek-risk yanlış pozitif verdi. Önceki dış-kat sonuçlarından ikisi de
+  daha kötüdür.
+- Kalite artışı hipotezi reddedildi; `createNewBlindEpoch=false`. Mevcut oyun
+  konuşma davranışı değişmedi ve `%90+` anlama hedefi hâlâ kanıtlanmadı.
