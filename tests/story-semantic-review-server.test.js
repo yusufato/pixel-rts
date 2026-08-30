@@ -18,8 +18,8 @@ assert.equal(review.validateReview({ id: 'semantic-teacher:0001', verdict: 'EDIT
 
 const corpusValidation = benchmark.validateCorpus(corpus);
 assert.equal(corpusValidation.ok, true, corpusValidation.issues.join(', '));
-assert.equal(corpusValidation.count, 295);
-assert.equal(corpusValidation.uniqueTexts, 295);
+assert.equal(corpusValidation.count, 311);
+assert.equal(corpusValidation.uniqueTexts, 311);
 
 const candidate = Object.assign({}, corpus.candidates[0]);
 delete candidate.adjudication;
@@ -93,7 +93,7 @@ const inventory = benchmark.buildBenchmark({
     corpus: unreviewedCorpus, reviews: { reviews: [] }, includePredictions: false
 });
 assert.equal(inventory.ok, true);
-assert.equal(inventory.inventory.candidates, 295);
+assert.equal(inventory.inventory.candidates, 311);
 assert.equal(inventory.inventory.humanGold, 0);
 assert.equal(inventory.inventory.codexGold, 0);
 assert.equal(inventory.inventory.gold, 0);

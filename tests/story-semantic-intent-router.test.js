@@ -10,28 +10,22 @@ const report = buildEmbeddingSpikePreflight();
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 195);
+assert.equal(report.gold.total, 211);
 assert.deepEqual(report.gold.bySplit, {
-    prototype: 93,
-    calibration: 50,
-    blind_test: 52
+    prototype: 99,
+    calibration: 54,
+    blind_test: 58
 });
 assert.equal(report.modelSelectionPass, true);
-assert.equal(report.representationSelectionPass, false);
+assert.equal(report.representationSelectionPass, true);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
-assert.equal(report.representationSupport.issues.length, 8);
-assert.ok(report.representationSupport.issues.includes(
-    'REPRESENTATION_CLASS_SUPPORT:OFFER_SUPPORT:prototype:1/3'));
-assert.ok(report.representationSupport.issues.includes(
-    'REPRESENTATION_CLASS_SUPPORT:OFFER_SUPPORT:calibration:1/3'));
-assert.ok(report.representationSupport.issues.includes(
-    'REPRESENTATION_CLASS_SUPPORT:OFFER_SUPPORT:blind_test:1/3'));
+assert.deepEqual(report.representationSupport.issues, []);
 assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
-    prototype: { inDomain: 90, outOfDomain: 3 },
-    calibration: { inDomain: 47, outOfDomain: 3 },
-    blind_test: { inDomain: 49, outOfDomain: 3 }
+    prototype: { inDomain: 96, outOfDomain: 3 },
+    calibration: { inDomain: 51, outOfDomain: 3 },
+    blind_test: { inDomain: 55, outOfDomain: 3 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,
