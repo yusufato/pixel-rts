@@ -687,6 +687,12 @@ function embeddingEvaluationSplits(corpus, sourceIdPrefix) {
     };
 }
 
+function embeddingCalibrationStudySplits(corpus, sourceIdPrefix) {
+    const evaluation = embeddingEvaluationSplits(corpus, sourceIdPrefix);
+    return { prototype: evaluation.prototype,
+        calibration: evaluation.calibration, blind_test: [] };
+}
+
 function buildDeterministicBlindBaseline(rows) {
     const proposals = buildBaselineProposals(rows);
     const evaluated = rows.map(row => {
@@ -756,6 +762,65 @@ async function runEmbeddingSpike(options) {
         deterministicBlindBaseline, models,
         selection: { acceptedModelIds: acceptance.filter(row => row.pass)
             .map(row => row.modelId), acceptance } };
+}
+
+async function runEmbeddingCalibrationStudy(options) {
+    const corpus = options.corpus || readJson(DEFAULT_CORPUS_PATH, null);
+    const preflight = buildEmbeddingSpikePreflight({ corpus });
+    const evaluation = preflight.untouchedEvaluation;
+    const calibrationReady = preflight.representationSelectionPass
+        && evaluation && Object.values(evaluation.byClass || {}).every(coverage =>
+            coverage.calibration >= evaluation.minimumPerClassPerEvaluationSplit)
+        && Number(evaluation.outOfDomainBySplit
+            && evaluation.outOfDomainBySplit.calibration) >=
+            evaluation.minimumPerClassPerEvaluationSplit;
+    if (!calibrationReady) {
+        throw new Error('EMBEDDING_CALIBRATION_STUDY_PREFLIGHT');
+    }
+    const rowsBySplit = embeddingCalibrationStudySplits(corpus,
+        evaluation.sourceIdPrefix);
+    const models = [];
+    for (const spec of options.models || []) {
+        models.push(await runEmbeddingModel(spec, rowsBySplit));
+    }
+    const selection = models.map(model => {
+        const candidates = model.profiles.map(profile => ({ profile,
+            point: profile.anchorCurve.find(point =>
+                point.perClassLimit === profile.selectedByCalibration
+                    && point.representationId === profile.selectedRepresentation) }))
+            .sort((left, right) => compareSelectionEvidence(left.point, right.point)
+                || left.profile.id.localeCompare(right.profile.id));
+        const selected = candidates[0];
+        return { modelId: model.id, profileId: selected.profile.id,
+            representationId: selected.point.representationId,
+            perClassLimit: selected.point.perClassLimit,
+            selectionValidation: selected.point.selectionValidation };
+    });
+    return { schemaVersion: 1,
+        kind: 'STORY_SEMANTIC_EMBEDDING_CALIBRATION_STUDY_V1',
+        generatedAt: new Date().toISOString(), preflight,
+        boundary: { blindTestAccessed: false,
+            prototypeCount: rowsBySplit.prototype.length,
+            calibrationCount: rowsBySplit.calibration.length,
+            blindTestCount: rowsBySplit.blind_test.length },
+        models, selection };
+}
+
+function embeddingModelSpecs(e5Path, bgePath) {
+    const models = [];
+    if (e5Path) models.push({
+        id: 'multilingual-e5-small-q8_0', modelPath: e5Path,
+            contextSize: 511, profiles: [
+                { id: 'e5-query-query', queryPrefix: 'query: ',
+                    anchorPrefix: 'query: ' },
+                { id: 'e5-query-passage', queryPrefix: 'query: ',
+                    anchorPrefix: 'passage: ' }
+            ] });
+    if (bgePath) models.push({
+        id: 'bge-m3-q8_0', modelPath: bgePath, contextSize: 512,
+            profiles: [{ id: 'bge-m3-plain', queryPrefix: '',
+                anchorPrefix: '' }] });
+    return models;
 }
 
 function buildBenchmark(options) {
@@ -989,7 +1054,8 @@ function buildEmbeddingSpikePreflight(options) {
 }
 
 if (require.main === module) {
-    if (process.argv.includes('--embedding-spike')) {
+    if (process.argv.includes('--embedding-spike')
+        || process.argv.includes('--embedding-calibration-study')) {
         const value = name => {
             const prefix = `--${name}=`;
             const item = process.argv.find(argument => argument.startsWith(prefix));
@@ -997,21 +1063,11 @@ if (require.main === module) {
         };
         const e5Path = value('e5-model');
         const bgePath = value('bge-model');
-        const models = [];
-        if (e5Path) models.push({
-            id: 'multilingual-e5-small-q8_0', modelPath: e5Path,
-                contextSize: 511, profiles: [
-                    { id: 'e5-query-query', queryPrefix: 'query: ',
-                        anchorPrefix: 'query: ' },
-                    { id: 'e5-query-passage', queryPrefix: 'query: ',
-                        anchorPrefix: 'passage: ' }
-                ] });
-        if (bgePath) models.push({
-            id: 'bge-m3-q8_0', modelPath: bgePath, contextSize: 512,
-                profiles: [{ id: 'bge-m3-plain', queryPrefix: '',
-                    anchorPrefix: '' }] });
+        const models = embeddingModelSpecs(e5Path, bgePath);
         if (!models.length) throw new Error('EMBEDDING_MODEL_PATH_REQUIRED');
-        runEmbeddingSpike({ models }).then(report => {
+        const run = process.argv.includes('--embedding-calibration-study')
+            ? runEmbeddingCalibrationStudy : runEmbeddingSpike;
+        run({ models }).then(report => {
             const output = value('output');
             if (output) fs.writeFileSync(path.resolve(output),
                 `${JSON.stringify(report, null, 2)}\n`);
@@ -1046,5 +1102,6 @@ module.exports = {
     fitEmbeddingCalibration, buildStratifiedCalibrationFolds,
     crossValidateEmbeddingCalibration, compareSelectionEvidence,
     summarizeEmbeddingRows, evaluateEmbeddingVectors,
-    embeddingEvaluationSplits, runEmbeddingSpike
+    embeddingEvaluationSplits, embeddingCalibrationStudySplits,
+    runEmbeddingSpike, runEmbeddingCalibrationStudy
 };

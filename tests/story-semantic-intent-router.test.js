@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     frameCompatibility, rankEmbeddingCandidates, fitEmbeddingCalibration,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
-    compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits } =
+    compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
+    embeddingCalibrationStudySplits } =
     require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
 
@@ -66,6 +67,14 @@ assert.ok(evaluationSplits.calibration.every(row =>
     row.sourceId.startsWith('representation-stability-v1:')));
 assert.ok(evaluationSplits.blind_test.every(row =>
     row.sourceId.startsWith('representation-stability-v1:')));
+const calibrationStudySplits = embeddingCalibrationStudySplits(corpus,
+    report.untouchedEvaluation.sourceIdPrefix);
+assert.deepEqual(Object.fromEntries(Object.entries(calibrationStudySplits)
+    .map(([split, rows]) => [split, rows.length])), {
+    prototype: 99,
+    calibration: 51,
+    blind_test: 0
+});
 assert.throws(() => embeddingEvaluationSplits(corpus, ''),
     /EMBEDDING_EVALUATION_SOURCE_PREFIX_REQUIRED/);
 assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
