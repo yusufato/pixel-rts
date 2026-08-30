@@ -371,7 +371,8 @@ function rawEmbeddingRows(rows, vectors, anchors, perClassLimit, representation,
             }));
         const first = ranked[0] || { label: 'UNKNOWN', score: 0, anchorId: null };
         const second = ranked[1] || { score: 0 };
-        return { id: row.id, actual: row.adjudication.labels.speechAct,
+        return { id: row.id, familyId: row.familyId || row.id,
+            actual: row.adjudication.labels.speechAct,
             outOfDomain: row.adjudication.labels.outOfDomain,
             rawPrediction: first.label, score: first.score,
             margin: first.score - second.score, anchorId: first.anchorId };
@@ -482,6 +483,85 @@ function fitEmbeddingCalibration(rows) {
     return best;
 }
 
+function buildStratifiedCalibrationFolds(rows, foldCount) {
+    const count = Math.max(2, Number(foldCount) || 3);
+    const byClass = new Map();
+    for (const row of rows || []) {
+        if (!byClass.has(row.actual)) byClass.set(row.actual, []);
+        byClass.get(row.actual).push(row);
+    }
+    const validationIds = Array.from({ length: count }, () => new Set());
+    for (const [label, classRows] of [...byClass.entries()]
+        .sort((left, right) => left[0].localeCompare(right[0]))) {
+        const ordered = classRows.slice().sort((left, right) =>
+            String(left.familyId || left.id).localeCompare(
+                String(right.familyId || right.id))
+            || String(left.id).localeCompare(String(right.id)));
+        if (ordered.length < count) {
+            throw new Error(`EMBEDDING_CALIBRATION_FOLD_SUPPORT:${label}`
+                + `:${ordered.length}/${count}`);
+        }
+        ordered.forEach((row, index) => validationIds[index % count].add(row.id));
+    }
+    return validationIds.map((ids, index) => ({
+        index,
+        fitRows: (rows || []).filter(row => !ids.has(row.id)),
+        validationRows: (rows || []).filter(row => ids.has(row.id))
+            .sort((left, right) => String(left.id).localeCompare(String(right.id)))
+    }));
+}
+
+function average(values) {
+    return values.length
+        ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function standardDeviation(values) {
+    const mean = average(values);
+    if (mean == null) return null;
+    return Math.sqrt(average(values.map(value => (value - mean) ** 2)));
+}
+
+function crossValidateEmbeddingCalibration(rows, foldCount) {
+    const folds = buildStratifiedCalibrationFolds(rows, foldCount);
+    const results = folds.map(fold => {
+        const fitted = fitEmbeddingCalibration(fold.fitRows);
+        const metrics = summarizeEmbeddingRows(fold.validationRows,
+            fitted.calibration);
+        return { index: fold.index, fitCount: fold.fitRows.length,
+            validationCount: fold.validationRows.length,
+            validationIds: fold.validationRows.map(row => row.id), metrics };
+    });
+    const macroF1 = results.map(row => row.metrics.speechActMacroF1);
+    const highRisk = results.map(row => row.metrics.highRiskFalsePositiveCount);
+    const ood = results.map(row => row.metrics.oodFalseAcceptanceRate)
+        .filter(value => value != null);
+    return { schemaVersion: 1, method: 'STRATIFIED_OUTER_CALIBRATION_V1',
+        foldCount: folds.length, rowCount: (rows || []).length,
+        meanSpeechActMacroF1: average(macroF1),
+        minimumSpeechActMacroF1: Math.min(...macroF1),
+        speechActMacroF1StdDev: standardDeviation(macroF1),
+        totalHighRiskFalsePositiveCount: highRisk.reduce((sum, value) => sum + value, 0),
+        worstFoldHighRiskFalsePositiveCount: Math.max(...highRisk),
+        meanOodFalseAcceptanceRate: average(ood),
+        worstFoldOodFalseAcceptanceRate: ood.length ? Math.max(...ood) : null,
+        folds: results };
+}
+
+function compareSelectionEvidence(left, right) {
+    const leftEvidence = left.selectionValidation;
+    const rightEvidence = right.selectionValidation;
+    return leftEvidence.worstFoldHighRiskFalsePositiveCount
+            - rightEvidence.worstFoldHighRiskFalsePositiveCount
+        || leftEvidence.totalHighRiskFalsePositiveCount
+            - rightEvidence.totalHighRiskFalsePositiveCount
+        || rightEvidence.meanSpeechActMacroF1 - leftEvidence.meanSpeechActMacroF1
+        || leftEvidence.speechActMacroF1StdDev
+            - rightEvidence.speechActMacroF1StdDev
+        || left.representationId.localeCompare(right.representationId)
+        || left.perClassLimit - right.perClassLimit;
+}
+
 function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
     const proposalById = buildBaselineProposals([
         ...rowsBySplit.calibration, ...rowsBySplit.blind_test
@@ -490,10 +570,13 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
         EMBEDDING_ANCHOR_COUNTS.map(perClassLimit => {
             const calibrationRows = rawEmbeddingRows(rowsBySplit.calibration,
                 vectors, anchors, perClassLimit, representation, proposalById);
+            const selectionValidation = crossValidateEmbeddingCalibration(
+                calibrationRows, 3);
             const fitted = fitEmbeddingCalibration(calibrationRows);
             const blindRows = rawEmbeddingRows(rowsBySplit.blind_test,
                 vectors, anchors, perClassLimit, representation, proposalById);
             return { representationId: representation.id, perClassLimit,
+                selectionValidation,
                 calibration: fitted.metrics, thresholds: fitted.calibration,
                 blindTest: summarizeEmbeddingRows(blindRows, fitted.calibration) };
         }));
@@ -552,13 +635,7 @@ async function runEmbeddingModel(spec, rowsBySplit) {
                 normalizedDot: dotProduct(anchors[0].vector, anchors[1].vector)
             } : null;
             const curve = evaluateEmbeddingVectors(rowsBySplit, vectors, anchors);
-            const selected = curve.slice().sort((left, right) =>
-                left.calibration.highRiskFalsePositiveCount
-                    - right.calibration.highRiskFalsePositiveCount
-                || right.calibration.speechActMacroF1
-                    - left.calibration.speechActMacroF1
-                || left.representationId.localeCompare(right.representationId)
-                || left.perClassLimit - right.perClassLimit)[0];
+            const selected = curve.slice().sort(compareSelectionEvidence)[0];
             profiles.push({ id: profile.id,
                 encoding: { queryPrefix: profile.queryPrefix,
                     anchorPrefix: profile.anchorPrefix },
@@ -568,6 +645,7 @@ async function runEmbeddingModel(spec, rowsBySplit) {
                         - normalizationProbe.normalizedDot) : null,
                 warmLatencyMs: { p50: percentile(durations, 0.5),
                     p95: percentile(durations, 0.95) },
+                selectionMethod: 'STRATIFIED_OUTER_CALIBRATION_V1',
                 selectedByCalibration: selected.perClassLimit,
                 selectedRepresentation: selected.representationId,
                 anchorCurve: curve });
@@ -658,11 +736,7 @@ async function runEmbeddingSpike(options) {
             point: profile.anchorCurve.find(point =>
                 point.perClassLimit === profile.selectedByCalibration
                     && point.representationId === profile.selectedRepresentation) }))
-            .sort((left, right) =>
-                left.point.calibration.highRiskFalsePositiveCount
-                    - right.point.calibration.highRiskFalsePositiveCount
-                || right.point.calibration.speechActMacroF1
-                    - left.point.calibration.speechActMacroF1
+            .sort((left, right) => compareSelectionEvidence(left.point, right.point)
                 || left.profile.id.localeCompare(right.profile.id));
         const selected = profileCandidates[0];
         const macroF1Delta = selected.point.blindTest.speechActMacroF1
@@ -969,6 +1043,8 @@ module.exports = {
     labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight,
     l2Normalize, dotProduct, cosineSimilarity, frameCompatibility,
     rankEmbeddingCandidates,
-    fitEmbeddingCalibration, summarizeEmbeddingRows, evaluateEmbeddingVectors,
+    fitEmbeddingCalibration, buildStratifiedCalibrationFolds,
+    crossValidateEmbeddingCalibration, compareSelectionEvidence,
+    summarizeEmbeddingRows, evaluateEmbeddingVectors,
     embeddingEvaluationSplits, runEmbeddingSpike
 };

@@ -3,7 +3,8 @@
 const assert = require('node:assert/strict');
 const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     frameCompatibility, rankEmbeddingCandidates, fitEmbeddingCalibration,
-    summarizeEmbeddingRows, embeddingEvaluationSplits } =
+    buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
+    compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits } =
     require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
 
@@ -157,6 +158,41 @@ const fitted = fitEmbeddingCalibration(calibrationRows);
 const calibrated = summarizeEmbeddingRows(calibrationRows, fitted.calibration);
 assert.equal(calibrated.highRiskFalsePositiveCount, 0);
 assert.equal(calibrated.count, 4);
+
+const nestedRows = [
+    ['g1', 'GREETING', 'family-g1'], ['g2', 'GREETING', 'family-g2'],
+    ['g3', 'GREETING', 'family-g3'], ['t1', 'THREATEN', 'family-t1'],
+    ['t2', 'THREATEN', 'family-t2'], ['t3', 'THREATEN', 'family-t3']
+].map(([id, actual, familyId]) => ({ id, familyId, actual, outOfDomain: false,
+    rawPrediction: actual, score: 0.9, margin: 0.2 }));
+const folds = buildStratifiedCalibrationFolds(nestedRows, 3);
+assert.equal(folds.length, 3);
+assert.deepEqual(folds.map(fold => fold.validationRows.length), [2, 2, 2]);
+assert.deepEqual(folds.flatMap(fold => fold.validationRows.map(row => row.id)).sort(),
+    nestedRows.map(row => row.id).sort());
+for (const fold of folds) {
+    const fitIds = new Set(fold.fitRows.map(row => row.id));
+    assert.ok(fold.validationRows.every(row => !fitIds.has(row.id)));
+}
+assert.deepEqual(buildStratifiedCalibrationFolds(nestedRows.slice().reverse(), 3)
+    .map(fold => fold.validationRows.map(row => row.id)),
+folds.map(fold => fold.validationRows.map(row => row.id)));
+assert.throws(() => buildStratifiedCalibrationFolds(nestedRows.slice(0, 2), 3),
+    /EMBEDDING_CALIBRATION_FOLD_SUPPORT/);
+const nested = crossValidateEmbeddingCalibration(nestedRows, 3);
+assert.equal(nested.method, 'STRATIFIED_OUTER_CALIBRATION_V1');
+assert.equal(nested.rowCount, 6);
+assert.equal(nested.folds.every(fold => fold.fitCount === 4
+    && fold.validationCount === 2), true);
+assert.equal(compareSelectionEvidence({ representationId: 'a', perClassLimit: 1,
+    selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
+        totalHighRiskFalsePositiveCount: 0, meanSpeechActMacroF1: 0.4,
+        speechActMacroF1StdDev: 0.1 } },
+{ representationId: 'b', perClassLimit: 1,
+    selectionValidation: { worstFoldHighRiskFalsePositiveCount: 1,
+        totalHighRiskFalsePositiveCount: 1, meanSpeechActMacroF1: 0.9,
+        speechActMacroF1StdDev: 0 } }) < 0, true,
+'outer-fold high-risk safety must outrank mean macro-F1');
 
 process.stdout.write(JSON.stringify({
     ok: true,
