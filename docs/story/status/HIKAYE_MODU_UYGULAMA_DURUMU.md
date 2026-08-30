@@ -1622,3 +1622,14 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   daha kötüdür.
 - Kalite artışı hipotezi reddedildi; `createNewBlindEpoch=false`. Mevcut oyun
   konuşma davranışı değişmedi ve `%90+` anlama hedefi hâlâ kanıtlanmadı.
+
+## 2026-08-31 — Sınıf centroid temsili (`measured / quality-pass-safety-fail`)
+
+- Bütün prototipleri kullanan `PROTOTYPE_CLASS_CENTROID_V1` eklendi; N ayarı
+  veya değerlendirme verisinden çapa seçimi yapmaz.
+- BGE-M3 dış-kat macro-F1 `0,532026`, taban farkı `+0,228595` ile kalite
+  kapısını geçti; fakat tek katta kümelenen `3` yüksek-risk yanlış pozitif
+  güvenlik kapısını kapattı. E5 `0,347712`, `+0,044281` ve `1` risk verdi.
+- Kör erişimi yoktur (`99/51/0`); `createNewBlindEpoch=false`. Centroid oyun
+  çalışma zamanına bağlanmadı. Sonraki güvenlik hipotezi SemanticFrameV2 ile
+  yüksek-risk eylem yönünü deterministik ön-kabulde doğrulamaktır.

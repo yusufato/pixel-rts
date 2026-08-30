@@ -1177,3 +1177,22 @@ parametrik ele alınır.
   geriledi; BGE toplam yüksek-risk yanlışı `2 → 3` oldu. Dolayısıyla yöntemsel
   olarak geçerli alt-küme, kalite çözümü değildir. Yeni kör epoch kararı yine
   `false`tır; bu sonucu düzeltmek için harcanmış kör sete bakılmaz.
+
+### 31 Ağustos yöntem deneyi — bütün sınıf prototiplerinin centroidi
+
+- `PROTOTYPE_CLASS_CENTROID_V1` sınıfın bütün normalize prototiplerini
+  ortalayıp merkezi yeniden L2-normalize eder. N seçimi ve çapa alt-kümesi
+  yoktur; vektör boyutu uyuşmazlığı açık hatadır.
+- BGE-M3 centroid dış-kat macro-F1 `0,532026`, minimum kat `0,490196`, tabana
+  fark `+0,228595` ile kalite kapısını geçti. Buna rağmen toplam/en-kötü-kat
+  yüksek-risk yanlış pozitif `3/3`; OOD yanlış kabul ortalaması `0,666667`dir.
+  E5'in iki profili de `0,347712`, `+0,044281` ve `1/1` risk verdi.
+- BGE güvenlik hataları `BLUFF_CANDIDATE→SHARE_SECRET`,
+  `GREETING→REQUEST_ACTION`, `REPORT_ECONOMIC→PROPOSE_COMMERCIAL_DEAL`dır.
+  Bunlar tek sözcük veya tek konu hatası değildir: iddia edilen ama verilmeyen
+  sır, başlangıç selamı içindeki eylem sözcüğü ve nicel durum raporu içindeki
+  ekonomi konusu, konu-yakın yüksek-risk eyleme çekilmiştir.
+- Centroid `quality-pass / safety-fail` olduğu için yeni kör epoch açılmaz.
+  Sıradaki deney daha fazla çapa üretmek değil, mevcut SemanticFrameV2'nin
+  iletişim işlevi, predicate ve requested-outcome alanlarıyla yüksek-risk adayı
+  embedding kabulünden önce deterministik olarak veto etmektir.

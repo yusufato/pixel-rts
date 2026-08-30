@@ -545,3 +545,24 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   `eligibleModelIds=[]`, `createNewBlindEpoch=false`; yeni kör corpus ve ürün
   entegrasyonu açılmaz. Alfabetik ilk-N davranışına geri dönülmez; sonraki
   temsil hipotezi yeni kör veri istemeden aynı dış kalibrasyonda sınanmalıdır.
+
+### 31 Ağustos 2026 — Sınıf centroidi kaliteyi geçti, güvenliği geçemedi
+
+- `PROTOTYPE_CLASS_CENTROID_V1`, her eylem sınıfındaki bütün normalize prototip
+  vektörlerini ortalayıp sonucu yeniden L2-normalize eder. Çapa alt-kümesi ve N
+  ayarı yoktur; giriş sırasından, kalibrasyondan ve kör testten bağımsızdır.
+- Kör erişimsiz `99/51/0` ölçümünde BGE-M3 centroid ortalama macro-F1
+  `0,532026`, minimum kat `0,490196`, taban farkı `+0,228595` verdi. Kalite
+  kapısını ilk kez geçti; ancak toplam/en-kötü-kat yüksek-risk yanlış pozitif
+  `3/3` olduğu için güvenlik kapısını geçemedi. Ortalama OOD yanlış kabul
+  `0,666667`dir.
+- E5 `query/query` ve `query/passage` centroid kollarının ikisi de ortalama
+  `0,347712`, taban farkı `+0,044281` ve toplam/en-kötü-kat risk `1/1` verdi;
+  kalite ve güvenlik birlikte sağlanmadı.
+- BGE hataları tek dış katta üç ayrı konu-yakın/yön-zıt ailede kümelendi:
+  `BLUFF_CANDIDATE→SHARE_SECRET`, `GREETING→REQUEST_ACTION` ve
+  `REPORT_ECONOMIC→PROPOSE_COMMERCIAL_DEAL`. Sonuç konu yakınlığının eylem
+  yönünü tek başına korumadığını yeniden doğrular. `createNewBlindEpoch=false`;
+  sonraki hipotez embedding skorundan sonra SemanticFrameV2 iletişim işlevi,
+  predicate ve requested-outcome uyumsuzluğuyla yüksek-risk ön-kabulünü
+  deterministik olarak engellemelidir.

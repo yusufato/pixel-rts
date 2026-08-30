@@ -1576,3 +1576,10 @@
 - **What happened:** Alfabetik ilk-N kesimi, sorgu ve değerlendirme verisinden bağımsız `PROTOTYPE_GREEDY_COVERAGE_V1` medoid/kapsama seçimiyle değiştirildi; kalite artışı hipotezi aynı kör-erişimsiz dış kalibrasyonda ölçüldü.
 - **Evidence:** `99/51/0`, `blindTestAccessed=false`. E5 `0,107791` macro-F1, `-0,195640` taban farkı, `0/0` toplam/en-kötü-kat yüksek-risk; BGE-M3 `0,345322`, `+0,041890`, `3/1` yüksek-risk verdi. Önceki dış-kat ölçümüne göre E5 `-0,077870`, BGE `-0,122228` geriledi ve BGE toplam riski `2 → 3` oldu. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
 - **Implication for future audits:** Alfabetik ilk-N politikasını geri getirme, fakat açgözlü medoid/kapsamayı kalite çözümü sayma. Bu sonuç için yeni gold veya kör epoch üretme; sonraki temsil hipotezini yalnız mevcut prototip+kalibrasyonda tanımla ve ölç.
+
+## 2026-08-31 — BGE sınıf centroidi kaliteyi geçti fakat güvenliği geçemedi
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` centroid temsili / `e6503fd`
+- **What happened:** Her sınıfın bütün normalize prototiplerinden, N veya değerlendirme-verisi seçimi olmadan `PROTOTYPE_CLASS_CENTROID_V1` merkezi üretildi ve dış kalibrasyonda ölçüldü.
+- **Evidence:** `99/51/0`, `blindTestAccessed=false`. BGE-M3 centroid `0,532026` ortalama macro-F1, `0,490196` minimum kat, `+0,228595` taban farkı ve `3/3` toplam/en-kötü-kat yüksek-risk verdi. Hatalar `BLUFF_CANDIDATE→SHARE_SECRET`, `GREETING→REQUEST_ACTION`, `REPORT_ECONOMIC→PROPOSE_COMMERCIAL_DEAL`dır. E5 centroid `0,347712`, `+0,044281`, `1/1` risk verdi. `createNewBlindEpoch=false`.
+- **Implication for future audits:** Centroid kalite sinyalini kaybetme, fakat güvenli aday veya ürün modeli sayma. Yeni çapa/N deneyi yerine SemanticFrameV2 iletişim işlevi, predicate ve requested-outcome alanlarıyla yüksek-risk ön-kabul veto hipotezini yalnız dış kalibrasyonda sınamadan yeni kör epoch üretme.
