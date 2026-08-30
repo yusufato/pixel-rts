@@ -1594,3 +1594,18 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   IPC ve paketleme eklenmedi; mevcut deterministik konuşma davranışı değişmedi.
   Faz 38 semantik planı yeni hipotez ve yeni mühürlü epoch için `In Progress`
   kalır; `%90+` oyuncu dili anlama iddiası desteklenmemektedir.
+
+## 2026-08-31 — Faz 38 iç içe kalibrasyon (`measured / no-new-blind-epoch`)
+
+- Üç katlı aile-sızıntısız dış kalibrasyon, temsil/profil/çapa sayısını eşik
+  öğrenilen satırlarda yeniden puanlama yanlılığından ayırdı. Çalışma
+  `99/51/0` prototip/kalibrasyon/kör sınırında tamamlandı ve kör sete erişmedi.
+- Kalibrasyon tabanı macro-F1 `0,303431` ve `3` yüksek-risk yanlış pozitiftir.
+  E5 seçimi `0,185662` (`-0,117770`) ve `0` yüksek-risk yanlış pozitif ile
+  kaliteyi; BGE-M3 seçimi `0,467550` (`+0,164118`) ve `2` yüksek-risk yanlış
+  pozitif ile güvenliği geçemedi.
+- Kapı `eligibleModelIds=[]`, `createNewBlindEpoch=false` verdi. Yeni gold/kör
+  kohort, oyun çalışma zamanı, Electron/IPC ve LLM entegrasyonu açılmadı.
+  Oyuncu dilini `%90+` anlama hedefi gerçekleşmiş değildir. Sıradaki çalışma,
+  ilk N prototip kaydını körlemesine alan çapa politikasını kalibrasyon içinde
+  değiştirecek ayrı ve deterministik bir hipotezdir.

@@ -1562,3 +1562,10 @@
 - **What happened:** Kalibrasyonun seçtiği BGE `frame-top3-mean/N=10` temsili bağımsız blind kalite ve güvenlik kapılarını geçemedi.
 - **Evidence:** Blind macro-F1 `0,309023`, tabana fark `+0,046324`, yüksek-risk yanlış pozitif `3`.
 - **Implication for future audits:** Görülmüş blind sonuçtan top-K/ağırlık seçme; önce nested calibration ve açık çapa-alt-küme sözleşmesi kur.
+
+## 2026-08-31 — İç içe kalibrasyon yeni kör epoch'u durdurdu
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` outer calibration / `8c17240`, `dbfeb69`, `c7d2fb7`
+- **What happened:** Temsil/profil/çapa sayısı seçimi, her kalibrasyon ailesini tam bir kez dış doğrulamada tutan üç katlı seçime taşındı. Kalibrasyon-çalışması modu mühürlü kör sete erişmeden otomatik yeni-epoch kararı üretir.
+- **Evidence:** Sınır `99/51/0`, `blindTestAccessed=false`. Deterministik taban `0,303431` macro-F1 ve `3` yüksek-risk yanlış pozitiftir. E5 `query/passage + class-top3-mean + N=3` ile `0,185662`, `-0,117770` fark ve `0/0` toplam/en-kötü-kat yüksek-risk verdi; kalite kapısını kaçırdı. BGE-M3 `plain + frame-top3-mean + N=10` ile `0,467550`, `+0,164118` fark ve `2/1` yüksek-risk verdi; güvenlik kapısını kaçırdı. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+- **Implication for future audits:** Yeni v2 corpus veya kör epoch üretme; ürün/EXE/IPC entegrasyonuna geçme. Önce `perClassLimit`in skorlamadan önce ilk prototip kimliklerini kesmesi yerine açık, deterministik bir çapa-alt-küme hipotezi kur ve yalnız kalibrasyonda hem `+0,15` kalite hem sıfır yüksek-risk kanıtla.

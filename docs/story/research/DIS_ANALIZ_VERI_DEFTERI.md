@@ -1141,3 +1141,25 @@ parametrik ele alınır.
   sınıflandırıcı hipotezini ayrı kalibrasyonla kurmalı ve yeni mühürlü epoch'ta
   bir kez sınamalıdır. Bu ölçüm karakterlerin oyuncuyu `%90+` anlamasını
   desteklemez ve mevcut deterministik/LLM çalışma zamanını değiştirmez.
+
+### 31 Ağustos yöntem düzeltmesi — outer calibration kararı
+
+- Önceki seçicinin aynı `51` kalibrasyon satırında hem eşik öğrenip hem temsil
+  seçtiği doğrulandı. Bunun yerine üç aile-sızıntısız dış kat kuruldu; her satır
+  tam bir kez doğrulama oldu. Yeni çalışma yalnız `99` prototip ve `51`
+  kalibrasyon kaydını kullandı, kör kayıt sayısı `0` ve
+  `blindTestAccessed=false` kaldı.
+- Deterministik kalibrasyon tabanı `0,303431` macro-F1, `3` yüksek-risk yanlış
+  pozitif ve `0,666667` OOD yanlış kabul verdi. E5'in dış-kat seçimi
+  `query/passage + class-top3-mean + N=3`: ortalama `0,185662`, tabana fark
+  `-0,117770`, yüksek-risk `0/0` toplam/en-kötü-kat. Güvenli fakat yetersizdir.
+- BGE-M3 seçimi `plain + frame-top3-mean + N=10`: ortalama `0,467550`, tabana
+  fark `+0,164118`, yüksek-risk `2/1` toplam/en-kötü-kat. Kaliteli fakat
+  mekanik eylem güvenliği için yetersizdir.
+- Karar kapısı iki modeli de reddetti:
+  `eligibleModelIds=[]`, `createNewBlindEpoch=false`. Bu sonuç yeni corpus
+  üretimini ve kör test maliyetini şimdilik durdurur; embedding fikrini bütünüyle
+  reddetmez. Yeni araştırma hipotezi, sınıf başına ilk N kimliği skorlamadan önce
+  kesmek yerine prototiplerden deterministik temsilci/çeşitli çapa seçmektir.
+  Bu politika kalibrasyonda hem `+0,15` kalite hem sıfır yüksek-risk kanıtı
+  üretmeden yeni mühürlü epoch oluşturulmaz.

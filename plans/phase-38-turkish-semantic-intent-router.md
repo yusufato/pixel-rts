@@ -504,3 +504,25 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   yüklenmeden reddeder. Plan `In Progress` kalır; ürün/EXE/IPC entegrasyonu ve
   `%90+` anlama iddiası kapalıdır. Sonraki aday veya temsil hipotezi yeni,
   önceden mühürlü değerlendirme epoch'u gerektirir.
+
+### 31 Ağustos 2026 — İç içe kalibrasyon yeni kör epoch'u durdurdu
+
+- Temsil/profil/çapa sayısı seçimi, her satırı tam bir kez dış doğrulamada
+  tutan aile-sızıntısız üç katlı kalibrasyona taşındı. Çalışma sınırı
+  prototip/kalibrasyon/kör `99/51/0`; `blindTestAccessed=false` olarak
+  makbuzlandı. Harcanmış kör kohort yeniden okunmadı.
+- Deterministik kalibrasyon tabanı macro-F1 `0,303431`, OOD yanlış kabul
+  `0,666667` ve yüksek-risk yanlış pozitif `3`tür.
+- E5 dış seçimde `query/passage + class-top3-mean + N=3` verdi. Ortalama
+  macro-F1 `0,185662`, tabana fark `-0,117770`; toplam ve en kötü kat
+  yüksek-risk yanlış pozitif `0/0`dır. Güvenlik kapısını geçse de kalite
+  kapısını geçmedi.
+- BGE-M3 dış seçimde `plain + frame-top3-mean + N=10` verdi. Ortalama
+  macro-F1 `0,467550`, tabana fark `+0,164118`; toplam/en kötü kat yüksek-risk
+  yanlış pozitif `2/1`dir. Kalite kapısını geçse de güvenlik kapısını geçmedi.
+- Otomatik karar `eligibleModelIds=[]` ve `createNewBlindEpoch=false` oldu.
+  Yeni v2 gold/kör kohort üretilmeyecek; ürün, Electron, IPC ve LLM mekanik
+  entegrasyonu kapalı kalır. Sıradaki hipotez, `perClassLimit` uygulamasının
+  skorlamadan önce ilk kayıt kimliklerini kesmesi yerine yalnız prototiplerden
+  deterministik ve açık bir çapa-alt-kümesi seçmesidir. Bu hipotez de yalnız
+  kalibrasyonda kanıtlanmadan yeni kör epoch açılamaz.
