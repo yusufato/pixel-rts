@@ -1520,3 +1520,10 @@
 - **What happened:** Üç doğrulanabilir bilgi sorusu, altı kanıtı açıkça bulunmayan/ertelenen blöf adayı, beş retorik yetki-dayanak meydan okuması ve altı açık bedelli ticari teklif bütün eksenleriyle tek tek incelendi.
 - **Evidence:** Corpus `351` benzersiz cümle, `311` aile ve `251` Codex gold; yeni kohort `10/29/33` splitinde `72` gold taşır. Dokunulmamış destek açıkları `27 → 20`; `ASK_INFORMATION`, `BLUFF_CANDIDATE`, `CHALLENGE` ve `PROPOSE_COMMERCIAL_DEAL` kalibrasyon+kör desteği en az `3` oldu. İlgili testler exit `0`, dokunulmamış preflight beklenen exit `2` verdi.
 - **Implication for future audits:** Bu dört sınıfın yeni değerlendirme desteğini yeniden açma. Kalan asgari iş `22` kalibrasyon + `18` kör-test = `40` tekil kayıttır; model koşusu ve Adım 3 hâlâ kapalıdır.
+
+## 2026-08-30 — Dokunulmamış sosyal, taahhüt ve ret dilimleri tamamlandı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` dokunulmamış corpus partileri / `d7fe757`, `a32294a`
+- **What happened:** Kişisel görüş, düzeltme, selamlama, açık söz verme, karşılıksız destek teklifi ve açık ret örnekleri karşıt bilgi/talep/rapor/anlaşma niyetlerinden ayrılarak bütün SemanticFrameV2 eksenleriyle tek tek incelendi. Ekonomik rapor kalibrasyonu üç bağımsız nicel durum bildirimiyle tamamlandı; kör dilim erken kapatılmadı.
+- **Evidence:** Corpus `371` benzersiz cümle, `331` aile ve `271` Codex gold; yeni kohort `10/42/40` splitinde `92` gold taşır. Dokunulmamış destek açıkları `20 → 7`; altı sosyal/taahhüt/ret sınıfı iki değerlendirme splitinde en az `3`, `REPORT_ECONOMIC` ise kalibrasyon `3`, kör test `1` oldu. Router/review-server testleri exit `0`, dokunulmamış preflight beklenen exit `2` verdi.
+- **Implication for future audits:** Tamamlanan altı sınıfı veya ekonomik rapor kalibrasyonunu yeniden üretme. Kalan asgari iş `9` kalibrasyon + `11` kör-test = `20` tekil kayıttır: `REPORT_ECONOMIC` kör test `2`; `REPORT_MILITARY`, `REQUEST_ACTION` ve `SMALL_TALK` için her splitte `3`. Bu kayıtlar tamamlanmadan model koşusu ve Adım 3 kapalıdır.
