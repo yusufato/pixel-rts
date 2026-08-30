@@ -36,13 +36,13 @@
     "secondarySpeechActsMax": 3
   },
   "summary": {
-    "total": 371,
+    "total": 391,
     "observedPlayer": 46,
-    "modelGeneratedCandidate": 325,
+    "modelGeneratedCandidate": 345,
     "splits": {
       "prototype": 159,
-      "calibration": 104,
-      "blind_test": 108
+      "calibration": 113,
+      "blind_test": 119
     }
   },
   "candidates": [
@@ -10939,6 +10939,266 @@
         "history": [],
         "proposalSpeechAct": null,
         "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0093",
+        "adjudication": {
+          "id": "semantic-intent:stability0093", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_ECONOMIC", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "ECONOMY", "target": "WORLD", "polarity": "NEGATIVE", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Ölçülmüş geçmiş enflasyon oranını bildirir; fiyat düşürme emri, tahmin veya kişisel görüş istemez.",
+          "reviewedAt": "2026-08-30T17:00:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Enflasyon oranı yılın ikinci çeyreğinde yüzde on bire çıktı.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0093",
+        "familyId": "REPRESENTATION_STABILITY_V1|QUARTERLY_INFLATION_REPORT|blind_test|0093", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0094",
+        "adjudication": {
+          "id": "semantic-intent:stability0094", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_ECONOMIC", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "ECONOMY", "target": "ORGANIZATION", "polarity": "NEGATIVE", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Şirketin ödemeler sonrası mevcut nakit rezervini bildirir; ödeme talebi, yatırım teklifi veya geleceğe dönük söz değildir.",
+          "reviewedAt": "2026-08-30T17:01:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Şirketimizin nakit rezervi son ödemelerden sonra üç yüz bin dinara indi.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0094",
+        "familyId": "REPRESENTATION_STABILITY_V1|COMPANY_CASH_RESERVE_REPORT|blind_test|0094", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0095",
+        "adjudication": {
+          "id": "semantic-intent:stability0095", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_MILITARY", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Garnizonun mevcut asker sayısını bildirir; takviye istemez veya birlik konuşlandırma emri vermez.",
+          "reviewedAt": "2026-08-30T17:02:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Kuzey garnizonunda şu anda bin iki yüz asker konuşlu.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0095",
+        "familyId": "REPRESENTATION_STABILITY_V1|NORTH_GARRISON_STRENGTH_REPORT|calibration|0095", "speakerFamily": "COMMANDER", "split": "calibration",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0096",
+        "adjudication": {
+          "id": "semantic-intent:stability0096", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_MILITARY", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "ORGANIZATION", "polarity": "NEGATIVE", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Tamamlanmış çatışmadaki araç kaybını bildirir; saldırı emri, tehdit veya kayıp miktarı düzeltmesi değildir.",
+          "reviewedAt": "2026-08-30T17:03:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Dünkü çatışmada zırhlı tugayımız yedi araç kaybetti.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0096",
+        "familyId": "REPRESENTATION_STABILITY_V1|ARMORED_BRIGADE_LOSS_REPORT|calibration|0096", "speakerFamily": "COMMANDER", "split": "calibration",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0097",
+        "adjudication": {
+          "id": "semantic-intent:stability0097", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_MILITARY", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "THIRD_PARTY", "polarity": "NEGATIVE", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Keşfin tespit ettiği düşman kuvvetini bildirir; keşif talebi veya saldırı önerisi taşımaz.",
+          "reviewedAt": "2026-08-30T17:04:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Keşif birliği doğu geçidinde iki düşman taburu tespit etti.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0097",
+        "familyId": "REPRESENTATION_STABILITY_V1|EAST_PASS_ENEMY_REPORT|calibration|0097", "speakerFamily": "AGENT", "split": "calibration",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0098",
+        "adjudication": {
+          "id": "semantic-intent:stability0098", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_MILITARY", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Mevcut mühimmatın harekât süresi cinsinden yeterliliğini bildirir; ikmal talebi veya stok satın alma teklifi değildir.",
+          "reviewedAt": "2026-08-30T17:05:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Batı cephesindeki mühimmat stoku üç günlük harekâta yeter.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0098",
+        "familyId": "REPRESENTATION_STABILITY_V1|WESTERN_FRONT_AMMO_REPORT|blind_test|0098", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0099",
+        "adjudication": {
+          "id": "semantic-intent:stability0099", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_MILITARY", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Hava savunmanın tamamlanmış gece sonucunu bildirir; ateş emri veya gelecekte hedef düşürme sözü değildir.",
+          "reviewedAt": "2026-08-30T17:06:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Hava savunma bataryası gece boyunca dört hedefi düşürdü.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0099",
+        "familyId": "REPRESENTATION_STABILITY_V1|AIR_DEFENSE_RESULT_REPORT|blind_test|0099", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0100",
+        "adjudication": {
+          "id": "semantic-intent:stability0100", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_MILITARY", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Kolordunun gerçekleşmiş konum ve düzenini bildirir; nehrin güneyine hareket emri vermez.",
+          "reviewedAt": "2026-08-30T17:07:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "İkinci kolordu nehrin güneyinde savunma düzeni aldı.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0100",
+        "familyId": "REPRESENTATION_STABILITY_V1|SECOND_CORPS_POSITION_REPORT|blind_test|0100", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0101",
+        "adjudication": {
+          "id": "semantic-intent:stability0101", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REQUEST_ACTION", "communicativeFunction": "REQUEST", "surfaceForm": "IMPERATIVE", "predicate": "WORK", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Dinleyiciden gümrük denetimini artırma eylemi ister; limanın mevcut denetim seviyesini raporlamaz.",
+          "reviewedAt": "2026-08-30T17:08:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Limandaki gümrük denetimlerini bugün artırın.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0101",
+        "familyId": "REPRESENTATION_STABILITY_V1|CUSTOMS_INSPECTION_REQUEST|calibration|0101", "speakerFamily": "POLITICAL_FIGURE", "split": "calibration",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0102",
+        "adjudication": {
+          "id": "semantic-intent:stability0102", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REQUEST_ACTION", "communicativeFunction": "REQUEST", "surfaceForm": "IMPERATIVE", "predicate": "ECONOMY", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Dinleyiciden gelecek hafta vardiyayı başlatmasını ister; üretim kapasitesi raporu veya işe yardım teklifi değildir.",
+          "reviewedAt": "2026-08-30T17:09:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Fabrikanın gece vardiyasını gelecek hafta başlatın.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0102",
+        "familyId": "REPRESENTATION_STABILITY_V1|NIGHT_SHIFT_START_REQUEST|calibration|0102", "speakerFamily": "COMPANY_EXECUTIVE", "split": "calibration",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0103",
+        "adjudication": {
+          "id": "semantic-intent:stability0103", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REQUEST_ACTION", "communicativeFunction": "REQUEST", "surfaceForm": "IMPERATIVE", "predicate": "LOCATION", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Elçinin belirli yere ve zamana getirilmesini ister; elçinin konumunu soran bilgi isteği değildir.",
+          "reviewedAt": "2026-08-30T17:10:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Elçiyi öğleden önce toplantı salonuna getirin.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0103",
+        "familyId": "REPRESENTATION_STABILITY_V1|ENVOY_ESCORT_REQUEST|calibration|0103", "speakerFamily": "AGENT", "split": "calibration",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0104",
+        "adjudication": {
+          "id": "semantic-intent:stability0104", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REQUEST_ACTION", "communicativeFunction": "REQUEST", "surfaceForm": "IMPERATIVE", "predicate": "MILITARY", "target": "LISTENER", "polarity": "NEGATIVE", "temporality": "FUTURE", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Köprünün ağır araçlara kapatılması eylemini ister; köprünün kapalı olduğunu bildirmez veya düşmanı tehdit etmez.",
+          "reviewedAt": "2026-08-30T17:11:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Kuzey köprüsünü ağır araç trafiğine kapat.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0104",
+        "familyId": "REPRESENTATION_STABILITY_V1|BRIDGE_CLOSURE_REQUEST|blind_test|0104", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0105",
+        "adjudication": {
+          "id": "semantic-intent:stability0105", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REQUEST_ACTION", "communicativeFunction": "REQUEST", "surfaceForm": "IMPERATIVE", "predicate": "WORK", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Dinleyiciden dosyayı kurula iletmesini ister; dosyanın içeriğini sormaz veya gizli bilgiyi kendisi paylaşmaz.",
+          "reviewedAt": "2026-08-30T17:12:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Bu dosyayı yönetim kuruluna iletin.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0105",
+        "familyId": "REPRESENTATION_STABILITY_V1|BOARD_FILE_DELIVERY_REQUEST|blind_test|0105", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0106",
+        "adjudication": {
+          "id": "semantic-intent:stability0106", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REQUEST_ACTION", "communicativeFunction": "REQUEST", "surfaceForm": "IMPERATIVE", "predicate": "ECONOMY", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Tahıl sevkiyatının hedefini değiştirme eylemi ister; kıtlık veya stok durumunu raporlamakla yetinmez.",
+          "reviewedAt": "2026-08-30T17:13:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Tahıl sevkiyatını önce kıtlık bölgesine yönlendirin.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0106",
+        "familyId": "REPRESENTATION_STABILITY_V1|GRAIN_REROUTE_REQUEST|blind_test|0106", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0107",
+        "adjudication": {
+          "id": "semantic-intent:stability0107", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SMALL_TALK", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "WEATHER", "target": "WORLD", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Güncel hava üzerine sosyal gözlem yapar; hava verisi istemez veya oyun mekaniğinde eylem talep etmez.",
+          "reviewedAt": "2026-08-30T17:14:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Bugün hava beklediğimden daha serin.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0107",
+        "familyId": "REPRESENTATION_STABILITY_V1|COOL_WEATHER_SMALL_TALK|calibration|0107", "speakerFamily": "AGENT", "split": "calibration",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0108",
+        "adjudication": {
+          "id": "semantic-intent:stability0108", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SMALL_TALK", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "LOCATION", "target": "WORLD", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "HABITUAL", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Şehrin akşam sessizliğine dair gündelik gözlem yapar; güvenlik raporu veya sokağa çıkma emri değildir.",
+          "reviewedAt": "2026-08-30T17:15:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Bu şehir akşamları gerçekten sessiz oluyor.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0108",
+        "familyId": "REPRESENTATION_STABILITY_V1|QUIET_CITY_SMALL_TALK|calibration|0108", "speakerFamily": "POLITICAL_FIGURE", "split": "calibration",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0109",
+        "adjudication": {
+          "id": "semantic-intent:stability0109", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SMALL_TALK", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "WORK", "target": "PLAYER_AND_LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "HABITUAL", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Uzun toplantı sonrası çay hakkında sosyal yorum yapar; içecek satın alma veya mola verme emri değildir.",
+          "reviewedAt": "2026-08-30T17:16:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Uzun toplantılardan sonra bir fincan çay iyi gider.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0109",
+        "familyId": "REPRESENTATION_STABILITY_V1|POST_MEETING_TEA_SMALL_TALK|calibration|0109", "speakerFamily": "COMPANY_EXECUTIVE", "split": "calibration",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0110",
+        "adjudication": {
+          "id": "semantic-intent:stability0110", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SMALL_TALK", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "WORK", "target": "PLAYER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Geçmiş yolculuk deneyimine dair gündelik yorum yapar; ulaşım desteği istemez veya lojistik rapor sunmaz.",
+          "reviewedAt": "2026-08-30T17:17:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Yolculuk düşündüğümden daha rahat geçti.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0110",
+        "familyId": "REPRESENTATION_STABILITY_V1|COMFORTABLE_TRIP_SMALL_TALK|blind_test|0110", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0111",
+        "adjudication": {
+          "id": "semantic-intent:stability0111", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SMALL_TALK", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "OPINION", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Dinleyiciye görünüşü hakkında sosyal iltifat eder; kişisel görüş sormaz veya askerî değerlendirme yapmaz.",
+          "reviewedAt": "2026-08-30T17:18:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Üniformanızın rengi size yakışmış.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0111",
+        "familyId": "REPRESENTATION_STABILITY_V1|UNIFORM_COMPLIMENT_SMALL_TALK|blind_test|0111", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:stability0112",
+        "adjudication": {
+          "id": "semantic-intent:stability0112", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SMALL_TALK", "communicativeFunction": "TELL", "surfaceForm": "EXCLAMATORY", "predicate": "WEATHER", "target": "WORLD", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "HABITUAL", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Mevsimsel gün uzunluğuna dair sosyal gözlem yapar; takvim bilgisi istemez veya dünya durumuna mekanik müdahale talep etmez.",
+          "reviewedAt": "2026-08-30T17:19:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Bu mevsimde günler ne çabuk kısalıyor.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0112",
+        "familyId": "REPRESENTATION_STABILITY_V1|SHORTENING_DAYS_SMALL_TALK|blind_test|0112", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
       }
   ]
 }

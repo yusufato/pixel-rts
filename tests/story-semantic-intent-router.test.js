@@ -11,23 +11,23 @@ const report = buildEmbeddingSpikePreflight();
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 271);
+assert.equal(report.gold.total, 291);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 99,
-    calibration: 87,
-    blind_test: 85
+    calibration: 96,
+    blind_test: 96
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
-assert.equal(report.untouchedEvaluationPass, false);
+assert.equal(report.untouchedEvaluationPass, true);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
 assert.deepEqual(report.representationSupport.issues, []);
 assert.deepEqual(report.untouchedEvaluation.gold, {
-    total: 92,
-    bySplit: { prototype: 10, calibration: 42, blind_test: 40 }
+    total: 112,
+    bySplit: { prototype: 10, calibration: 51, blind_test: 51 }
 });
 assert.equal(report.untouchedEvaluation.minimumPerClassPerEvaluationSplit, 3);
-assert.equal(report.untouchedEvaluation.issues.length, 7);
+assert.deepEqual(report.untouchedEvaluation.issues, []);
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
     issue.startsWith('UNTOUCHED_CLASS_SUPPORT:THREATEN:')));
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
@@ -41,12 +41,11 @@ assert.ok(!report.untouchedEvaluation.issues.some(issue =>
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
     issue.startsWith('UNTOUCHED_CLASS_SUPPORT:PROPOSE_COMMERCIAL_DEAL:')));
 for (const act of ['ASK_PERSONAL_OPINION', 'CORRECT_STATEMENT', 'GREETING',
-    'MAKE_PROMISE', 'OFFER_SUPPORT', 'REJECT']) {
+    'MAKE_PROMISE', 'OFFER_SUPPORT', 'REJECT', 'REPORT_ECONOMIC',
+    'REPORT_MILITARY', 'REQUEST_ACTION', 'SMALL_TALK']) {
     assert.ok(!report.untouchedEvaluation.issues.some(issue =>
         issue.startsWith(`UNTOUCHED_CLASS_SUPPORT:${act}:`)), act);
 }
-assert.ok(report.untouchedEvaluation.issues.includes(
-    'UNTOUCHED_CLASS_SUPPORT:REPORT_ECONOMIC:blind_test:1/3'));
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
     issue.startsWith('UNTOUCHED_OOD_SUPPORT:')));
 const evaluationSplits = embeddingEvaluationSplits(corpus,
@@ -54,8 +53,8 @@ const evaluationSplits = embeddingEvaluationSplits(corpus,
 assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
     .map(([split, rows]) => [split, rows.length])), {
     prototype: 99,
-    calibration: 42,
-    blind_test: 40
+    calibration: 51,
+    blind_test: 51
 });
 assert.ok(evaluationSplits.calibration.every(row =>
     row.sourceId.startsWith('representation-stability-v1:')));
@@ -67,8 +66,8 @@ assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 3 },
-    calibration: { inDomain: 81, outOfDomain: 6 },
-    blind_test: { inDomain: 79, outOfDomain: 6 }
+    calibration: { inDomain: 90, outOfDomain: 6 },
+    blind_test: { inDomain: 90, outOfDomain: 6 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,
@@ -92,8 +91,8 @@ assert.deepEqual(report.highRiskCoverage.PROPOSE_COMMERCIAL_DEAL, {
 });
 assert.deepEqual(report.highRiskCoverage.REQUEST_ACTION, {
     prototype: 6,
-    calibration: 3,
-    blind_test: 5
+    calibration: 6,
+    blind_test: 8
 });
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
