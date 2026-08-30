@@ -7,6 +7,18 @@
     "prototypeHumanGold": 100,
     "productHumanGold": 1000
   },
+  "representationEvaluationPolicy": {
+    "schemaVersion": 1,
+    "epoch": "representation-stability-v1",
+    "sourceIdPrefix": "representation-stability-v1:",
+    "sealedAt": "2026-08-30T15:45:00.000+03:00",
+    "priorBlindStatus": "SPENT_AFTER_2026_08_28_ABLATION",
+    "minimumPerClassPerEvaluationSplit": 3,
+    "evaluationSplits": [
+      "calibration",
+      "blind_test"
+    ]
+  },
   "labelContract": {
     "required": [
       "speechAct",

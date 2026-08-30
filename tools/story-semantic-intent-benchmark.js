@@ -595,6 +595,20 @@ function embeddingGoldSplits(corpus) {
         [split, gold.filter(row => row.split === split)]));
 }
 
+function embeddingEvaluationSplits(corpus, sourceIdPrefix) {
+    if (typeof sourceIdPrefix !== 'string' || !sourceIdPrefix) {
+        throw new Error('EMBEDDING_EVALUATION_SOURCE_PREFIX_REQUIRED');
+    }
+    const allGold = embeddingGoldSplits(corpus);
+    const inEvaluationEpoch = row => String(row.sourceId || '')
+        .startsWith(sourceIdPrefix);
+    return {
+        prototype: allGold.prototype,
+        calibration: allGold.calibration.filter(inEvaluationEpoch),
+        blind_test: allGold.blind_test.filter(inEvaluationEpoch)
+    };
+}
+
 function buildDeterministicBlindBaseline(rows) {
     const proposals = buildBaselineProposals(rows);
     const evaluated = rows.map(row => {
@@ -628,10 +642,11 @@ function buildDeterministicBlindBaseline(rows) {
 async function runEmbeddingSpike(options) {
     const corpus = options.corpus || readJson(DEFAULT_CORPUS_PATH, null);
     const preflight = buildEmbeddingSpikePreflight({ corpus });
-    if (!preflight.representationSelectionPass) {
-        throw new Error('EMBEDDING_REPRESENTATION_SELECTION_PREFLIGHT');
+    if (!preflight.untouchedEvaluationPass) {
+        throw new Error('EMBEDDING_UNTOUCHED_EVALUATION_PREFLIGHT');
     }
-    const rowsBySplit = embeddingGoldSplits(corpus);
+    const rowsBySplit = embeddingEvaluationSplits(corpus,
+        preflight.untouchedEvaluation.sourceIdPrefix);
     const deterministicBlindBaseline = buildDeterministicBlindBaseline(
         rowsBySplit.blind_test);
     const models = [];
@@ -805,14 +820,59 @@ function buildEmbeddingSpikePreflight(options) {
             }
         }
     }
+    const evaluationPolicy = corpus && corpus.representationEvaluationPolicy;
+    const evaluationPrefix = evaluationPolicy
+        && typeof evaluationPolicy.sourceIdPrefix === 'string'
+        ? evaluationPolicy.sourceIdPrefix : '';
+    const evaluationSplits = evaluationPolicy
+        && Array.isArray(evaluationPolicy.evaluationSplits)
+        ? evaluationPolicy.evaluationSplits.filter(split => SPLITS.includes(split)) : [];
+    const evaluationMinimum = Number(evaluationPolicy
+        && evaluationPolicy.minimumPerClassPerEvaluationSplit)
+        || MIN_REPRESENTATION_CLASS_SUPPORT;
+    const evaluationGold = evaluationPrefix
+        ? gold.filter(row => String(row.sourceId || '').startsWith(evaluationPrefix)) : [];
+    const evaluationBySplit = Object.fromEntries(SPLITS.map(split => [split,
+        evaluationGold.filter(row => row.split === split)]));
+    const evaluationSupport = Object.fromEntries([...blindActs].sort().map(act =>
+        [act, Object.fromEntries(evaluationSplits.map(split => [split,
+            evaluationBySplit[split].filter(row =>
+                row.adjudication.labels.speechAct === act).length]))]));
+    const evaluationOodBySplit = Object.fromEntries(evaluationSplits.map(split => [split,
+        evaluationBySplit[split].filter(row =>
+            row.adjudication.labels.outOfDomain).length]));
+    const evaluationIssues = [];
+    if (!evaluationPolicy || !evaluationPrefix || evaluationSplits.length !== 2
+        || !evaluationSplits.includes('calibration')
+        || !evaluationSplits.includes('blind_test')) {
+        evaluationIssues.push('REPRESENTATION_EVALUATION_POLICY_INVALID');
+    } else {
+        for (const [act, coverage] of Object.entries(evaluationSupport)) {
+            for (const split of evaluationSplits) {
+                if (coverage[split] < evaluationMinimum) {
+                    evaluationIssues.push(`UNTOUCHED_CLASS_SUPPORT:${act}:${split}`
+                        + `:${coverage[split]}/${evaluationMinimum}`);
+                }
+            }
+        }
+        for (const split of evaluationSplits) {
+            if (evaluationOodBySplit[split] < evaluationMinimum) {
+                evaluationIssues.push(`UNTOUCHED_OOD_SUPPORT:${split}`
+                    + `:${evaluationOodBySplit[split]}/${evaluationMinimum}`);
+            }
+        }
+    }
     const threshold = Number(corpus && corpus.gates
         && corpus.gates.prototypeHumanGold) || 100;
+    const representationSelectionPass = validation.ok && gold.length >= threshold
+        && issues.length === 0 && representationIssues.length === 0;
     return {
         ok: validation.ok,
         experimentGatePass: validation.ok && gold.length >= threshold,
         modelSelectionPass: validation.ok && gold.length >= threshold && issues.length === 0,
-        representationSelectionPass: validation.ok && gold.length >= threshold
-            && issues.length === 0 && representationIssues.length === 0,
+        representationSelectionPass,
+        untouchedEvaluationPass: representationSelectionPass
+            && evaluationIssues.length === 0,
         gold: { total: gold.length,
             bySplit: Object.fromEntries(SPLITS.map(split => [split, bySplit[split].length])) },
         classCoverage: {
@@ -828,6 +888,18 @@ function buildEmbeddingSpikePreflight(options) {
             minimumPerClassPerSplit: MIN_REPRESENTATION_CLASS_SUPPORT,
             byClass: representationSupport,
             issues: representationIssues
+        },
+        untouchedEvaluation: {
+            epoch: evaluationPolicy && evaluationPolicy.epoch || null,
+            sourceIdPrefix: evaluationPrefix || null,
+            priorBlindStatus: evaluationPolicy && evaluationPolicy.priorBlindStatus || null,
+            minimumPerClassPerEvaluationSplit: evaluationMinimum,
+            gold: { total: evaluationGold.length,
+                bySplit: Object.fromEntries(SPLITS.map(split =>
+                    [split, evaluationBySplit[split].length])) },
+            byClass: evaluationSupport,
+            outOfDomainBySplit: evaluationOodBySplit,
+            issues: evaluationIssues
         },
         issues
     };
@@ -870,7 +942,9 @@ if (require.main === module) {
         if (!preflight.ok || (process.argv.includes('--require-model-selection')
             && !preflight.modelSelectionPass)
             || (process.argv.includes('--require-representation-selection')
-                && !preflight.representationSelectionPass)) process.exitCode = 2;
+                && !preflight.representationSelectionPass)
+            || (process.argv.includes('--require-untouched-evaluation')
+                && !preflight.untouchedEvaluationPass)) process.exitCode = 2;
         return;
     }
     const report = buildBenchmark({ includePredictions: !process.argv.includes('--inventory-only') });
@@ -887,5 +961,5 @@ module.exports = {
     l2Normalize, dotProduct, cosineSimilarity, frameCompatibility,
     rankEmbeddingCandidates,
     fitEmbeddingCalibration, summarizeEmbeddingRows, evaluateEmbeddingVectors,
-    runEmbeddingSpike
+    embeddingEvaluationSplits, runEmbeddingSpike
 };

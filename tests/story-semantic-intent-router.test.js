@@ -3,8 +3,9 @@
 const assert = require('node:assert/strict');
 const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     frameCompatibility, rankEmbeddingCandidates, fitEmbeddingCalibration,
-    summarizeEmbeddingRows } =
+    summarizeEmbeddingRows, embeddingEvaluationSplits } =
     require('../tools/story-semantic-intent-benchmark');
+const corpus = require('../tools/story-semantic-intent-corpus.json');
 
 const report = buildEmbeddingSpikePreflight();
 
@@ -18,8 +19,35 @@ assert.deepEqual(report.gold.bySplit, {
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
+assert.equal(report.untouchedEvaluationPass, false);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
 assert.deepEqual(report.representationSupport.issues, []);
+assert.deepEqual(report.untouchedEvaluation.gold, {
+    total: 32,
+    bySplit: { prototype: 10, calibration: 9, blind_test: 13 }
+});
+assert.equal(report.untouchedEvaluation.minimumPerClassPerEvaluationSplit, 3);
+assert.equal(report.untouchedEvaluation.issues.length, 36);
+assert.ok(report.untouchedEvaluation.issues.includes(
+    'UNTOUCHED_CLASS_SUPPORT:THREATEN:blind_test:0/3'));
+assert.ok(report.untouchedEvaluation.issues.includes(
+    'UNTOUCHED_CLASS_SUPPORT:ASK_PERSONAL_OPINION:calibration:2/3'));
+assert.ok(report.untouchedEvaluation.issues.includes(
+    'UNTOUCHED_OOD_SUPPORT:blind_test:0/3'));
+const evaluationSplits = embeddingEvaluationSplits(corpus,
+    report.untouchedEvaluation.sourceIdPrefix);
+assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
+    .map(([split, rows]) => [split, rows.length])), {
+    prototype: 99,
+    calibration: 9,
+    blind_test: 13
+});
+assert.ok(evaluationSplits.calibration.every(row =>
+    row.sourceId.startsWith('representation-stability-v1:')));
+assert.ok(evaluationSplits.blind_test.every(row =>
+    row.sourceId.startsWith('representation-stability-v1:')));
+assert.throws(() => embeddingEvaluationSplits(corpus, ''),
+    /EMBEDDING_EVALUATION_SOURCE_PREFIX_REQUIRED/);
 assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
