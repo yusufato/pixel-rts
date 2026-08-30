@@ -11,11 +11,11 @@ const report = buildEmbeddingSpikePreflight();
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 241);
+assert.equal(report.gold.total, 251);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 99,
-    calibration: 69,
-    blind_test: 73
+    calibration: 74,
+    blind_test: 78
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
@@ -23,11 +23,11 @@ assert.equal(report.untouchedEvaluationPass, false);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
 assert.deepEqual(report.representationSupport.issues, []);
 assert.deepEqual(report.untouchedEvaluation.gold, {
-    total: 62,
-    bySplit: { prototype: 10, calibration: 24, blind_test: 28 }
+    total: 72,
+    bySplit: { prototype: 10, calibration: 29, blind_test: 33 }
 });
 assert.equal(report.untouchedEvaluation.minimumPerClassPerEvaluationSplit, 3);
-assert.equal(report.untouchedEvaluation.issues.length, 24);
+assert.equal(report.untouchedEvaluation.issues.length, 20);
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
     issue.startsWith('UNTOUCHED_CLASS_SUPPORT:THREATEN:')));
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
@@ -36,6 +36,10 @@ assert.ok(!report.untouchedEvaluation.issues.some(issue =>
     issue.startsWith('UNTOUCHED_CLASS_SUPPORT:ASK_INFORMATION:')));
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
     issue.startsWith('UNTOUCHED_CLASS_SUPPORT:BLUFF_CANDIDATE:')));
+assert.ok(!report.untouchedEvaluation.issues.some(issue =>
+    issue.startsWith('UNTOUCHED_CLASS_SUPPORT:CHALLENGE:')));
+assert.ok(!report.untouchedEvaluation.issues.some(issue =>
+    issue.startsWith('UNTOUCHED_CLASS_SUPPORT:PROPOSE_COMMERCIAL_DEAL:')));
 assert.ok(report.untouchedEvaluation.issues.includes(
     'UNTOUCHED_CLASS_SUPPORT:ASK_PERSONAL_OPINION:calibration:2/3'));
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
@@ -45,8 +49,8 @@ const evaluationSplits = embeddingEvaluationSplits(corpus,
 assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
     .map(([split, rows]) => [split, rows.length])), {
     prototype: 99,
-    calibration: 24,
-    blind_test: 28
+    calibration: 29,
+    blind_test: 33
 });
 assert.ok(evaluationSplits.calibration.every(row =>
     row.sourceId.startsWith('representation-stability-v1:')));
@@ -58,8 +62,8 @@ assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 3 },
-    calibration: { inDomain: 63, outOfDomain: 6 },
-    blind_test: { inDomain: 67, outOfDomain: 6 }
+    calibration: { inDomain: 68, outOfDomain: 6 },
+    blind_test: { inDomain: 72, outOfDomain: 6 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,
@@ -78,8 +82,8 @@ assert.deepEqual(report.highRiskCoverage.BLUFF_CANDIDATE, {
 });
 assert.deepEqual(report.highRiskCoverage.PROPOSE_COMMERCIAL_DEAL, {
     prototype: 3,
-    calibration: 4,
-    blind_test: 3
+    calibration: 7,
+    blind_test: 6
 });
 assert.deepEqual(report.highRiskCoverage.REQUEST_ACTION, {
     prototype: 6,
