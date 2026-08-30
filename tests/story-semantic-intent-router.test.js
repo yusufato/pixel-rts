@@ -11,11 +11,11 @@ const report = buildEmbeddingSpikePreflight();
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 211);
+assert.equal(report.gold.total, 221);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 99,
-    calibration: 54,
-    blind_test: 58
+    calibration: 60,
+    blind_test: 62
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
@@ -23,24 +23,24 @@ assert.equal(report.untouchedEvaluationPass, false);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
 assert.deepEqual(report.representationSupport.issues, []);
 assert.deepEqual(report.untouchedEvaluation.gold, {
-    total: 32,
-    bySplit: { prototype: 10, calibration: 9, blind_test: 13 }
+    total: 42,
+    bySplit: { prototype: 10, calibration: 15, blind_test: 17 }
 });
 assert.equal(report.untouchedEvaluation.minimumPerClassPerEvaluationSplit, 3);
-assert.equal(report.untouchedEvaluation.issues.length, 36);
+assert.equal(report.untouchedEvaluation.issues.length, 31);
 assert.ok(report.untouchedEvaluation.issues.includes(
-    'UNTOUCHED_CLASS_SUPPORT:THREATEN:blind_test:0/3'));
+    'UNTOUCHED_CLASS_SUPPORT:THREATEN:blind_test:1/3'));
 assert.ok(report.untouchedEvaluation.issues.includes(
     'UNTOUCHED_CLASS_SUPPORT:ASK_PERSONAL_OPINION:calibration:2/3'));
-assert.ok(report.untouchedEvaluation.issues.includes(
-    'UNTOUCHED_OOD_SUPPORT:blind_test:0/3'));
+assert.ok(!report.untouchedEvaluation.issues.some(issue =>
+    issue.startsWith('UNTOUCHED_OOD_SUPPORT:')));
 const evaluationSplits = embeddingEvaluationSplits(corpus,
     report.untouchedEvaluation.sourceIdPrefix);
 assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
     .map(([split, rows]) => [split, rows.length])), {
     prototype: 99,
-    calibration: 9,
-    blind_test: 13
+    calibration: 15,
+    blind_test: 17
 });
 assert.ok(evaluationSplits.calibration.every(row =>
     row.sourceId.startsWith('representation-stability-v1:')));
@@ -52,13 +52,13 @@ assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 3 },
-    calibration: { inDomain: 51, outOfDomain: 3 },
-    blind_test: { inDomain: 55, outOfDomain: 3 }
+    calibration: { inDomain: 54, outOfDomain: 6 },
+    blind_test: { inDomain: 56, outOfDomain: 6 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,
-    calibration: 3,
-    blind_test: 3
+    calibration: 6,
+    blind_test: 4
 });
 assert.deepEqual(report.highRiskCoverage.SHARE_SECRET, {
     prototype: 3,
