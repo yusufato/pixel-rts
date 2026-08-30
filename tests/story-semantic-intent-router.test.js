@@ -2,8 +2,8 @@
 
 const assert = require('node:assert/strict');
 const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
-    frameCompatibility, selectPrototypeAnchors, rankEmbeddingCandidates,
-    fitEmbeddingCalibration,
+    frameCompatibility, selectPrototypeAnchors, buildPrototypeClassCentroids,
+    rankEmbeddingCandidates, fitEmbeddingCalibration,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
     embeddingCalibrationStudySplits, buildCalibrationStudyRecommendation } =
@@ -145,6 +145,22 @@ assert.deepEqual(selectPrototypeAnchors(coverageAnchors.slice().reverse(), 1)
     'prototype coverage must be input-order invariant');
 assert.equal(rankEmbeddingCandidates([-1, 0], coverageAnchors, 1)[0].label,
     'THREATEN', 'query similarity must not change the prototype-only anchor subset');
+
+const centroids = buildPrototypeClassCentroids(coverageAnchors);
+assert.deepEqual(centroids.map(row => row.id),
+    ['centroid:GREETING', 'centroid:THREATEN']);
+assert.deepEqual(centroids[0].sourceAnchorIds,
+    ['a-first-outlier', 'b-central', 'c-near-central']);
+assert.ok(Math.abs(dotProduct(centroids[0].vector, centroids[0].vector) - 1) < 1e-12,
+    'class centroid must be L2-normalized after averaging');
+assert.deepEqual(buildPrototypeClassCentroids(coverageAnchors.slice().reverse()), centroids,
+    'class centroid must be input-order invariant');
+assert.equal(rankEmbeddingCandidates([1, 0], coverageAnchors, null,
+    { aggregation: 'centroid' })[0].label, 'GREETING');
+assert.throws(() => buildPrototypeClassCentroids([
+    { id: 'short', label: 'GREETING', vector: [1] },
+    { id: 'long', label: 'GREETING', vector: [1, 0] }
+]), /EMBEDDING_VECTOR_DIMENSION/);
 
 const balanced = rankEmbeddingCandidates([1, 0], [
     { id: 'g1', label: 'GREETING', vector: [1, 0] },

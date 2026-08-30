@@ -62,7 +62,9 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
     Object.freeze({ id: 'class-top3-mean', aggregation: 'top_mean', topCount: 3,
         frameCompatibilityWeight: 0 }),
     Object.freeze({ id: 'frame-top3-mean', aggregation: 'top_mean', topCount: 3,
-        frameCompatibilityWeight: 0.08 })
+        frameCompatibilityWeight: 0.08 }),
+    Object.freeze({ id: 'class-centroid', aggregation: 'centroid', topCount: 1,
+        frameCompatibilityWeight: 0, anchorCountIndependent: true })
 ]);
 const FRAME_COMPATIBILITY_AXES = Object.freeze([
     'communicativeFunction', 'polarity', 'temporality', 'epistemicStatus',
@@ -370,6 +372,25 @@ function selectPrototypeAnchors(anchors, perClassLimit) {
     return selected;
 }
 
+function buildPrototypeClassCentroids(anchors) {
+    const grouped = new Map();
+    for (const anchor of (anchors || []).slice().sort((left, right) =>
+        String(left.id).localeCompare(String(right.id)))) {
+        if (!grouped.has(anchor.label)) grouped.set(anchor.label, []);
+        grouped.get(anchor.label).push(anchor);
+    }
+    return [...grouped.entries()].map(([label, rows]) => {
+        const dimension = rows[0].vector.length;
+        if (rows.some(row => row.vector.length !== dimension)) {
+            throw new Error(`EMBEDDING_VECTOR_DIMENSION:${label}`);
+        }
+        const mean = Array.from({ length: dimension }, (_, index) =>
+            rows.reduce((sum, row) => sum + row.vector[index], 0) / rows.length);
+        return { id: `centroid:${label}`, label, vector: l2Normalize(mean),
+            sourceAnchorIds: rows.map(row => row.id) };
+    });
+}
+
 function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
     options = options && typeof options === 'object' ? options : {};
     const aggregation = options.aggregation || 'max';
@@ -377,7 +398,10 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
     const frameWeight = Math.max(0, Math.min(1,
         Number(options.frameCompatibilityWeight) || 0));
     const grouped = new Map();
-    for (const anchor of selectPrototypeAnchors(anchors, perClassLimit)) {
+    const selectedAnchors = aggregation === 'centroid'
+        ? buildPrototypeClassCentroids(anchors)
+        : selectPrototypeAnchors(anchors, perClassLimit);
+    for (const anchor of selectedAnchors) {
         if (!grouped.has(anchor.label)) grouped.set(anchor.label, []);
         grouped.get(anchor.label).push(anchor);
     }
@@ -395,7 +419,8 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
             ? selected.reduce((sum, item) => sum + item.score, 0) / selected.length
             : scored[0].score;
         return { label, score, anchorId: scored[0].row.id,
-            anchorIds: selected.map(item => item.row.id) };
+            anchorIds: aggregation === 'centroid'
+                ? scored[0].row.sourceAnchorIds : selected.map(item => item.row.id) };
     }).sort((left, right) => right.score - left.score
         || left.label.localeCompare(right.label));
 }
@@ -605,8 +630,10 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
     const proposalById = buildBaselineProposals([
         ...rowsBySplit.calibration, ...rowsBySplit.blind_test
     ]);
-    return EMBEDDING_REPRESENTATIONS.flatMap(representation =>
-        EMBEDDING_ANCHOR_COUNTS.map(perClassLimit => {
+    return EMBEDDING_REPRESENTATIONS.flatMap(representation => {
+        const anchorCounts = representation.anchorCountIndependent
+            ? [null] : EMBEDDING_ANCHOR_COUNTS;
+        return anchorCounts.map(perClassLimit => {
             const calibrationRows = rawEmbeddingRows(rowsBySplit.calibration,
                 vectors, anchors, perClassLimit, representation, proposalById);
             const selectionValidation = crossValidateEmbeddingCalibration(
@@ -615,11 +642,14 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
             const blindRows = rawEmbeddingRows(rowsBySplit.blind_test,
                 vectors, anchors, perClassLimit, representation, proposalById);
             return { representationId: representation.id, perClassLimit,
-                anchorSelectionPolicy: 'PROTOTYPE_GREEDY_COVERAGE_V1',
+                anchorSelectionPolicy: representation.anchorCountIndependent
+                    ? 'PROTOTYPE_CLASS_CENTROID_V1'
+                    : 'PROTOTYPE_GREEDY_COVERAGE_V1',
                 selectionValidation,
                 calibration: fitted.metrics, thresholds: fitted.calibration,
                 blindTest: summarizeEmbeddingRows(blindRows, fitted.calibration) };
-        }));
+        });
+    });
 }
 
 function hashFile(filePath) {
@@ -1166,7 +1196,7 @@ module.exports = {
     normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
     labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight,
     l2Normalize, dotProduct, cosineSimilarity, frameCompatibility,
-    selectPrototypeAnchors, rankEmbeddingCandidates,
+    selectPrototypeAnchors, buildPrototypeClassCentroids, rankEmbeddingCandidates,
     fitEmbeddingCalibration, buildStratifiedCalibrationFolds,
     crossValidateEmbeddingCalibration, compareSelectionEvidence,
     summarizeEmbeddingRows, evaluateEmbeddingVectors,
