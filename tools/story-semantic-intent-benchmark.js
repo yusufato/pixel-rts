@@ -54,6 +54,18 @@ const HIGH_RISK_ACTS = Object.freeze([
     'THREATEN', 'REQUEST_ACTION', 'PROPOSE_COMMERCIAL_DEAL', 'SHARE_SECRET',
     'BLUFF_CANDIDATE'
 ]);
+const HIGH_RISK_FRAME_CONTRACTS = Object.freeze({
+    THREATEN: Object.freeze({ communicativeFunction: 'REQUEST',
+        requestedOutcome: 'ACTION' }),
+    REQUEST_ACTION: Object.freeze({ communicativeFunction: 'REQUEST',
+        requestedOutcome: 'ACTION' }),
+    PROPOSE_COMMERCIAL_DEAL: Object.freeze({ communicativeFunction: 'OFFER',
+        requestedOutcome: 'ACTION' }),
+    SHARE_SECRET: Object.freeze({ communicativeFunction: 'CONFIDE',
+        requestedOutcome: 'CONFIDENTIAL_HANDLING' }),
+    BLUFF_CANDIDATE: Object.freeze({ communicativeFunction: 'TELL',
+        requestedOutcome: 'NONE' })
+});
 const MIN_REPRESENTATION_CLASS_SUPPORT = 3;
 const EMBEDDING_ANCHOR_COUNTS = Object.freeze([1, 3, 5, 10, 20]);
 const EMBEDDING_REPRESENTATIONS = Object.freeze([
@@ -67,6 +79,9 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
         frameCompatibilityWeight: 0, anchorCountIndependent: true }),
     Object.freeze({ id: 'frame-centroid-guard', aggregation: 'centroid', topCount: 1,
         frameCompatibilityWeight: 0, highRiskMinimumFrameCompatibility: 0.8,
+        anchorCountIndependent: true }),
+    Object.freeze({ id: 'contract-centroid-guard', aggregation: 'centroid',
+        topCount: 1, frameCompatibilityWeight: 0, highRiskFrameContract: true,
         anchorCountIndependent: true })
 ]);
 const FRAME_COMPATIBILITY_AXES = Object.freeze([
@@ -335,6 +350,13 @@ function frameCompatibility(left, right) {
     return matches.length / FRAME_COMPATIBILITY_AXES.length;
 }
 
+function matchesHighRiskFrameContract(label, frame) {
+    const contract = HIGH_RISK_FRAME_CONTRACTS[label];
+    if (!contract) return true;
+    if (!frame) return false;
+    return Object.entries(contract).every(([axis, value]) => frame[axis] === value);
+}
+
 function selectPrototypeAnchors(anchors, perClassLimit) {
     const limit = Math.max(1, Number(perClassLimit) || 1);
     const grouped = new Map();
@@ -417,8 +439,10 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
                     frameCompatibility(options.queryFrame, labels)), 0)
                 : frameCompatibility(options.queryFrame, row.labels);
             const blockedByFrameGuard = HIGH_RISK_ACTS.includes(row.label)
-                && options.highRiskMinimumFrameCompatibility != null
-                && compatibility < options.highRiskMinimumFrameCompatibility;
+                && ((options.highRiskMinimumFrameCompatibility != null
+                    && compatibility < options.highRiskMinimumFrameCompatibility)
+                || (options.highRiskFrameContract
+                    && !matchesHighRiskFrameContract(row.label, options.queryFrame)));
             return { row, semanticScore, compatibility,
                 score: blockedByFrameGuard ? -Infinity
                     : semanticScore * (1 - frameWeight) + compatibility * frameWeight };
@@ -653,7 +677,9 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
             const blindRows = rawEmbeddingRows(rowsBySplit.blind_test,
                 vectors, anchors, perClassLimit, representation, proposalById);
             return { representationId: representation.id, perClassLimit,
-                anchorSelectionPolicy: representation.id === 'frame-centroid-guard'
+                anchorSelectionPolicy: representation.id === 'contract-centroid-guard'
+                    ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_V1'
+                    : representation.id === 'frame-centroid-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_FRAME_GUARD_V1'
                     : representation.anchorCountIndependent
                         ? 'PROTOTYPE_CLASS_CENTROID_V1'
@@ -1209,6 +1235,7 @@ module.exports = {
     normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
     labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight,
     l2Normalize, dotProduct, cosineSimilarity, frameCompatibility,
+    matchesHighRiskFrameContract,
     selectPrototypeAnchors, buildPrototypeClassCentroids, rankEmbeddingCandidates,
     fitEmbeddingCalibration, buildStratifiedCalibrationFolds,
     crossValidateEmbeddingCalibration, compareSelectionEvidence,

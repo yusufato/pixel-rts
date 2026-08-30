@@ -2,8 +2,8 @@
 
 const assert = require('node:assert/strict');
 const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
-    frameCompatibility, selectPrototypeAnchors, buildPrototypeClassCentroids,
-    rankEmbeddingCandidates, fitEmbeddingCalibration,
+    frameCompatibility, matchesHighRiskFrameContract, selectPrototypeAnchors,
+    buildPrototypeClassCentroids, rankEmbeddingCandidates, fitEmbeddingCalibration,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
     embeddingCalibrationStudySplits, buildCalibrationStudyRecommendation } =
@@ -180,6 +180,28 @@ assert.equal(guardedCentroid[0].label, 'GREETING',
     'high-risk centroid must not outrank a frame-compatible safe class');
 assert.equal(guardedCentroid.find(row => row.label === 'REQUEST_ACTION').score,
     -Infinity, 'incompatible high-risk centroid must be deterministically vetoed');
+
+assert.equal(matchesHighRiskFrameContract('REQUEST_ACTION', actionFrame), true);
+assert.equal(matchesHighRiskFrameContract('THREATEN', actionFrame), true);
+assert.equal(matchesHighRiskFrameContract('REQUEST_ACTION', greetingFrame), false);
+assert.equal(matchesHighRiskFrameContract('PROPOSE_COMMERCIAL_DEAL', {
+    communicativeFunction: 'OFFER', requestedOutcome: 'ACTION' }), true);
+assert.equal(matchesHighRiskFrameContract('SHARE_SECRET', {
+    communicativeFunction: 'CONFIDE', requestedOutcome: 'CONFIDENTIAL_HANDLING' }), true);
+assert.equal(matchesHighRiskFrameContract('SHARE_SECRET', {
+    communicativeFunction: 'TELL', requestedOutcome: 'NONE' }), false);
+assert.equal(matchesHighRiskFrameContract('BLUFF_CANDIDATE', {
+    communicativeFunction: 'TELL', requestedOutcome: 'NONE' }), true);
+assert.equal(matchesHighRiskFrameContract('GREETING', null), true,
+    'safe classes must not be blocked by high-risk contracts');
+const contractGuardedCentroid = rankEmbeddingCandidates([1, 0], [
+    { id: 'action-contract', label: 'REQUEST_ACTION', vector: [1, 0],
+        labels: actionFrame },
+    { id: 'greeting-contract', label: 'GREETING', vector: [0.8, 0.2],
+        labels: greetingFrame }
+], null, { aggregation: 'centroid', queryFrame: greetingFrame,
+    highRiskFrameContract: true });
+assert.equal(contractGuardedCentroid[0].label, 'GREETING');
 
 const balanced = rankEmbeddingCandidates([1, 0], [
     { id: 'g1', label: 'GREETING', vector: [1, 0] },
