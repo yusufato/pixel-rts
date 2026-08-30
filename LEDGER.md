@@ -1618,3 +1618,10 @@
 - **What happened:** Teklif konu adı gerçek teklif eyleminden, birinci kişi talebi dinleyici-koşullu destek teklifinden ayrıldı; aynı iki model kör sete erişmeden yeniden ölçüldü.
 - **Evidence:** Sınır `99/51/0`, `blindTestAccessed=false`. BGE intent-contract centroid macro-F1 `0,628758`, taban farkı `+0,154499`, risk `0/0`; tehdit `1`, eylem-talebi `0,666667`, ticaret `1`, sır `0,666667` recall gereksinimlerini geçti. Blöf recall `0 < 0,333333` olduğu için `eligibleModelIds=[]`, `createNewBlindEpoch=false`. E5 `0,390196`, `-0,084063`, risk `0/0` ve üç recall başarısızlığı verdi.
 - **Implication for future audits:** BGE için genel kalite veya yanlış-pozitif güvenliğini yeniden kök engel sayma; güncel kalibrasyondaki tek model-kabul engeli blöf recall'udur. Blöf çözülmeden yeni kör epoch, ürün modeli veya `%90+` anlama iddiası açma.
+
+## 2026-08-31 — Global frame ağırlığı blöf recall'unu kalite pahasına kurtardı
+- **Type:** Refuted
+- **Source:** `phase-38-turkish-semantic-intent-router` contract-frame centroid / `574fb3b`
+- **What happened:** Intent-contract centroidine `0,08` SemanticFrame uyum ağırlığı eklemenin blöf recall'unu diğer kabul kapılarını koruyarak çözeceği hipotezi dış kalibrasyonda reddedildi.
+- **Evidence:** Sınır `99/51/0`, kör erişim `false`. BGE ağırlıklı kol risk `0/0` ve bütün recall kapılarını geçti; blöf `0,333333`. Macro-F1 `0,526517`, taban farkı yalnız `+0,052258`; ağırlıksız kolun `0,628758/+0,154499` kalitesinden belirgin düşük. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+- **Implication for future audits:** Global frame ağırlığını veya ağırlık taramasını blöf çözümü diye yeniden önerme. Ağırlıksız kalite ve ağırlıklı recall sonuçlarını tek bir başarılı modelmiş gibi birleştirme; sınıf-yerel epistemik aday aynı kolda bütün kapıları geçmelidir.

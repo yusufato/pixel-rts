@@ -1670,3 +1670,14 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   reddetti. Yeni kör epoch, runtime ve Electron/IPC entegrasyonu açılmadı.
   Faz 38'in sıradaki araştırma engeli tek sınıftır: kaynaklı epistemik blöf
   kanıtının deterministik/embedding aday birleşiminde korunması.
+
+## 2026-08-31 — Frame ağırlıklı contract centroid (`measured / hypothesis-rejected`)
+
+- `0,08` çerçeve uyum ağırlığı blöf recall'unu `0 → 0,333333` yükseltti;
+  bütün yüksek-risk recall gereksinimleri ve sıfır yanlış-pozitif kapısı geçti.
+- Aynı kol macro-F1'ı `0,526517`ye ve taban farkını `+0,052258`e düşürdüğü
+  için kalite kapısını kaybetti. Ağırlıksız kolun `+0,154499` kalite sonucu ise
+  blöf recall `0` engelini koruyor.
+- İki kol da ürün adayı değildir; `createNewBlindEpoch=false`. Faz 38
+  `In Progress` kalır. Sonraki deney global skor ağırlığı değil, diğer sınıfları
+  bozmayan sınıf-yerel epistemik blöf aday birleşimidir.

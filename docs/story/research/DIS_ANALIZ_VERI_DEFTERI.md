@@ -1257,3 +1257,21 @@ parametrik ele alınır.
   saklama/ertelemedir. Sonraki deney yeni konu kelimeleri eklemek değil, bu
   epistemik bileşimi kaynaklı çerçevede göstermek ve embedding aday havuzuyla
   deterministik adayın güvenli birleşimini ölçmektir.
+
+### 31 Ağustos yöntem deneyi — global düşük frame ağırlığı
+
+- Intent-contract centroidine `0,08` SemanticFrame uyum ağırlığı eklendi.
+  Amaç konu bakımından çok modlu blöf centroidini, TELL+MIXED+
+  CLAIMED_CERTAIN+NONE yön kanıtıyla yakın semantik rakiplerin üstüne
+  taşımaktı; sözleşme vetosu aynen korundu.
+- BGE blöf recall'u `0 → 0,333333` yaptı, beş yüksek-risk recall gereksiniminin
+  tamamını ve sıfır yanlış-pozitif kapısını geçti. Fakat ağırlık bütün sınıfları
+  yeniden sıraladığı için macro-F1 `0,628758 → 0,526517`, taban farkı
+  `+0,154499 → +0,052258` geriledi.
+- Hipotez genel çözüm olarak reddedildi. Ölçüm iki Pareto noktası bıraktı:
+  ağırlıksız contract centroid kaliteyi; ağırlıklı contract centroid recall'u
+  geçiyor. Yeni kör epoch açmak için tek bir önceden seçilmiş kolun kalite,
+  yanlış-pozitif ve recall kapılarını aynı anda geçmesi gerekir.
+- Sonraki araştırma global frame ağırlığı taramayacaktır. Blöf sınıfına yerel,
+  deterministik iddia+kanıt-saklama adayı veya konu-altı prototip karışımı
+  tanımlanmalı; diğer 16 sınıfın sıralaması korunmalıdır.

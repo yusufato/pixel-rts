@@ -627,3 +627,20 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   `eligibleModelIds=[]`, `createNewBlindEpoch=false`; sıradaki hipotez farklı
   konulara yayılan blöfü tek sınıf centroidinde ezmek yerine kaynaklı epistemik
   kanıt ile deterministik/embedding aday birleşimini kalibrasyonda sınamalıdır.
+
+### 31 Ağustos 2026 — Çerçeve ağırlıklı sözleşme centroidi reddedildi
+
+- `PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_FRAME_V1`, sözleşme vetosunu
+  koruyup mevcut beş SemanticFrameV2 eksen uyumuna `0,08` skor ağırlığı verdi.
+  Sentetik test yakın semantik eşitlikte uyumlu blöfü yükseltirken uyumsuz
+  eylem talebini `-Infinity` ile veto etti; commit `574fb3b`.
+- Kör-erişimsiz BGE dış kalibrasyonda blöf recall `0 → 0,333333`, eylem talebi
+  recall `0,666667 → 1` oldu; bütün yüksek-risk recall şartları ve yanlış
+  pozitif `0/0` kapısı geçti. Buna karşılık macro-F1 `0,628758 → 0,526517`,
+  taban farkı `+0,154499 → +0,052258` ve minimum kat `0,438375` oldu.
+- Ağırlıksız contract centroid `quality-pass/recall-fail`; ağırlıklı kol
+  `recall-pass/quality-fail` Pareto noktasıdır. Hiçbiri bütün kapıları birlikte
+  geçmedi: `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+- Sonraki hipotez bütün sınıfların skorunu global ağırlıkla bozmayacaktır.
+  Blöfün iddia+kanıt saklama/erteleme bileşimini ayrı, kaynaklı epistemik aday
+  olarak birleştiren sınıf-yerel yaklaşım kalibrasyonda sınanmalıdır.
