@@ -1611,3 +1611,10 @@
 - **What happened:** Aynı iki yerel model, düzeltilmiş deterministik yön çerçevesi ve recall anti-vacuity kapısıyla kör sete erişmeden yeniden ölçüldü.
 - **Evidence:** Sınır `99/51/0`, `blindTestAccessed=false`. Taban macro-F1 `0,474259`, risk `3`. E5 `0,238598`, fark `-0,235661`, risk `1/1`, tehdit+blöf recall başarısız. BGE intent-contract centroid `0,520915`, fark `+0,046656`, risk `2/1`, eylem-talebi+blöf recall başarısız. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
 - **Implication for future audits:** Parser kapsam artışını embedding kabulü sanma; bu iki model/temsil yeni kör epoch veya ürün/EXE/IPC entegrasyonu açmaz. Sonraki hipotez aynı kalibrasyonda kalite, sıfır yanlış pozitif ve sınıf recall kapılarını birlikte geçmelidir.
+
+## 2026-08-31 — Teklif yönü ayrımı BGE kalite ve yanlış-pozitif kapılarını birlikte açtı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` offer-direction outer calibration / `50ff12c`
+- **What happened:** Teklif konu adı gerçek teklif eyleminden, birinci kişi talebi dinleyici-koşullu destek teklifinden ayrıldı; aynı iki model kör sete erişmeden yeniden ölçüldü.
+- **Evidence:** Sınır `99/51/0`, `blindTestAccessed=false`. BGE intent-contract centroid macro-F1 `0,628758`, taban farkı `+0,154499`, risk `0/0`; tehdit `1`, eylem-talebi `0,666667`, ticaret `1`, sır `0,666667` recall gereksinimlerini geçti. Blöf recall `0 < 0,333333` olduğu için `eligibleModelIds=[]`, `createNewBlindEpoch=false`. E5 `0,390196`, `-0,084063`, risk `0/0` ve üç recall başarısızlığı verdi.
+- **Implication for future audits:** BGE için genel kalite veya yanlış-pozitif güvenliğini yeniden kök engel sayma; güncel kalibrasyondaki tek model-kabul engeli blöf recall'udur. Blöf çözülmeden yeni kör epoch, ürün modeli veya `%90+` anlama iddiası açma.

@@ -1658,3 +1658,15 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - İki model de reddedildi; `createNewBlindEpoch=false`. Oyun çalışma zamanına
   embedding, Electron IPC veya yeni mekanik yetki eklenmedi. Faz 38
   `In Progress`, `%90+` anlama hedefi kanıtsız kalır.
+
+## 2026-08-31 — Teklif yönü ayrımı (`implemented / one-recall-blocker`)
+
+- Mevcut teklif hakkında konuşmak ile yeni teklif yapmak; oyuncunun talebi ile
+  “isterseniz yapabiliriz” desteği deterministik pragmatik çerçevede ayrıldı.
+  Önceki iki BGE yanlış yüksek-risk ailesi artık ilgili sözleşmeleri geçmiyor.
+- Kör erişimsiz BGE ölçümü macro-F1 `0,628758`, taban farkı `+0,154499` ve
+  yüksek-risk yanlış pozitif `0` verdi. Kalite ve yanlış-pozitif kapıları geçti.
+- `BLUFF_CANDIDATE` recall `0` kaldığı için recall anti-vacuity kapısı modeli
+  reddetti. Yeni kör epoch, runtime ve Electron/IPC entegrasyonu açılmadı.
+  Faz 38'in sıradaki araştırma engeli tek sınıftır: kaynaklı epistemik blöf
+  kanıtının deterministik/embedding aday birleşiminde korunması.

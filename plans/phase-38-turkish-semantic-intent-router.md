@@ -607,3 +607,23 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - `eligibleModelIds=[]`, `createNewBlindEpoch=false`. Parser yön sinyali artık
   taze güvenlik dilimini kapsıyor, fakat embedding kalite ve yanlış-pozitif
   kapıları birlikte geçmiyor. Ürün/Electron/IPC entegrasyonu kapalı kalır.
+
+### 31 Ağustos 2026 — Teklif konusu eylem niyetinden ayrıldı
+
+- Kalan iki BGE yanlış-pozitif ailesinde `teklif` konu adı doğrudan OFFER,
+  `isterseniz` koşulu doğrudan REQUEST kanıtı oluyordu. Teklif adı artık ancak
+  açık teklif fiiliyle eylem kanıtıdır; birinci kişi istek biçimleri ile
+  dinleyici-koşullu destek teklifleri ayrı morfolojik ailelerdir. İki karşı
+  örnek kendi yanlış yüksek-risk sözleşmelerini artık geçmez; commit `50ff12c`.
+- Aynı kör-erişimsiz `99/51/0` dış kalibrasyonda BGE-M3 intent-contract
+  centroid ortalama macro-F1 `0,628758`, minimum kat `0,529412`, taban farkı
+  `+0,154499` ve toplam/en-kötü-kat yanlış yüksek-risk `0/0` verdi. Kalite ve
+  yanlış-pozitif güvenlik kapıları ilk kez birlikte geçti.
+- BGE recall değerleri tehdit `1`, eylem talebi `0,666667`, ticari teklif `1`,
+  sır paylaşımı `0,666667` ile gereksinimleri karşıladı; blöf `0` ile gerekli
+  `0,333333` değerini kaçırdı. E5 `0,390196`, `-0,084063`, risk `0/0` olsa da
+  tehdit, eylem talebi ve sır recall kapılarını kaçırdı.
+- Tek kalan BGE kalibrasyon engeli `BLUFF_CANDIDATE` recall'udur.
+  `eligibleModelIds=[]`, `createNewBlindEpoch=false`; sıradaki hipotez farklı
+  konulara yayılan blöfü tek sınıf centroidinde ezmek yerine kaynaklı epistemik
+  kanıt ile deterministik/embedding aday birleşimini kalibrasyonda sınamalıdır.

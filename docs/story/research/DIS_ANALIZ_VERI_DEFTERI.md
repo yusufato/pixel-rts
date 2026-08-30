@@ -1238,3 +1238,22 @@ parametrik ele alınır.
 - Sonuç: parser düzeltmesi değerlidir fakat bu iki embedding adayını ürün
   seviyesine taşımamıştır. `createNewBlindEpoch=false`; `%90+` oyuncu anlama
   iddiası için hâlâ uçtan uca kanıt yoktur.
+
+### 31 Ağustos yöntem deneyi — konu adı ile teklif eylemi ayrımı
+
+- Önceki iki BGE yanlış yüksek-risk kabulünün ikisi de embeddingden önceki
+  pragmatik çerçeve hatasıydı. Mevcut bir “teklif” hakkında kişisel görüş
+  sorusu OFFER; “isterseniz ... yapabiliriz” desteği REQUEST oluyordu.
+- İsim olarak `teklif` tek başına eylem kanıtı olmaktan çıkarıldı; açık teklif
+  fiiliyle bileşim istendi. `istiyorum/istiyoruz` oyuncu talebi,
+  `isterseniz/dilerseniz` + birinci kişi yeterlik biçimi dinleyici-koşullu OFFER
+  olarak ayrıldı. Hard-negative'ler ilgili ticaret/talep sözleşmelerini geçmez.
+- BGE-M3 dış-kat sonucu `0,628758` macro-F1, `+0,154499` taban farkı ve `0/0`
+  toplam/en-kötü-kat yüksek-risk yanlış pozitiftir. Böylece kalite ve
+  yanlış-pozitif kapıları birlikte geçti. Buna rağmen blöf recall `0`, gerekli
+  `0,333333`; otomatik karar hâlâ `createNewBlindEpoch=false`tır.
+- Blöf kayıtları ittifak desteği, ele geçirilmiş şifre ve şirket kontrolü gibi
+  konu bakımından ayrı üç aileye yayılır; ortak yönleri iddia + kanıtı
+  saklama/ertelemedir. Sonraki deney yeni konu kelimeleri eklemek değil, bu
+  epistemik bileşimi kaynaklı çerçevede göstermek ve embedding aday havuzuyla
+  deterministik adayın güvenli birleşimini ölçmektir.
