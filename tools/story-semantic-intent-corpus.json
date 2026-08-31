@@ -7086,7 +7086,7 @@
           "reviewedAt": "2026-08-27T16:00:00.000+03:00",
           "reviewer": "CODEX_INDIVIDUAL_REVIEW"
         },
-        "text": "Gününüz aydın olsun komutanım.",
+        "text": "Günaydın komutanım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0058",
         "familyId": "TARGETED_EMBEDDING_V1|GREETING|calibration|0058",
@@ -10460,7 +10460,7 @@
           "reviewedAt": "2026-08-30T16:45:00.000+03:00",
           "reviewer": "CODEX_INDIVIDUAL_REVIEW"
         },
-        "text": "Saygılar sayın başkan, iyi akşamlar.",
+        "text": "İyi akşamlar sayın başkan.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "representation-stability-v1:0078",
         "familyId": "REPRESENTATION_STABILITY_V1|FORMAL_EVENING_GREETING|calibration|0078",
@@ -11385,14 +11385,14 @@
       },
       {
         "id": "semantic-intent:blindv20016",
-        "text": "Günaydın komutanım.",
+        "text": "Gününüz aydın olsun komutanım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0016",
         "familyId": "REPRESENTATION_STABILITY_V2|MORNING_COMMANDER_GREETING|blind_test|0016", "speakerFamily": "COMMANDER", "split": "blind_test",
         "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
       },
       {
         "id": "semantic-intent:blindv20017",
-        "text": "İyi akşamlar sayın başkan.",
+        "text": "Saygılar sayın başkan, iyi akşamlar.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0017",
         "familyId": "REPRESENTATION_STABILITY_V2|EVENING_PRESIDENT_GREETING|blind_test|0017", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
         "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
