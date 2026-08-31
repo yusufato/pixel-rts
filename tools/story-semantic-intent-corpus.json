@@ -11706,13 +11706,25 @@
       },
       {
         "id": "semantic-intent:blindv20040",
-        "text": "Aramızda kalsın, bakan yarın istifasını açıklayacak.",
+        "adjudication": {
+          "id": "semantic-intent:blindv20040", "verdict": "EDIT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SHARE_SECRET", "communicativeFunction": "CONFIDE", "surfaceForm": "DECLARATIVE", "predicate": "SECRET", "target": "THIRD_PARTY", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "CONFIDENTIAL_HANDLING", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Özgün bakan-istifa cümlesi kalibrasyondaki stability0047 ile aynı olay ailesine sızdığı için bağımsız bir siyasi sırla değiştirildi; gerçekleşmiş gizli fon aktarımını yalnız dinleyiciye açıklar.",
+          "reviewedAt": "2026-08-31T22:40:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Sana özel söylüyorum: kuzey valisi seçim fonunu gizlice başka hesaba aktardı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0040",
-        "familyId": "REPRESENTATION_STABILITY_V2|MINISTER_RESIGNATION_SECRET|blind_test|0040", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "familyId": "REPRESENTATION_STABILITY_V2|GOVERNOR_FUND_TRANSFER_SECRET|blind_test|0040", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
         "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
       },
       {
         "id": "semantic-intent:blindv20041",
+        "adjudication": {
+          "id": "semantic-intent:blindv20041", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SHARE_SECRET", "communicativeFunction": "CONFIDE", "surfaceForm": "IMPERATIVE", "predicate": "SECRET", "target": "ORGANIZATION", "polarity": "NEGATIVE", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "CONFIDENTIAL_HANDLING", "outOfDomain": false, "secondarySpeechActs": ["REQUEST_ACTION"] },
+          "notes": "Şirket kasasının boş olduğu gizli mali bilgiyi açıklarken dinleyiciden bunu kimseye söylememesini açıkça ister; sır paylaşımı birincil, gizlilik emri ikincildir.",
+          "reviewedAt": "2026-08-31T22:41:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bunu kimseye söyleme; şirketin kasasında para kalmadı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0041",
         "familyId": "REPRESENTATION_STABILITY_V2|EMPTY_COMPANY_CASH_SECRET|blind_test|0041", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11720,6 +11732,12 @@
       },
       {
         "id": "semantic-intent:blindv20042",
+        "adjudication": {
+          "id": "semantic-intent:blindv20042", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SHARE_SECRET", "communicativeFunction": "CONFIDE", "surfaceForm": "DECLARATIVE", "predicate": "SECRET", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "CONFIDENTIAL_HANDLING", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Değiştirilmiş nöbet çizelgesini yalnız dinleyiciyle sınırlı askerî sır olarak açıklar; çizelgeyi değiştirme emri vermez.",
+          "reviewedAt": "2026-08-31T22:42:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sadece sen bil: batı kapısının nöbet çizelgesi değiştirildi.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0042",
         "familyId": "REPRESENTATION_STABILITY_V2|GATE_ROSTER_SECRET|blind_test|0042", "speakerFamily": "AGENT", "split": "blind_test",
@@ -11727,13 +11745,25 @@
       },
       {
         "id": "semantic-intent:blindv20043",
-        "text": "Bugün hava dünden daha serin.",
+        "adjudication": {
+          "id": "semantic-intent:blindv20043", "verdict": "EDIT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SMALL_TALK", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "LOCATION", "target": "WORLD", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "HABITUAL", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Özgün serin-hava cümlesi kalibrasyondaki stability0107 ile aynı aileye sızdığı için bağımsız bir mekân gözlemine çevrildi; mekanik istek taşımayan gündelik sohbettir.",
+          "reviewedAt": "2026-08-31T22:43:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Bu koridor sabahları beklediğimden daha aydınlık oluyor.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0043",
-        "familyId": "REPRESENTATION_STABILITY_V2|COOLER_WEATHER_SMALL_TALK|blind_test|0043", "speakerFamily": "AGENT", "split": "blind_test",
+        "familyId": "REPRESENTATION_STABILITY_V2|BRIGHT_CORRIDOR_SMALL_TALK|blind_test|0043", "speakerFamily": "AGENT", "split": "blind_test",
         "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
       },
       {
         "id": "semantic-intent:blindv20044",
+        "adjudication": {
+          "id": "semantic-intent:blindv20044", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SMALL_TALK", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "OPINION", "target": "WORLD", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Odadaki çayın niteliğine dair olumlu gündelik değerlendirmedir; ikram, satın alma veya başka mekanik eylem istemez.",
+          "reviewedAt": "2026-08-31T22:44:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bu odanın çayı gerçekten güzelmiş.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0044",
         "familyId": "REPRESENTATION_STABILITY_V2|TEA_COMPLIMENT_SMALL_TALK|blind_test|0044", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11741,6 +11771,12 @@
       },
       {
         "id": "semantic-intent:blindv20045",
+        "adjudication": {
+          "id": "semantic-intent:blindv20045", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "SMALL_TALK", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "OPINION", "target": "WORLD", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Geçmiş yolculuktaki manzarayı olumsuz görünümlü olumlu deyimle değerlendirir; rota veya ulaşım eylemi istemez.",
+          "reviewedAt": "2026-08-31T22:45:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Yolculuk boyunca manzara hiç fena değildi.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0045",
         "familyId": "REPRESENTATION_STABILITY_V2|TRAVEL_SCENERY_SMALL_TALK|blind_test|0045", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11748,6 +11784,12 @@
       },
       {
         "id": "semantic-intent:blindv20046",
+        "adjudication": {
+          "id": "semantic-intent:blindv20046", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "THREATEN", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "LISTENER", "polarity": "NEGATIVE", "temporality": "FUTURE", "epistemicStatus": "HYPOTHETICAL", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Sınırdan çekilmeme koşuluna ikmal depolarını vurma zararını bağlar; askerî durum raporu değil, geri çekilmeyi zorlayan koşullu tehdittir.",
+          "reviewedAt": "2026-08-31T22:46:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sınırdan çekilmezseniz ikmal depolarınızı vuracağız.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0046",
         "familyId": "REPRESENTATION_STABILITY_V2|SUPPLY_DEPOT_THREAT|blind_test|0046", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11755,6 +11797,12 @@
       },
       {
         "id": "semantic-intent:blindv20047",
+        "adjudication": {
+          "id": "semantic-intent:blindv20047", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "THREATEN", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "ECONOMY", "target": "ORGANIZATION", "polarity": "NEGATIVE", "temporality": "FUTURE", "epistemicStatus": "HYPOTHETICAL", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Sözleşmenin bozulması koşuluna bütün kredi hatlarını kapatma ekonomik zararını bağlayan açık kurumsal tehdittir.",
+          "reviewedAt": "2026-08-31T22:47:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sözleşmeyi bozarsanız bütün kredi hatlarınızı kapatırım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0047",
         "familyId": "REPRESENTATION_STABILITY_V2|CREDIT_LINE_THREAT|blind_test|0047", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11762,6 +11810,12 @@
       },
       {
         "id": "semantic-intent:blindv20048",
+        "adjudication": {
+          "id": "semantic-intent:blindv20048", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "THREATEN", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "WORK", "target": "ORGANIZATION", "polarity": "NEGATIVE", "temporality": "FUTURE", "epistemicStatus": "HYPOTHETICAL", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Adamlarının tutuklanması koşuluna hükümeti devirmeye dönük siyasi misillemeyi bağlar; sıradan itiraz veya gelecek planı değildir.",
+          "reviewedAt": "2026-08-31T22:48:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Adamlarımı tutuklarsanız bu hükümeti ayakta bırakmam.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0048",
         "familyId": "REPRESENTATION_STABILITY_V2|GOVERNMENT_RETALIATION_THREAT|blind_test|0048", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
