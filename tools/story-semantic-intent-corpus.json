@@ -11823,23 +11823,41 @@
       },
       {
         "id": "semantic-intent:blindv20049",
-        "text": "Bu makarnanın sosuna ne kadar kekik koymalıyım?",
+        "adjudication": {
+          "id": "semantic-intent:blindv20049", "verdict": "EDIT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "UNKNOWN", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "UNSPECIFIED", "target": "WORLD", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "INFORMATION", "outOfDomain": true, "secondarySpeechActs": [] },
+          "notes": "Özgün makarna-sosu sorusu kalibrasyondaki stability0034 ile aynı aileye sızdığı için bağımsız bir enstrüman bakımı sorusuna çevrildi; oyun dünyasıyla ilgisiz bilgi isteğidir.",
+          "reviewedAt": "2026-08-31T22:49:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Gitarımın tellerini hangi sırayla değiştirmeliyim?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0049",
-        "familyId": "REPRESENTATION_STABILITY_V2|OOD_PASTA_SEASONING|blind_test|0049", "speakerFamily": "AGENT", "split": "blind_test",
+        "familyId": "REPRESENTATION_STABILITY_V2|OOD_GUITAR_STRING_REPLACEMENT|blind_test|0049", "speakerFamily": "AGENT", "split": "blind_test",
         "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
       },
       {
         "id": "semantic-intent:blindv20050",
-        "text": "Telefonumun ekran görüntüsünü nasıl değiştirebilirim?",
+        "adjudication": {
+          "id": "semantic-intent:blindv20050", "verdict": "EDIT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "UNKNOWN", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "UNSPECIFIED", "target": "WORLD", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "INFORMATION", "outOfDomain": true, "secondarySpeechActs": [] },
+          "notes": "Belirsiz ekran görüntüsü ifadesi amaçlanan duvar kâğıdı eylemine düzeltildi; telefon ayarı hakkında oyun dünyası dışı yöntem bilgisi ister.",
+          "reviewedAt": "2026-08-31T22:50:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Telefonumun duvar kâğıdını nasıl değiştirebilirim?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0050",
         "familyId": "REPRESENTATION_STABILITY_V2|OOD_PHONE_WALLPAPER|blind_test|0050", "speakerFamily": "AGENT", "split": "blind_test",
         "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
       },
       {
         "id": "semantic-intent:blindv20051",
+        "adjudication": {
+          "id": "semantic-intent:blindv20051", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "UNKNOWN", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "UNSPECIFIED", "target": "WORLD", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "HABITUAL", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "INFORMATION", "outOfDomain": true, "secondarySpeechActs": [] },
+          "notes": "Evcil köpeğin sürekli havlama davranışının nedenini sorar; oyun karakteri, devlet, ekonomi veya lojistik mekaniğiyle ilişkili değildir. Yanlış CAT_MEOWING aile kimliği metne uygun DOG_BARKING olarak düzeltildi.",
+          "reviewedAt": "2026-08-31T22:51:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Köpeğim yabancılara neden durmadan havlıyor?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0051",
-        "familyId": "REPRESENTATION_STABILITY_V2|OOD_CAT_MEOWING|blind_test|0051", "speakerFamily": "AGENT", "split": "blind_test",
+        "familyId": "REPRESENTATION_STABILITY_V2|OOD_DOG_BARKING|blind_test|0051", "speakerFamily": "AGENT", "split": "blind_test",
         "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
       }
   ]
