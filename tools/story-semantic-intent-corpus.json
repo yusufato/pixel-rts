@@ -11481,6 +11481,11 @@
       },
       {
         "id": "semantic-intent:blindv20022",
+        "adjudication": {
+          "id": "semantic-intent:blindv20022", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "OFFER_SUPPORT", "communicativeFunction": "OFFER", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "HYPOTHETICAL", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Yaralı tahliyesini karşılıksız üstlenme desteği sunar; dinleyiciye tahliye emri vermez ve ticari bedel istemez.", "reviewedAt": "2026-08-31T21:22:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "İsterseniz yaralıların tahliyesini ben organize edebilirim.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0022",
         "familyId": "REPRESENTATION_STABILITY_V2|EVACUATION_SUPPORT_OFFER|blind_test|0022", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11488,6 +11493,11 @@
       },
       {
         "id": "semantic-intent:blindv20023",
+        "adjudication": {
+          "id": "semantic-intent:blindv20023", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "OFFER_SUPPORT", "communicativeFunction": "OFFER", "surfaceForm": "DECLARATIVE", "predicate": "WORK", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "HYPOTHETICAL", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Sözleşme metnini hukuk ekibine inceletme yardımı sunar; sözleşmenin kendisini ticari teklif olarak sunmaz.", "reviewedAt": "2026-08-31T21:23:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Dilerseniz sözleşme metnini hukuk ekibime inceletebilirim.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0023",
         "familyId": "REPRESENTATION_STABILITY_V2|LEGAL_REVIEW_SUPPORT_OFFER|blind_test|0023", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11495,6 +11505,11 @@
       },
       {
         "id": "semantic-intent:blindv20024",
+        "adjudication": {
+          "id": "semantic-intent:blindv20024", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "OFFER_SUPPORT", "communicativeFunction": "OFFER", "surfaceForm": "DECLARATIVE", "predicate": "WORK", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "HYPOTHETICAL", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Köylere ilaç ulaştırmayı ihtiyaç koşuluna bağlı karşılıksız destek olarak sunar; sevk emri veya satış teklifi değildir.", "reviewedAt": "2026-08-31T21:24:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "İhtiyacınız varsa köylere ilaç ulaştırabiliriz.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0024",
         "familyId": "REPRESENTATION_STABILITY_V2|MEDICINE_DELIVERY_SUPPORT_OFFER|blind_test|0024", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11502,6 +11517,11 @@
       },
       {
         "id": "semantic-intent:blindv20025",
+        "adjudication": {
+          "id": "semantic-intent:blindv20025", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "PROPOSE_COMMERCIAL_DEAL", "communicativeFunction": "OFFER", "surfaceForm": "DECLARATIVE", "predicate": "ECONOMY", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Açık miktar ve birim fiyatla buğday satışı teklif eder; ekonomik rapor veya karşılıksız yardım değildir.", "reviewedAt": "2026-08-31T21:25:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Beş bin ton buğdayı ton başına iki yüz dinardan satmayı teklif ediyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0025",
         "familyId": "REPRESENTATION_STABILITY_V2|PRICED_WHEAT_DEAL|blind_test|0025", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11509,6 +11529,11 @@
       },
       {
         "id": "semantic-intent:blindv20026",
+        "adjudication": {
+          "id": "semantic-intent:blindv20026", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "PROPOSE_COMMERCIAL_DEAL", "communicativeFunction": "OFFER", "surfaceForm": "DECLARATIVE", "predicate": "WORK", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "HYPOTHETICAL", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Liman işletme hakkını on yıllık süreyle devretme anlaşması sunar; limanın mevcut durumunu raporlamaz.", "reviewedAt": "2026-08-31T21:26:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Liman işletme hakkını on yıllığına şirketinize devredebiliriz.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0026",
         "familyId": "REPRESENTATION_STABILITY_V2|PORT_CONCESSION_DEAL|blind_test|0026", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11516,6 +11541,11 @@
       },
       {
         "id": "semantic-intent:blindv20027",
+        "adjudication": {
+          "id": "semantic-intent:blindv20027", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "PROPOSE_COMMERCIAL_DEAL", "communicativeFunction": "OFFER", "surfaceForm": "INTERROGATIVE", "predicate": "ECONOMY", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Yüz kamyon ile üç bin varil yakıtı karşılıklı değiş tokuş etmeyi soru biçiminde önerir; tek taraflı yakıt isteği değildir.", "reviewedAt": "2026-08-31T21:27:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Yüz kamyon karşılığında bize üç bin varil yakıt verir misiniz?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0027",
         "familyId": "REPRESENTATION_STABILITY_V2|TRUCK_FUEL_BARTER_DEAL|blind_test|0027", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11523,6 +11553,11 @@
       },
       {
         "id": "semantic-intent:blindv20028",
+        "adjudication": {
+          "id": "semantic-intent:blindv20028", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REJECT", "communicativeFunction": "REJECT", "surfaceForm": "DECLARATIVE", "predicate": "ECONOMY", "target": "LISTENER", "polarity": "NEGATIVE", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "ANSWER", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Dinleyicinin anlaşmasını imzalamayı açıkça reddeder; yeni koşul veya karşı teklif sunmaz.", "reviewedAt": "2026-08-31T21:28:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Hayır, bu anlaşmayı imzalamayacağım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0028",
         "familyId": "REPRESENTATION_STABILITY_V2|AGREEMENT_REJECTION|blind_test|0028", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11530,6 +11565,11 @@
       },
       {
         "id": "semantic-intent:blindv20029",
+        "adjudication": {
+          "id": "semantic-intent:blindv20029", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REJECT", "communicativeFunction": "REJECT", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "LISTENER", "polarity": "NEGATIVE", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "ANSWER", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Birlikleri belirtilen bölgeye gönderme talebini açıkça reddeder; karşı birlik hareketi emretmez.", "reviewedAt": "2026-08-31T21:29:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Birliklerimi o bölgeye göndermeyi reddediyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0029",
         "familyId": "REPRESENTATION_STABILITY_V2|DEPLOYMENT_REJECTION|blind_test|0029", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11537,6 +11577,11 @@
       },
       {
         "id": "semantic-intent:blindv20030",
+        "adjudication": {
+          "id": "semantic-intent:blindv20030", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REJECT", "communicativeFunction": "REJECT", "surfaceForm": "DECLARATIVE", "predicate": "WORK", "target": "LISTENER", "polarity": "NEGATIVE", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "ANSWER", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Önerilen vazifeyi üstlenmeyi kesin biçimde reddeder; görev ayrıntısı istemez veya başka görev teklif etmez.", "reviewedAt": "2026-08-31T21:30:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Önerdiğiniz vazifeyi üstlenmeyeceğim.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0030",
         "familyId": "REPRESENTATION_STABILITY_V2|MISSION_REJECTION|blind_test|0030", "speakerFamily": "AGENT", "split": "blind_test",
