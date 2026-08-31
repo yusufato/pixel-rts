@@ -23,7 +23,7 @@ assert.deepEqual(report.gold.bySplit, {
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
-assert.equal(report.untouchedEvaluationPass, false);
+assert.equal(report.untouchedEvaluationPass, true);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
 assert.deepEqual(report.representationSupport.issues, []);
 assert.deepEqual(report.untouchedEvaluation.gold, {
@@ -32,11 +32,11 @@ assert.deepEqual(report.untouchedEvaluation.gold, {
 });
 assert.equal(report.untouchedEvaluation.minimumPerClassPerEvaluationSplit, 3);
 assert.equal(report.untouchedEvaluation.blindStatus,
+    'SEALED_UNTOUCHED');
+assert.equal(report.untouchedEvaluation.priorBlindStatus,
     'SPENT_AFTER_2026_08_31_ONE_SHOT');
-assert.deepEqual(report.untouchedEvaluation.evaluatedModelIds,
-    ['multilingual-e5-small-q8_0', 'bge-m3-q8_0']);
-assert.deepEqual(report.untouchedEvaluation.issues,
-    ['UNTOUCHED_EVALUATION_ALREADY_SPENT:SPENT_AFTER_2026_08_31_ONE_SHOT']);
+assert.deepEqual(report.untouchedEvaluation.evaluatedModelIds, []);
+assert.deepEqual(report.untouchedEvaluation.issues, []);
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
     issue.startsWith('UNTOUCHED_CLASS_SUPPORT:THREATEN:')));
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
@@ -58,7 +58,7 @@ for (const act of ['ASK_PERSONAL_OPINION', 'CORRECT_STATEMENT', 'GREETING',
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
     issue.startsWith('UNTOUCHED_OOD_SUPPORT:')));
 const evaluationSplits = embeddingEvaluationSplits(corpus,
-    report.untouchedEvaluation.sourceIdPrefix);
+    report.untouchedEvaluation);
 assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
     .map(([split, rows]) => [split, rows.length])), {
     prototype: 99,
@@ -68,9 +68,9 @@ assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
 assert.ok(evaluationSplits.calibration.every(row =>
     row.sourceId.startsWith('representation-stability-v1:')));
 assert.ok(evaluationSplits.blind_test.every(row =>
-    row.sourceId.startsWith('representation-stability-v1:')));
+    row.sourceId.startsWith('representation-stability-v2:')));
 const calibrationStudySplits = embeddingCalibrationStudySplits(corpus,
-    report.untouchedEvaluation.sourceIdPrefix);
+    report.untouchedEvaluation);
 assert.deepEqual(Object.fromEntries(Object.entries(calibrationStudySplits)
     .map(([split, rows]) => [split, rows.length])), {
     prototype: 99,
