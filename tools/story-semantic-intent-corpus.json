@@ -11286,6 +11286,12 @@
       },
       {
         "id": "semantic-intent:blindv20007",
+        "adjudication": {
+          "id": "semantic-intent:blindv20007", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "BLUFF_CANDIDATE", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "PLAYER", "polarity": "MIXED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Üç komutanın desteğini kesin iddia eder fakat doğrulayacak isimleri açıklamaz; gerçek sır ifşası değil epistemik blöf adayıdır.",
+          "reviewedAt": "2026-08-31T21:07:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Üç komutan da emrimi destekliyor ama isimlerini açıklamam.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0007",
         "familyId": "REPRESENTATION_STABILITY_V2|HIDDEN_COMMANDER_BACKING|blind_test|0007", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11293,6 +11299,12 @@
       },
       {
         "id": "semantic-intent:blindv20008",
+        "adjudication": {
+          "id": "semantic-intent:blindv20008", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "BLUFF_CANDIDATE", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "SECRET", "target": "THIRD_PARTY", "polarity": "MIXED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Rakibin kayıtlarına sahip olduğunu kesin ileri sürer ancak şimdi gösteremeyeceğini söyler; kanıtı verilmemiş blöf adayıdır.",
+          "reviewedAt": "2026-08-31T21:08:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Rakibin bütün sevkiyat kayıtları elimde, fakat şimdi gösteremem.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0008",
         "familyId": "REPRESENTATION_STABILITY_V2|WITHHELD_SHIPMENT_RECORDS|blind_test|0008", "speakerFamily": "AGENT", "split": "blind_test",
@@ -11300,6 +11312,12 @@
       },
       {
         "id": "semantic-intent:blindv20009",
+        "adjudication": {
+          "id": "semantic-intent:blindv20009", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "BLUFF_CANDIDATE", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "WORK", "target": "ORGANIZATION", "polarity": "MIXED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Yönetim kurulunu kontrol ettiğini kesin iddia eder fakat kanıtı sonraya erteler; doğrulanmış kontrol bildirimi değildir.",
+          "reviewedAt": "2026-08-31T21:09:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Yönetim kurulu çoktan tarafıma geçti; kanıtı toplantıdan sonra görürsün.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0009",
         "familyId": "REPRESENTATION_STABILITY_V2|DEFERRED_BOARD_CONTROL_PROOF|blind_test|0009", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11307,13 +11325,25 @@
       },
       {
         "id": "semantic-intent:blindv20010",
-        "text": "Bu kararın yasal dayanağı nerede?",
+        "adjudication": {
+          "id": "semantic-intent:blindv20010", "verdict": "EDIT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "CHALLENGE", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "WORK", "target": "LISTENER", "polarity": "NEGATIVE", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Nötr dayanak sorusu retorik itiraza çevrildi; yasal kanıt göstermeden karar alınmasının meşruiyetine meydan okur.",
+          "reviewedAt": "2026-08-31T21:10:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Yasal dayanak bile göstermeden bu kararı nasıl alabiliyorsunuz?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0010",
         "familyId": "REPRESENTATION_STABILITY_V2|LEGAL_BASIS_CHALLENGE|blind_test|0010", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
         "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
       },
       {
         "id": "semantic-intent:blindv20011",
+        "adjudication": {
+          "id": "semantic-intent:blindv20011", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "CHALLENGE", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "MILITARY", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Dinleyicinin oyuncunun birliklerine emir verme yetkisine itiraz eder; birliklere karşı emir vermez veya nötr yetki bilgisi istemez.",
+          "reviewedAt": "2026-08-31T21:11:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Hangi yetkiyle birliklerime emir veriyorsunuz?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0011",
         "familyId": "REPRESENTATION_STABILITY_V2|COMMAND_AUTHORITY_CHALLENGE|blind_test|0011", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11321,7 +11351,13 @@
       },
       {
         "id": "semantic-intent:blindv20012",
-        "text": "Bu rakamları doğrulayacak tek bir belge gösterebilir misiniz?",
+        "adjudication": {
+          "id": "semantic-intent:blindv20012", "verdict": "EDIT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "CHALLENGE", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "ECONOMY", "target": "LISTENER", "polarity": "NEGATIVE", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Doğrudan belge isteği retorik güven itirazına çevrildi; kanıtsız rakamlara inanma beklentisine meydan okur.",
+          "reviewedAt": "2026-08-31T21:12:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
+        "text": "Tek bir belge göstermeden bu rakamlara inanmamızı mı bekliyorsunuz?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0012",
         "familyId": "REPRESENTATION_STABILITY_V2|FIGURE_EVIDENCE_CHALLENGE|blind_test|0012", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
         "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"

@@ -15,11 +15,11 @@ const report = buildEmbeddingSpikePreflight();
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 297);
+assert.equal(report.gold.total, 303);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 99,
     calibration: 96,
-    blind_test: 102
+    blind_test: 108
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
@@ -100,7 +100,7 @@ assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 3 },
     calibration: { inDomain: 90, outOfDomain: 6 },
-    blind_test: { inDomain: 96, outOfDomain: 6 }
+    blind_test: { inDomain: 102, outOfDomain: 6 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,
@@ -115,7 +115,7 @@ assert.deepEqual(report.highRiskCoverage.SHARE_SECRET, {
 assert.deepEqual(report.highRiskCoverage.BLUFF_CANDIDATE, {
     prototype: 3,
     calibration: 6,
-    blind_test: 6
+    blind_test: 9
 });
 assert.deepEqual(report.highRiskCoverage.PROPOSE_COMMERCIAL_DEAL, {
     prototype: 3,
