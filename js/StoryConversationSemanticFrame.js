@@ -252,7 +252,27 @@ function storySemanticFrameSurfaceForm(raw, tokens) {
     return { value: 'DECLARATIVE', evidence: [] };
 }
 
+function storySemanticFrameBluffEvidence(tokens) {
+    const claimEvidence = storySemanticFrameEvidence(tokens,
+        ['destekliyor', 'elimde', 'coktan', 'tarafima', 'gecti']);
+    const negatedDisclosureEvidence = tokens.filter(token =>
+        /^(?:acikla|anlat|goster|paylas|soyle|ver).*(?:amam|emem|mayac|meyece|mam|mem|maz|mez)/
+            .test(token));
+    const deferredEvidence = storySemanticFrameHas(tokens,
+        ['belge', 'kanit', 'kayit', 'tutanak'])
+        && storySemanticFrameHas(tokens, ['sonra', 'gelince'])
+        ? storySemanticFrameEvidence(tokens,
+            ['belge', 'kanit', 'kayit', 'tutanak', 'sonra', 'gelince']) : [];
+    const withholdingEvidence = negatedDisclosureEvidence.concat(deferredEvidence)
+        .filter((value, index, all) => all.indexOf(value) === index);
+    return { matched: claimEvidence.length > 0 && withholdingEvidence.length > 0,
+        evidence: claimEvidence.concat(withholdingEvidence)
+            .filter((value, index, all) => all.indexOf(value) === index) };
+}
+
 function storySemanticFramePolarity(tokens) {
+    const bluff = storySemanticFrameBluffEvidence(tokens);
+    if (bluff.matched) return { value: 'MIXED', evidence: bluff.evidence };
     const evidence = storySemanticFrameEvidence(tokens,
         ['degil', 'yok', 'hic', 'istemiyor', 'guvenmiyor', 'bilmiyor']);
     return { value: evidence.length ? 'NEGATIVE' : 'POSITIVE_OR_UNMARKED', evidence };
@@ -269,6 +289,8 @@ function storySemanticFrameTime(tokens) {
 }
 
 function storySemanticFrameEpistemic(tokens) {
+    const bluff = storySemanticFrameBluffEvidence(tokens);
+    if (bluff.matched) return { value: 'CLAIMED_CERTAIN', evidence: bluff.evidence };
     const rumor = storySemanticFrameEvidence(tokens, ['duydum', 'soylenti', 'deniyor', 'galiba', 'sanirim']);
     const hypothetical = storySemanticFrameEvidence(tokens, ['eger', 'varsay', 'olursa', 'belki']);
     const certainty = storySemanticFrameEvidence(tokens, ['biliyorum', 'eminim', 'kesin']);

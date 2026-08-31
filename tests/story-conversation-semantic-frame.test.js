@@ -64,6 +64,20 @@ try {
         assert.equal(result.semanticFrame.suggestedSpeechAct, speechAct, text);
     }
 
+    const epistemicBluffFamilies = [
+        ['Üç ülke de planımı destekliyor; isimlerini vermem.', true],
+        ['Rakibinizin bütün şifreleri elimde, ama şimdi gösteremem.', true],
+        ['Bankanın yönetimi çoktan benim tarafıma geçti; belgeyi sonra görürsünüz.', true],
+        ['Üç ülke planı destekliyor ve isimlerini şimdi açıklıyorum.', false],
+        ['Bütün şifreleri şimdi gösterebilirim.', false],
+        ['Belgeyi sonra sunacağım.', false]
+    ];
+    for (const [text, bluff] of epistemicBluffFamilies) {
+        const frame = analyze(text).semanticFrame;
+        assert.equal(frame.polarity === 'MIXED', bluff, text);
+        assert.equal(frame.epistemicStatus === 'CLAIMED_CERTAIN', bluff, text);
+    }
+
     const functions = [
         ['Bana güveniyor musunuz?', 'ASK'],
         ['Size güvenmiyorum.', 'TELL'],
