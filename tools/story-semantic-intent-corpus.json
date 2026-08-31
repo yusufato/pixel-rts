@@ -11208,6 +11208,12 @@
       },
       {
         "id": "semantic-intent:blindv20001",
+        "adjudication": {
+          "id": "semantic-intent:blindv20001", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "ASK_INFORMATION", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "ECONOMY", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "PAST", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "INFORMATION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Limanda bu ay gerçekleşen tahıl boşaltımının doğrulanabilir miktarını sorar; görüş veya ticari teklif değildir.",
+          "reviewedAt": "2026-08-31T21:01:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bu ay limanda kaç ton tahıl boşaltıldı?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0001",
         "familyId": "REPRESENTATION_STABILITY_V2|PORT_GRAIN_AMOUNT|blind_test|0001", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11215,6 +11221,12 @@
       },
       {
         "id": "semantic-intent:blindv20002",
+        "adjudication": {
+          "id": "semantic-intent:blindv20002", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "ASK_INFORMATION", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "MILITARY", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "INFORMATION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Garnizonun mevcut asker sayısını sorar; birlik sevk etme veya askerî eylem talebi içermez.",
+          "reviewedAt": "2026-08-31T21:02:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Kuzey garnizonunda şu anda kaç asker var?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0002",
         "familyId": "REPRESENTATION_STABILITY_V2|GARRISON_HEADCOUNT|blind_test|0002", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11222,6 +11234,12 @@
       },
       {
         "id": "semantic-intent:blindv20003",
+        "adjudication": {
+          "id": "semantic-intent:blindv20003", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "ASK_INFORMATION", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "ECONOMY", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "INFORMATION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Merkez bankasının bugün uyguladığı doğrulanabilir faiz oranını sorar; faiz değişikliği emri değildir.",
+          "reviewedAt": "2026-08-31T21:03:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Merkez bankası bugün hangi faiz oranını uyguluyor?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0003",
         "familyId": "REPRESENTATION_STABILITY_V2|CURRENT_POLICY_RATE|blind_test|0003", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11229,6 +11247,12 @@
       },
       {
         "id": "semantic-intent:blindv20004",
+        "adjudication": {
+          "id": "semantic-intent:blindv20004", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "ASK_PERSONAL_OPINION", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "OPINION", "target": "THIRD_PARTY", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "OPINION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Yeni valinin göreve hazır oluşuna ilişkin öznel değerlendirme ister; doğrulanabilir özgeçmiş bilgisi istemez.",
+          "reviewedAt": "2026-08-31T21:04:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sence yeni vali bu göreve hazır mı?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0004",
         "familyId": "REPRESENTATION_STABILITY_V2|GOVERNOR_READINESS_OPINION|blind_test|0004", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11236,6 +11260,12 @@
       },
       {
         "id": "semantic-intent:blindv20005",
+        "adjudication": {
+          "id": "semantic-intent:blindv20005", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "ASK_PERSONAL_OPINION", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "OPINION", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "OPINION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Fabrikanın özelleştirilmesi hakkında kişisel görüş ister; satın alma veya satış teklifi yapmaz.",
+          "reviewedAt": "2026-08-31T21:05:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bu fabrikanın özelleştirilmesi hakkında ne düşünüyorsun?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0005",
         "familyId": "REPRESENTATION_STABILITY_V2|PRIVATIZATION_OPINION|blind_test|0005", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11243,6 +11273,12 @@
       },
       {
         "id": "semantic-intent:blindv20006",
+        "adjudication": {
+          "id": "semantic-intent:blindv20006", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "ASK_PERSONAL_OPINION", "communicativeFunction": "ASK", "surfaceForm": "INTERROGATIVE", "predicate": "OPINION", "target": "THIRD_PARTY", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "QUESTIONED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "OPINION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Komutanın temkin düzeyi hakkında öznel kanaat ister; askerî durum bilgisi veya eylem talebi değildir.",
+          "reviewedAt": "2026-08-31T21:06:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sana göre komutan fazla mı temkinli davranıyor?",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0006",
         "familyId": "REPRESENTATION_STABILITY_V2|COMMANDER_CAUTION_OPINION|blind_test|0006", "speakerFamily": "AGENT", "split": "blind_test",
