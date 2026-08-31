@@ -11364,6 +11364,12 @@
       },
       {
         "id": "semantic-intent:blindv20013",
+        "adjudication": {
+          "id": "semantic-intent:blindv20013", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "CORRECT_STATEMENT", "communicativeFunction": "CORRECT", "surfaceForm": "DECLARATIVE", "predicate": "ECONOMY", "target": "ORGANIZATION", "polarity": "MIXED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "CORRECTION", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Yanlış dört milyon değerini reddedip bütçeyi altı milyon olarak kesin biçimde düzeltir; yeni bütçe talebi değildir.",
+          "reviewedAt": "2026-08-31T21:13:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Hayır, bütçe dört milyon değil altı milyon dinar.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0013",
         "familyId": "REPRESENTATION_STABILITY_V2|BUDGET_AMOUNT_CORRECTION|blind_test|0013", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11371,6 +11377,12 @@
       },
       {
         "id": "semantic-intent:blindv20014",
+        "adjudication": {
+          "id": "semantic-intent:blindv20014", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "CORRECT_STATEMENT", "communicativeFunction": "CORRECT", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "ORGANIZATION", "polarity": "MIXED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "CORRECTION", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Yanlış tugay kimliğini reddedip doğru üçüncü tugay kimliğini bildirir; birlik sevki emri değildir.",
+          "reviewedAt": "2026-08-31T21:14:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Sözünü ettiğiniz birlik ikinci değil üçüncü tugay.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0014",
         "familyId": "REPRESENTATION_STABILITY_V2|BRIGADE_ID_CORRECTION|blind_test|0014", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11378,6 +11390,12 @@
       },
       {
         "id": "semantic-intent:blindv20015",
+        "adjudication": {
+          "id": "semantic-intent:blindv20015", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "CORRECT_STATEMENT", "communicativeFunction": "CORRECT", "surfaceForm": "DECLARATIVE", "predicate": "WORK", "target": "WORLD", "polarity": "MIXED", "temporality": "FUTURE", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "CORRECTION", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Yanlış yarın zamanını reddedip toplantının doğru cuma sabahı zamanını kesin bildirir; toplantı düzenleme talebi değildir.",
+          "reviewedAt": "2026-08-31T21:15:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Toplantı yarın değil, cuma sabahı yapılacak.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0015",
         "familyId": "REPRESENTATION_STABILITY_V2|MEETING_DATE_CORRECTION|blind_test|0015", "speakerFamily": "AGENT", "split": "blind_test",
@@ -11385,6 +11403,12 @@
       },
       {
         "id": "semantic-intent:blindv20016",
+        "adjudication": {
+          "id": "semantic-intent:blindv20016", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "GREETING", "communicativeFunction": "GREET", "surfaceForm": "DECLARATIVE", "predicate": "UNSPECIFIED", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Komutana yöneltilmiş saf sabah selamıdır; görev, durum veya sağlık sorusu içermez.",
+          "reviewedAt": "2026-08-31T21:16:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Gününüz aydın olsun komutanım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0016",
         "familyId": "REPRESENTATION_STABILITY_V2|MORNING_COMMANDER_GREETING|blind_test|0016", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11392,6 +11416,12 @@
       },
       {
         "id": "semantic-intent:blindv20017",
+        "adjudication": {
+          "id": "semantic-intent:blindv20017", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "GREETING", "communicativeFunction": "GREET", "surfaceForm": "DECLARATIVE", "predicate": "UNSPECIFIED", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Başkana yöneltilmiş açık akşam selamıdır; kapanış bağlamı taşımadığı için vedalaşma değildir.",
+          "reviewedAt": "2026-08-31T21:17:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Saygılar sayın başkan, iyi akşamlar.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0017",
         "familyId": "REPRESENTATION_STABILITY_V2|EVENING_PRESIDENT_GREETING|blind_test|0017", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11399,6 +11429,12 @@
       },
       {
         "id": "semantic-intent:blindv20018",
+        "adjudication": {
+          "id": "semantic-intent:blindv20018", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "GREETING", "communicativeFunction": "GREET", "surfaceForm": "DECLARATIVE", "predicate": "RELATIONSHIP", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "CURRENT_OR_UNMARKED", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": ["SMALL_TALK"] },
+          "notes": "Selam sözcüğü birincil açılıştır; yeniden karşılaşmaya dair sosyal memnuniyet ikincil küçük sohbet olarak korunur.",
+          "reviewedAt": "2026-08-31T21:18:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Selamlar, yeniden karşılaşmak güzel.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0018",
         "familyId": "REPRESENTATION_STABILITY_V2|REUNION_GREETING|blind_test|0018", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11406,6 +11442,12 @@
       },
       {
         "id": "semantic-intent:blindv20019",
+        "adjudication": {
+          "id": "semantic-intent:blindv20019", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "MAKE_PROMISE", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "WORK", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Oyuncu raporu ertesi sabah dinleyiciye teslim etme yükümlülüğünü kesin birinci kişi geleceğiyle üstlenir.",
+          "reviewedAt": "2026-08-31T21:19:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Raporu yarın sabah masanıza bırakacağım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0019",
         "familyId": "REPRESENTATION_STABILITY_V2|REPORT_DELIVERY_PROMISE|blind_test|0019", "speakerFamily": "AGENT", "split": "blind_test",
@@ -11413,6 +11455,12 @@
       },
       {
         "id": "semantic-intent:blindv20020",
+        "adjudication": {
+          "id": "semantic-intent:blindv20020", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "MAKE_PROMISE", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "ECONOMY", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Oyuncu borcun tamamını ay sonuna kadar ödeme yükümlülüğünü kesin biçimde üstlenir; ödeme emri veya teklif değildir.",
+          "reviewedAt": "2026-08-31T21:20:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Borcu ay sonuna kadar eksiksiz ödeyeceğim.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0020",
         "familyId": "REPRESENTATION_STABILITY_V2|DEBT_PAYMENT_PROMISE|blind_test|0020", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11420,6 +11468,12 @@
       },
       {
         "id": "semantic-intent:blindv20021",
+        "adjudication": {
+          "id": "semantic-intent:blindv20021", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "MAKE_PROMISE", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "LISTENER", "polarity": "NEGATIVE", "temporality": "FUTURE", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACKNOWLEDGEMENT", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Birliği çatışma bitmeden geri çekmeme yükümlülüğünü açık söz verme kalıbıyla üstlenir; tehdit veya karşı emir değildir.",
+          "reviewedAt": "2026-08-31T21:21:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Birliğinizi çatışma bitmeden geri çekmeyeceğime söz veriyorum.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0021",
         "familyId": "REPRESENTATION_STABILITY_V2|NO_WITHDRAWAL_PROMISE|blind_test|0021", "speakerFamily": "COMMANDER", "split": "blind_test",
