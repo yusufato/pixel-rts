@@ -670,3 +670,24 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   seçildikten sonra hazırlanmış yeni, aile-sızıntısız ve önceden mühürlü kör
   epoch'tur; eski `SPENT_AFTER_2026_08_31_ONE_SHOT` kohortu yeniden kanıt
   olarak kullanılamaz.
+
+### 31 Ağustos 2026 — V2 kör epoch kaliteyi doğruladı, recall ve OOD'yi reddetti
+
+- `representation-stability-v2` kohortundaki `51/51` kayıt tek tek incelendi.
+  Kalibrasyondaki aynı olaylara sızan üç aday ve doğal olmayan iki ifade gold
+  öncesinde bağımsız ailelerle düzeltildi. Son corpus `442` benzersiz cümle,
+  `402` aile ve `342` gold taşır.
+- Sabit v1 kalibrasyonu ve seçilmiş tek BGE hipotezi, v2 blind'da yalnız bir
+  kez çalıştırıldı. Deterministik taban macro-F1 `0,314458`, BGE sonucu
+  `0,484744`, fark `+0,170286`dır. Kalite `+0,15` kapısı ve sıfır yüksek-risk
+  yanlış-pozitif kapısı geçti.
+- Anti-vacuity recall kapısı geçmedi: `REQUEST_ACTION=0/3` ve
+  `SHARE_SECRET=0/3`; gerekli taban her ikisinde `1/3`tür. Üç OOD kaydının
+  üçü de oyun içi sınıfa zorlandı (`OOD false acceptance=1,0`). Otomatik karar
+  `acceptedModelIds=[]` oldu.
+- Epoch `SPENT_AFTER_2026_08_31_V2_ONE_SHOT` olarak kilitlendi; yeniden koşu
+  model yüklenmeden reddedilir. Runtime, Electron IPC, paketleme ve `%90+`/B1
+  iddiası kapalıdır. Sıradaki hipotez harcanmış v2 satırlarını kalibrasyona
+  çevirmeden, bağımsız kalibrasyonda eylem yönü + gizlilik yönü + OOD abstain
+  kapılarını birlikte kanıtlamalıdır. Yeni blind ancak bu kapılar geçerse v3
+  olarak hazırlanabilir.

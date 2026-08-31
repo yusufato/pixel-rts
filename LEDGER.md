@@ -1632,3 +1632,10 @@
 - **What happened:** Bağımsız kesin iddia ile kanıtı saklama/erteleme bileşimi sıkı blöf sözleşmesine dönüştürüldü. Başarısız sınıf-yerel ağırlık artırılmadı; tam sözleşme eşleşmesi, diğer sınıfların kosinüs skorlarını değiştirmeyen deterministik aday önceliği olarak BGE centroid koluna eklendi.
 - **Evidence:** Sınır `99/51/0`, `blindTestAccessed=false`; sözleşme seçiciliği `3/3` blöf ve `0/48` diğer kalibrasyon satırıdır. BGE-M3 `0,697386` ortalama macro-F1, `0,598039` minimum kat, `+0,223126` taban farkı, `0/0` toplam/en-kötü-kat yüksek-risk yanlış pozitif ve blöf recall `1` verdi. Diğer yüksek-risk recall değerleri gerilemedi; `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true` oldu.
 - **Implication for future audits:** Eski tüketilmiş kör epoch'u bu hipotezin doğrulaması sayma ve BGE'yi henüz ürün/EXE/IPC hattına bağlama. Önce seçilmiş hipotezden sonra üretilmiş, aile-sızıntısız yeni kör epoch'u mühürle ve bir kez ölç. Bu kalibrasyon başarısını `%90+` veya B1 günlük Türkçe anlayışı olarak raporlama; bunun için ayrı uçtan uca dil kabul corpus'u gerekir.
+
+## 2026-08-31 — V2 blind BGE kalitesini doğruladı, eylem/sır recall'unu reddetti
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` v2 one-shot / `c5310d5`, `011cb92`
+- **What happened:** Önceden seçilmiş BGE sözleşme+blöf centroid hipotezi, sabit v1 kalibrasyonundan sonra hazırlanmış 51 kayıtlı v2 blind epoch'ta yalnız bir kez ölçüldü. Sonuç görüldükten sonra epoch tekrar kullanıma kapatıldı.
+- **Evidence:** Taban macro-F1 `0,314458`; BGE `0,484744`, fark `+0,170286`, yüksek-risk yanlış pozitif `0`. `REQUEST_ACTION` ve `SHARE_SECRET` recall `0/3`, OOD yanlış kabul `3/3`; `acceptedModelIds=[]`. Model SHA-256 `aa473d51…4047a173`; yeniden kullanım preflight'ı `UNTOUCHED_EVALUATION_ALREADY_SPENT:SPENT_AFTER_2026_08_31_V2_ONE_SHOT` üretir.
+- **Implication for future audits:** BGE'yi ürün/EXE/IPC adayı veya `%90+`/B1 anlama kanıtı sayma; v2 epoch'u threshold, temsil ya da parser ayarı için yeniden kullanma. Yeni hipotez bağımsız kalibrasyonda eylem yönü, gizlilik yönü ve OOD abstention kapılarını birlikte geçmeden yeni blind epoch açılmamalıdır.

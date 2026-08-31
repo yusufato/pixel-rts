@@ -1302,3 +1302,27 @@ parametrik ele alınır.
   seçilmiş hipotezden sonra oluşturulacak yeni mühürlü kör epoch'ta tek sefer
   ölçülmelidir. Günlük/B1 Türkçe iddiası ayrıca bağlam, eksilti, zamir, yazım
   hatası ve takip cümlesi içeren uçtan uca kabul corpus'u gerektirir.
+
+### 31 Ağustos tek-sefer ölçümü — v2 genellemede eylem, sır ve OOD kaybı
+
+- Yeni v2 blind kohortu 17 sınıf için üçer bağımsız aile ve üç OOD içerir.
+  Seçim kaynağı sabit v1 kalibrasyonundaki `51` gold, tek-sefer ölçüm kaynağı
+  yalnız v2'deki `51` gold oldu. Model dosyası BGE-M3 Q8, SHA-256
+  `aa473d51f451a22f0fcf39ba3330c14bed38a385712b1113440f69df4047a173`
+  ve `634.553.760` bayttır.
+- Deterministik blind tabanı macro-F1 `0,314458`, OOD yanlış kabul `1,0` ve
+  yüksek-risk yanlış pozitif `4`tür. Önceden seçilmiş
+  `PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_BLUFF_CANDIDATE_V1` BGE kolu
+  `0,484744` macro-F1, `+0,170286` fark ve sıfır yüksek-risk yanlış pozitif
+  verdi. Kalite ve yanlış-pozitif kapıları gerçek blind'da genellendi.
+- Recall genellenmedi: tehdit `1/3`, ticari teklif `2/3` ve blöf `3/3` iken
+  eylem talebi `0/3`, sır paylaşımı `0/3`tür. İki sınıf tabanın `1/3` recall
+  değerinin altına düştüğü için anti-vacuity kapısı modeli reddetti. Üç OOD'nin
+  tamamı `ASK_INFORMATION` oldu; OOD yanlış kabul yine `1,0`dır.
+- CPU-only yükleme `3.625,76 ms`, sıcak p50/p95 `791,67/1.154,22 ms`, gözlenen
+  RSS artışı `567.652.352` bayttır. Bu spike performansıdır; Electron/LLM
+  eşzamanlı kabulü değildir.
+- V2 epoch tüketildi ve tekrar kullanıma kapatıldı. Bu sonuç `%90+` veya B1
+  günlük Türkçe kanıtı değildir. Sonraki araştırma v2 cümlelerinde ayar
+  yapmayacak; bağımsız kalibrasyonda yön, gizlilik ve OOD abstention hipotezi
+  kurmadan yeni v3 blind açmayacaktır.

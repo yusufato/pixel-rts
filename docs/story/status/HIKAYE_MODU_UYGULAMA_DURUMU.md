@@ -1697,3 +1697,20 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Oyun çalışma zamanı, Electron IPC ve LLM karar yetkisi değişmedi. Faz 38
   `In Progress` kalır. Bu sonuç `%90+` veya B1 günlük Türkçe anlama kanıtı
   değildir; o iddia için ayrı uçtan uca günlük dil kabul corpus'u gereklidir.
+
+## 2026-08-31 — Faz 38 v2 kör değerlendirme (`measured / candidate-rejected`)
+
+- Corpus `442` benzersiz cümle, `402` aile ve `342` gold taşır. Sabit v1
+  kalibrasyonundaki `51` kayıt ile sonradan hazırlanıp mühürlenen v2 blind'daki
+  `51` kayıt birbirinden ayrı kaynak önekleriyle kullanıldı.
+- BGE-M3'ün önceden seçilmiş sözleşme+blöf centroid kolu deterministik
+  `0,314458` tabana karşı `0,484744` macro-F1 ve `+0,170286` fark verdi;
+  yüksek-risk yanlış pozitif `0`dır. Kalite ve yanlış-pozitif kapıları geçti.
+- Eylem talebi ve sır paylaşımı recall'u ayrı ayrı `0/3`e düştü; üç OOD
+  sorusunun tamamı oyun içi bilgi isteği sanıldı. Recall anti-vacuity ve OOD
+  güvenlik davranışı geçmediği için `acceptedModelIds=[]` kaldı.
+- V2 `SPENT_AFTER_2026_08_31_V2_ONE_SHOT` olarak kilitlidir. Runtime,
+  Electron IPC, paketleme ve LLM mekanik yetkisi değişmedi. Karakterlerin
+  oyuncuyu `%90+` veya B1 seviyesinde anladığı söylenemez. Faz 38
+  `In Progress`; sonraki kapı bağımsız kalibrasyonda eylem/sır yönü ve OOD
+  abstention birlikte geçmeden yeni v3 blind oluşturmamaktır.
