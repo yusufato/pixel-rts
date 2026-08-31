@@ -42,13 +42,13 @@
     "secondarySpeechActsMax": 3
   },
   "summary": {
-    "total": 391,
+    "total": 442,
     "observedPlayer": 46,
-    "modelGeneratedCandidate": 345,
+    "modelGeneratedCandidate": 396,
     "splits": {
       "prototype": 159,
       "calibration": 113,
-      "blind_test": 119
+      "blind_test": 170
     }
   },
   "candidates": [
@@ -7086,7 +7086,7 @@
           "reviewedAt": "2026-08-27T16:00:00.000+03:00",
           "reviewer": "CODEX_INDIVIDUAL_REVIEW"
         },
-        "text": "Günaydın komutanım.",
+        "text": "Gününüz aydın olsun komutanım.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "targeted-embedding-spike:0058",
         "familyId": "TARGETED_EMBEDDING_V1|GREETING|calibration|0058",
@@ -10460,7 +10460,7 @@
           "reviewedAt": "2026-08-30T16:45:00.000+03:00",
           "reviewer": "CODEX_INDIVIDUAL_REVIEW"
         },
-        "text": "İyi akşamlar sayın başkan.",
+        "text": "Saygılar sayın başkan, iyi akşamlar.",
         "sourceType": "MODEL_GENERATED_CANDIDATE",
         "sourceId": "representation-stability-v1:0078",
         "familyId": "REPRESENTATION_STABILITY_V1|FORMAL_EVENING_GREETING|calibration|0078",
@@ -11204,6 +11204,363 @@
         "text": "Bu mevsimde günler ne çabuk kısalıyor.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v1:0112",
         "familyId": "REPRESENTATION_STABILITY_V1|SHORTENING_DAYS_SMALL_TALK|blind_test|0112", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20001",
+        "text": "Bu ay limanda kaç ton tahıl boşaltıldı?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0001",
+        "familyId": "REPRESENTATION_STABILITY_V2|PORT_GRAIN_AMOUNT|blind_test|0001", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20002",
+        "text": "Kuzey garnizonunda şu anda kaç asker var?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0002",
+        "familyId": "REPRESENTATION_STABILITY_V2|GARRISON_HEADCOUNT|blind_test|0002", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20003",
+        "text": "Merkez bankası bugün hangi faiz oranını uyguluyor?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0003",
+        "familyId": "REPRESENTATION_STABILITY_V2|CURRENT_POLICY_RATE|blind_test|0003", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20004",
+        "text": "Sence yeni vali bu göreve hazır mı?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0004",
+        "familyId": "REPRESENTATION_STABILITY_V2|GOVERNOR_READINESS_OPINION|blind_test|0004", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20005",
+        "text": "Bu fabrikanın özelleştirilmesi hakkında ne düşünüyorsun?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0005",
+        "familyId": "REPRESENTATION_STABILITY_V2|PRIVATIZATION_OPINION|blind_test|0005", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20006",
+        "text": "Sana göre komutan fazla mı temkinli davranıyor?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0006",
+        "familyId": "REPRESENTATION_STABILITY_V2|COMMANDER_CAUTION_OPINION|blind_test|0006", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20007",
+        "text": "Üç komutan da emrimi destekliyor ama isimlerini açıklamam.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0007",
+        "familyId": "REPRESENTATION_STABILITY_V2|HIDDEN_COMMANDER_BACKING|blind_test|0007", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20008",
+        "text": "Rakibin bütün sevkiyat kayıtları elimde, fakat şimdi gösteremem.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0008",
+        "familyId": "REPRESENTATION_STABILITY_V2|WITHHELD_SHIPMENT_RECORDS|blind_test|0008", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20009",
+        "text": "Yönetim kurulu çoktan tarafıma geçti; kanıtı toplantıdan sonra görürsün.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0009",
+        "familyId": "REPRESENTATION_STABILITY_V2|DEFERRED_BOARD_CONTROL_PROOF|blind_test|0009", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20010",
+        "text": "Bu kararın yasal dayanağı nerede?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0010",
+        "familyId": "REPRESENTATION_STABILITY_V2|LEGAL_BASIS_CHALLENGE|blind_test|0010", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20011",
+        "text": "Hangi yetkiyle birliklerime emir veriyorsunuz?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0011",
+        "familyId": "REPRESENTATION_STABILITY_V2|COMMAND_AUTHORITY_CHALLENGE|blind_test|0011", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20012",
+        "text": "Bu rakamları doğrulayacak tek bir belge gösterebilir misiniz?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0012",
+        "familyId": "REPRESENTATION_STABILITY_V2|FIGURE_EVIDENCE_CHALLENGE|blind_test|0012", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20013",
+        "text": "Hayır, bütçe dört milyon değil altı milyon dinar.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0013",
+        "familyId": "REPRESENTATION_STABILITY_V2|BUDGET_AMOUNT_CORRECTION|blind_test|0013", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20014",
+        "text": "Sözünü ettiğiniz birlik ikinci değil üçüncü tugay.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0014",
+        "familyId": "REPRESENTATION_STABILITY_V2|BRIGADE_ID_CORRECTION|blind_test|0014", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20015",
+        "text": "Toplantı yarın değil, cuma sabahı yapılacak.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0015",
+        "familyId": "REPRESENTATION_STABILITY_V2|MEETING_DATE_CORRECTION|blind_test|0015", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20016",
+        "text": "Günaydın komutanım.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0016",
+        "familyId": "REPRESENTATION_STABILITY_V2|MORNING_COMMANDER_GREETING|blind_test|0016", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20017",
+        "text": "İyi akşamlar sayın başkan.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0017",
+        "familyId": "REPRESENTATION_STABILITY_V2|EVENING_PRESIDENT_GREETING|blind_test|0017", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20018",
+        "text": "Selamlar, yeniden karşılaşmak güzel.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0018",
+        "familyId": "REPRESENTATION_STABILITY_V2|REUNION_GREETING|blind_test|0018", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20019",
+        "text": "Raporu yarın sabah masanıza bırakacağım.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0019",
+        "familyId": "REPRESENTATION_STABILITY_V2|REPORT_DELIVERY_PROMISE|blind_test|0019", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20020",
+        "text": "Borcu ay sonuna kadar eksiksiz ödeyeceğim.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0020",
+        "familyId": "REPRESENTATION_STABILITY_V2|DEBT_PAYMENT_PROMISE|blind_test|0020", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20021",
+        "text": "Birliğinizi çatışma bitmeden geri çekmeyeceğime söz veriyorum.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0021",
+        "familyId": "REPRESENTATION_STABILITY_V2|NO_WITHDRAWAL_PROMISE|blind_test|0021", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20022",
+        "text": "İsterseniz yaralıların tahliyesini ben organize edebilirim.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0022",
+        "familyId": "REPRESENTATION_STABILITY_V2|EVACUATION_SUPPORT_OFFER|blind_test|0022", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20023",
+        "text": "Dilerseniz sözleşme metnini hukuk ekibime inceletebilirim.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0023",
+        "familyId": "REPRESENTATION_STABILITY_V2|LEGAL_REVIEW_SUPPORT_OFFER|blind_test|0023", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20024",
+        "text": "İhtiyacınız varsa köylere ilaç ulaştırabiliriz.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0024",
+        "familyId": "REPRESENTATION_STABILITY_V2|MEDICINE_DELIVERY_SUPPORT_OFFER|blind_test|0024", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20025",
+        "text": "Beş bin ton buğdayı ton başına iki yüz dinardan satmayı teklif ediyorum.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0025",
+        "familyId": "REPRESENTATION_STABILITY_V2|PRICED_WHEAT_DEAL|blind_test|0025", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20026",
+        "text": "Liman işletme hakkını on yıllığına şirketinize devredebiliriz.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0026",
+        "familyId": "REPRESENTATION_STABILITY_V2|PORT_CONCESSION_DEAL|blind_test|0026", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20027",
+        "text": "Yüz kamyon karşılığında bize üç bin varil yakıt verir misiniz?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0027",
+        "familyId": "REPRESENTATION_STABILITY_V2|TRUCK_FUEL_BARTER_DEAL|blind_test|0027", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20028",
+        "text": "Hayır, bu anlaşmayı imzalamayacağım.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0028",
+        "familyId": "REPRESENTATION_STABILITY_V2|AGREEMENT_REJECTION|blind_test|0028", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20029",
+        "text": "Birliklerimi o bölgeye göndermeyi reddediyorum.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0029",
+        "familyId": "REPRESENTATION_STABILITY_V2|DEPLOYMENT_REJECTION|blind_test|0029", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20030",
+        "text": "Önerdiğiniz vazifeyi üstlenmeyeceğim.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0030",
+        "familyId": "REPRESENTATION_STABILITY_V2|MISSION_REJECTION|blind_test|0030", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20031",
+        "text": "Enflasyon bu çeyrekte yüzde on ikiden yüzde dokuza geriledi.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0031",
+        "familyId": "REPRESENTATION_STABILITY_V2|QUARTERLY_INFLATION_REPORT|blind_test|0031", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20032",
+        "text": "Fabrikanın üretimi geçen aya göre sekiz yüz ton arttı.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0032",
+        "familyId": "REPRESENTATION_STABILITY_V2|FACTORY_OUTPUT_REPORT|blind_test|0032", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20033",
+        "text": "Hazine gelirleri bu ay giderlerin iki milyon dinar altında kaldı.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0033",
+        "familyId": "REPRESENTATION_STABILITY_V2|TREASURY_DEFICIT_REPORT|blind_test|0033", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20034",
+        "text": "Doğu sınırındaki iki tabur gece mevzilerine ulaştı.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0034",
+        "familyId": "REPRESENTATION_STABILITY_V2|BATTALION_POSITION_REPORT|blind_test|0034", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20035",
+        "text": "Keşif birliği vadide üç düşman aracı tespit etti.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0035",
+        "familyId": "REPRESENTATION_STABILITY_V2|ENEMY_VEHICLE_REPORT|blind_test|0035", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20036",
+        "text": "Kuzey cephesindeki mühimmat stoku üç günlük tüketimin altına düştü.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0036",
+        "familyId": "REPRESENTATION_STABILITY_V2|AMMUNITION_SHORTAGE_REPORT|blind_test|0036", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20037",
+        "text": "İkinci tugayı nehir köprüsüne gönderin.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0037",
+        "familyId": "REPRESENTATION_STABILITY_V2|BRIDGE_DEPLOYMENT_REQUEST|blind_test|0037", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20038",
+        "text": "Bu ödemeyi bugün hazine hesabından çıkarın.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0038",
+        "familyId": "REPRESENTATION_STABILITY_V2|TREASURY_PAYMENT_REQUEST|blind_test|0038", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20039",
+        "text": "Depodaki ilaçları güney kasabalarına sevk et.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0039",
+        "familyId": "REPRESENTATION_STABILITY_V2|MEDICINE_SHIPMENT_REQUEST|blind_test|0039", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20040",
+        "text": "Aramızda kalsın, bakan yarın istifasını açıklayacak.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0040",
+        "familyId": "REPRESENTATION_STABILITY_V2|MINISTER_RESIGNATION_SECRET|blind_test|0040", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20041",
+        "text": "Bunu kimseye söyleme; şirketin kasasında para kalmadı.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0041",
+        "familyId": "REPRESENTATION_STABILITY_V2|EMPTY_COMPANY_CASH_SECRET|blind_test|0041", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20042",
+        "text": "Sadece sen bil: batı kapısının nöbet çizelgesi değiştirildi.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0042",
+        "familyId": "REPRESENTATION_STABILITY_V2|GATE_ROSTER_SECRET|blind_test|0042", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20043",
+        "text": "Bugün hava dünden daha serin.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0043",
+        "familyId": "REPRESENTATION_STABILITY_V2|COOLER_WEATHER_SMALL_TALK|blind_test|0043", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20044",
+        "text": "Bu odanın çayı gerçekten güzelmiş.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0044",
+        "familyId": "REPRESENTATION_STABILITY_V2|TEA_COMPLIMENT_SMALL_TALK|blind_test|0044", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20045",
+        "text": "Yolculuk boyunca manzara hiç fena değildi.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0045",
+        "familyId": "REPRESENTATION_STABILITY_V2|TRAVEL_SCENERY_SMALL_TALK|blind_test|0045", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20046",
+        "text": "Sınırdan çekilmezseniz ikmal depolarınızı vuracağız.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0046",
+        "familyId": "REPRESENTATION_STABILITY_V2|SUPPLY_DEPOT_THREAT|blind_test|0046", "speakerFamily": "COMMANDER", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20047",
+        "text": "Sözleşmeyi bozarsanız bütün kredi hatlarınızı kapatırım.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0047",
+        "familyId": "REPRESENTATION_STABILITY_V2|CREDIT_LINE_THREAT|blind_test|0047", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20048",
+        "text": "Adamlarımı tutuklarsanız bu hükümeti ayakta bırakmam.",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0048",
+        "familyId": "REPRESENTATION_STABILITY_V2|GOVERNMENT_RETALIATION_THREAT|blind_test|0048", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20049",
+        "text": "Bu makarnanın sosuna ne kadar kekik koymalıyım?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0049",
+        "familyId": "REPRESENTATION_STABILITY_V2|OOD_PASTA_SEASONING|blind_test|0049", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20050",
+        "text": "Telefonumun ekran görüntüsünü nasıl değiştirebilirim?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0050",
+        "familyId": "REPRESENTATION_STABILITY_V2|OOD_PHONE_WALLPAPER|blind_test|0050", "speakerFamily": "AGENT", "split": "blind_test",
+        "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
+      },
+      {
+        "id": "semantic-intent:blindv20051",
+        "text": "Köpeğim yabancılara neden durmadan havlıyor?",
+        "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0051",
+        "familyId": "REPRESENTATION_STABILITY_V2|OOD_CAT_MEOWING|blind_test|0051", "speakerFamily": "AGENT", "split": "blind_test",
         "history": [], "proposalSpeechAct": null, "labelStatus": "CANDIDATE_UNREVIEWED"
       }
   ]
