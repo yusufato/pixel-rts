@@ -64,6 +64,7 @@ const HIGH_RISK_FRAME_CONTRACTS = Object.freeze({
     SHARE_SECRET: Object.freeze({ communicativeFunction: 'CONFIDE',
         requestedOutcome: 'CONFIDENTIAL_HANDLING' }),
     BLUFF_CANDIDATE: Object.freeze({ communicativeFunction: 'TELL',
+        polarity: 'MIXED', epistemicStatus: 'CLAIMED_CERTAIN',
         requestedOutcome: 'NONE' })
 });
 const MIN_REPRESENTATION_CLASS_SUPPORT = 3;
@@ -85,6 +86,11 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
         anchorCountIndependent: true }),
     Object.freeze({ id: 'contract-frame-centroid-guard', aggregation: 'centroid',
         topCount: 1, frameCompatibilityWeight: 0.08, highRiskFrameContract: true,
+        anchorCountIndependent: true }),
+    Object.freeze({ id: 'contract-bluff-candidate-centroid-guard', aggregation: 'centroid',
+        topCount: 1, frameCompatibilityWeight: 0,
+        deterministicContractCandidates: Object.freeze(['BLUFF_CANDIDATE']),
+        highRiskFrameContract: true,
         anchorCountIndependent: true })
 ]);
 const FRAME_COMPATIBILITY_AXES = Object.freeze([
@@ -427,6 +433,9 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
     const topCount = Math.max(1, Number(options.topCount) || 1);
     const frameWeight = Math.max(0, Math.min(1,
         Number(options.frameCompatibilityWeight) || 0));
+    const deterministicContractCandidates = new Set(
+        Array.isArray(options.deterministicContractCandidates)
+            ? options.deterministicContractCandidates : []);
     const grouped = new Map();
     const selectedAnchors = aggregation === 'centroid'
         ? buildPrototypeClassCentroids(anchors)
@@ -447,7 +456,10 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
                     && compatibility < options.highRiskMinimumFrameCompatibility)
                 || (options.highRiskFrameContract
                     && !matchesHighRiskFrameContract(row.label, options.queryFrame)));
-            return { row, semanticScore, compatibility,
+            const deterministicContractCandidate = !blockedByFrameGuard
+                && deterministicContractCandidates.has(row.label)
+                && matchesHighRiskFrameContract(row.label, options.queryFrame);
+            return { row, semanticScore, compatibility, deterministicContractCandidate,
                 score: blockedByFrameGuard ? -Infinity
                     : semanticScore * (1 - frameWeight) + compatibility * frameWeight };
         })
@@ -458,9 +470,11 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
             ? selected.reduce((sum, item) => sum + item.score, 0) / selected.length
             : scored[0].score;
         return { label, score, anchorId: scored[0].row.id,
+            deterministicContractCandidate: scored[0].deterministicContractCandidate,
             anchorIds: aggregation === 'centroid'
                 ? scored[0].row.sourceAnchorIds : selected.map(item => item.row.id) };
-    }).sort((left, right) => right.score - left.score
+    }).sort((left, right) => Number(right.deterministicContractCandidate)
+        - Number(left.deterministicContractCandidate) || right.score - left.score
         || left.label.localeCompare(right.label));
 }
 
@@ -478,7 +492,9 @@ function rawEmbeddingRows(rows, vectors, anchors, perClassLimit, representation,
             actual: row.adjudication.labels.speechAct,
             outOfDomain: row.adjudication.labels.outOfDomain,
             rawPrediction: first.label, score: first.score,
-            margin: first.score - second.score, anchorId: first.anchorId };
+            margin: first.deterministicContractCandidate
+                ? 1 : first.score - second.score,
+            anchorId: first.anchorId };
     });
 }
 
@@ -694,6 +710,8 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
                     ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_V1'
                     : representation.id === 'contract-frame-centroid-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_FRAME_V1'
+                    : representation.id === 'contract-bluff-candidate-centroid-guard'
+                    ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_BLUFF_CANDIDATE_V1'
                     : representation.id === 'frame-centroid-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_FRAME_GUARD_V1'
                     : representation.anchorCountIndependent

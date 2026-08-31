@@ -194,7 +194,11 @@ assert.equal(matchesHighRiskFrameContract('SHARE_SECRET', {
 assert.equal(matchesHighRiskFrameContract('SHARE_SECRET', {
     communicativeFunction: 'TELL', requestedOutcome: 'NONE' }), false);
 assert.equal(matchesHighRiskFrameContract('BLUFF_CANDIDATE', {
-    communicativeFunction: 'TELL', requestedOutcome: 'NONE' }), true);
+    communicativeFunction: 'TELL', polarity: 'MIXED',
+    epistemicStatus: 'CLAIMED_CERTAIN', requestedOutcome: 'NONE' }), true);
+assert.equal(matchesHighRiskFrameContract('BLUFF_CANDIDATE', {
+    communicativeFunction: 'TELL', polarity: 'POSITIVE_OR_UNMARKED',
+    epistemicStatus: 'UNMARKED', requestedOutcome: 'NONE' }), false);
 assert.equal(matchesHighRiskFrameContract('GREETING', null), true,
     'safe classes must not be blocked by high-risk contracts');
 const contractGuardedCentroid = rankEmbeddingCandidates([1, 0], [
@@ -222,6 +226,23 @@ assert.equal(contractFrameWeightedCentroid[0].label, 'BLUFF_CANDIDATE',
     'bounded frame evidence should break a close semantic tie toward the compatible bluff');
 assert.equal(contractFrameWeightedCentroid.find(row => row.label === 'REQUEST_ACTION').score,
     -Infinity, 'frame weighting must not bypass the intent-contract veto');
+const bluffContractCandidateCentroid = rankEmbeddingCandidates([1, 0], [
+    { id: 'bluff-candidate', label: 'BLUFF_CANDIDATE', vector: [0.8, 0.2],
+        labels: bluffFrame },
+    { id: 'greeting-closer', label: 'GREETING', vector: [0.82, 0.18],
+        labels: greetingFrame },
+    { id: 'action-still-incompatible', label: 'REQUEST_ACTION', vector: [1, 0],
+        labels: actionFrame }
+], null, { aggregation: 'centroid', queryFrame: bluffFrame,
+    deterministicContractCandidates: ['BLUFF_CANDIDATE'],
+    highRiskFrameContract: true });
+assert.equal(bluffContractCandidateCentroid[0].label, 'BLUFF_CANDIDATE');
+assert.equal(bluffContractCandidateCentroid[0].deterministicContractCandidate, true);
+assert.ok(Math.abs(bluffContractCandidateCentroid.find(row => row.label === 'GREETING').score
+    - cosineSimilarity([1, 0], l2Normalize([0.82, 0.18]))) < 1e-12,
+    'bluff candidate priority must leave every safe-class score unchanged');
+assert.equal(bluffContractCandidateCentroid.find(row => row.label === 'REQUEST_ACTION').score,
+    -Infinity, 'bluff candidate priority must not bypass another intent-contract veto');
 
 const balanced = rankEmbeddingCandidates([1, 0], [
     { id: 'g1', label: 'GREETING', vector: [1, 0] },
