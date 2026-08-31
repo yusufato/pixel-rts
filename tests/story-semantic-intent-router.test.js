@@ -7,7 +7,7 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
     embeddingCalibrationStudySplits, evaluateHighRiskRecall,
-    buildCalibrationStudyRecommendation } =
+    buildBlindEvaluationAcceptance, buildCalibrationStudyRecommendation } =
     require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
 
@@ -330,13 +330,28 @@ assert.equal(compareSelectionEvidence({ representationId: 'a', perClassLimit: 1,
     selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
         totalHighRiskFalsePositiveCount: 0, meanSpeechActMacroF1: 0.4,
         minimumHighRiskRecall: 1, meanHighRiskRecall: 1,
+        worstFoldOodFalseAcceptanceRate: 0, meanOodFalseAcceptanceRate: 0,
         speechActMacroF1StdDev: 0.1 } },
 { representationId: 'b', perClassLimit: 1,
     selectionValidation: { worstFoldHighRiskFalsePositiveCount: 1,
         totalHighRiskFalsePositiveCount: 1, meanSpeechActMacroF1: 0.9,
         minimumHighRiskRecall: 1, meanHighRiskRecall: 1,
+        worstFoldOodFalseAcceptanceRate: 0, meanOodFalseAcceptanceRate: 0,
         speechActMacroF1StdDev: 0 } }) < 0, true,
 'outer-fold high-risk safety must outrank mean macro-F1');
+assert.equal(compareSelectionEvidence({ representationId: 'ood-safe', perClassLimit: 1,
+    selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
+        totalHighRiskFalsePositiveCount: 0, meanSpeechActMacroF1: 0.4,
+        minimumHighRiskRecall: 1, meanHighRiskRecall: 1,
+        worstFoldOodFalseAcceptanceRate: 0, meanOodFalseAcceptanceRate: 0,
+        speechActMacroF1StdDev: 0.1 } },
+{ representationId: 'ood-unsafe', perClassLimit: 1,
+    selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
+        totalHighRiskFalsePositiveCount: 0, meanSpeechActMacroF1: 0.9,
+        minimumHighRiskRecall: 1, meanHighRiskRecall: 1,
+        worstFoldOodFalseAcceptanceRate: 1, meanOodFalseAcceptanceRate: 1 / 3,
+        speechActMacroF1StdDev: 0 } }) < 0, true,
+'outer-fold OOD safety must outrank mean macro-F1');
 
 const riskRecallPass = evaluateHighRiskRecall({ perClassRecall: {
     THREATEN: 1 / 3, REQUEST_ACTION: 1 / 3, PROPOSE_COMMERCIAL_DEAL: 1 / 3,
@@ -350,12 +365,38 @@ const riskRecallFail = evaluateHighRiskRecall({ perClassRecall: {
 assert.equal(riskRecallFail.pass, false);
 assert.deepEqual(riskRecallFail.failures, ['THREATEN']);
 
+const blindAcceptance = buildBlindEvaluationAcceptance([{
+    id: 'blind-ood-unsafe', profiles: [{ id: 'blind-profile',
+        selectedByCalibration: null, selectedRepresentation: 'centroid',
+        anchorCurve: [{ representationId: 'centroid', perClassLimit: null,
+            anchorSelectionPolicy: 'TEST_CENTROID',
+            selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
+                totalHighRiskFalsePositiveCount: 0,
+                worstFoldOodFalseAcceptanceRate: 0,
+                meanOodFalseAcceptanceRate: 0,
+                minimumHighRiskRecall: 1, meanHighRiskRecall: 1,
+                meanSpeechActMacroF1: 0.7, speechActMacroF1StdDev: 0 },
+            blindTest: { speechActMacroF1: 0.6,
+                highRiskFalsePositiveCount: 0, oodFalseAcceptanceRate: 1,
+                perClassRecall: { THREATEN: 1, REQUEST_ACTION: 1,
+                    PROPOSE_COMMERCIAL_DEAL: 1, SHARE_SECRET: 1,
+                    BLUFF_CANDIDATE: 1 } } }] }]
+}], { speechActMacroF1: 0.3, perClassRecall: {} });
+assert.equal(blindAcceptance[0].qualityPass, true);
+assert.equal(blindAcceptance[0].highRiskPass, true);
+assert.equal(blindAcceptance[0].highRiskRecall.pass, true);
+assert.equal(blindAcceptance[0].oodPass, false);
+assert.equal(blindAcceptance[0].pass, false);
+assert.deepEqual(blindAcceptance[0].reasons, ['BLIND_OOD_FALSE_ACCEPTANCE']);
+
 const recommendation = buildCalibrationStudyRecommendation([{
     id: 'safe-but-weak', profiles: [{ id: 'safe-profile',
         selectedByCalibration: 1, selectedRepresentation: 'single-max',
         anchorCurve: [{ representationId: 'single-max', perClassLimit: 1,
             selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
                 totalHighRiskFalsePositiveCount: 0,
+                worstFoldOodFalseAcceptanceRate: 0,
+                meanOodFalseAcceptanceRate: 0,
                 meanPerClassRecall: { THREATEN: 1, REQUEST_ACTION: 1,
                     PROPOSE_COMMERCIAL_DEAL: 1, SHARE_SECRET: 1,
                     BLUFF_CANDIDATE: 1 },
@@ -366,6 +407,20 @@ const recommendation = buildCalibrationStudyRecommendation([{
         anchorCurve: [{ representationId: 'single-max', perClassLimit: 1,
             selectionValidation: { worstFoldHighRiskFalsePositiveCount: 1,
                 totalHighRiskFalsePositiveCount: 1,
+                worstFoldOodFalseAcceptanceRate: 0,
+                meanOodFalseAcceptanceRate: 0,
+                meanPerClassRecall: { THREATEN: 1, REQUEST_ACTION: 1,
+                    PROPOSE_COMMERCIAL_DEAL: 1, SHARE_SECRET: 1,
+                    BLUFF_CANDIDATE: 1 },
+                meanSpeechActMacroF1: 0.7, speechActMacroF1StdDev: 0.1 } }] }]
+}, {
+    id: 'strong-but-ood-unsafe', profiles: [{ id: 'ood-unsafe-profile',
+        selectedByCalibration: 1, selectedRepresentation: 'single-max',
+        anchorCurve: [{ representationId: 'single-max', perClassLimit: 1,
+            selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
+                totalHighRiskFalsePositiveCount: 0,
+                worstFoldOodFalseAcceptanceRate: 1,
+                meanOodFalseAcceptanceRate: 1 / 3,
                 meanPerClassRecall: { THREATEN: 1, REQUEST_ACTION: 1,
                     PROPOSE_COMMERCIAL_DEAL: 1, SHARE_SECRET: 1,
                     BLUFF_CANDIDATE: 1 },
@@ -375,7 +430,8 @@ assert.deepEqual(recommendation.eligibleModelIds, []);
 assert.equal(recommendation.createNewBlindEpoch, false);
 assert.deepEqual(recommendation.selection.map(row => row.reasons), [
     ['OUTER_CALIBRATION_MACRO_F1_DELTA_BELOW_0_15'],
-    ['OUTER_CALIBRATION_HIGH_RISK_FALSE_POSITIVE']
+    ['OUTER_CALIBRATION_HIGH_RISK_FALSE_POSITIVE'],
+    ['OUTER_CALIBRATION_OOD_FALSE_ACCEPTANCE']
 ]);
 
 process.stdout.write(JSON.stringify({

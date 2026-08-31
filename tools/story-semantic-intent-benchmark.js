@@ -677,10 +677,16 @@ function crossValidateEmbeddingCalibration(rows, foldCount) {
 function compareSelectionEvidence(left, right) {
     const leftEvidence = left.selectionValidation;
     const rightEvidence = right.selectionValidation;
+    const safetyRate = value => typeof value === 'number' && Number.isFinite(value)
+        ? value : Infinity;
     return leftEvidence.worstFoldHighRiskFalsePositiveCount
             - rightEvidence.worstFoldHighRiskFalsePositiveCount
         || leftEvidence.totalHighRiskFalsePositiveCount
             - rightEvidence.totalHighRiskFalsePositiveCount
+        || safetyRate(leftEvidence.worstFoldOodFalseAcceptanceRate)
+            - safetyRate(rightEvidence.worstFoldOodFalseAcceptanceRate)
+        || safetyRate(leftEvidence.meanOodFalseAcceptanceRate)
+            - safetyRate(rightEvidence.meanOodFalseAcceptanceRate)
         || rightEvidence.minimumHighRiskRecall - leftEvidence.minimumHighRiskRecall
         || rightEvidence.meanHighRiskRecall - leftEvidence.meanHighRiskRecall
         || rightEvidence.meanSpeechActMacroF1 - leftEvidence.meanSpeechActMacroF1
@@ -891,6 +897,36 @@ function evaluateHighRiskRecall(metrics, baseline) {
     return { pass: failures.length === 0, observed, required, failures };
 }
 
+function buildBlindEvaluationAcceptance(models, deterministicBlindBaseline) {
+    return (models || []).map(model => {
+        const profileCandidates = model.profiles.map(profile => ({ profile,
+            point: profile.anchorCurve.find(point =>
+                point.perClassLimit === profile.selectedByCalibration
+                    && point.representationId === profile.selectedRepresentation) }))
+            .sort((left, right) => compareSelectionEvidence(left.point, right.point)
+                || left.profile.id.localeCompare(right.profile.id));
+        const selected = profileCandidates[0];
+        const macroF1Delta = selected.point.blindTest.speechActMacroF1
+            - deterministicBlindBaseline.speechActMacroF1;
+        const qualityPass = macroF1Delta >= 0.15;
+        const highRiskPass = selected.point.blindTest.highRiskFalsePositiveCount === 0;
+        const oodPass = selected.point.blindTest.oodFalseAcceptanceRate === 0;
+        const highRiskRecall = evaluateHighRiskRecall(selected.point.blindTest,
+            deterministicBlindBaseline);
+        return { modelId: model.id, profileId: selected.profile.id,
+            representationId: selected.point.representationId,
+            perClassLimit: selected.point.perClassLimit, macroF1Delta,
+            anchorSelectionPolicy: selected.point.anchorSelectionPolicy,
+            qualityPass, highRiskPass, oodPass, highRiskRecall,
+            pass: qualityPass && highRiskPass && oodPass && highRiskRecall.pass,
+            reasons: [!qualityPass && 'BLIND_MACRO_F1_DELTA_BELOW_0_15',
+                !highRiskPass && 'BLIND_HIGH_RISK_FALSE_POSITIVE',
+                !oodPass && 'BLIND_OOD_FALSE_ACCEPTANCE',
+                !highRiskRecall.pass && 'BLIND_HIGH_RISK_RECALL_REGRESSION_OR_ZERO']
+                .filter(Boolean) };
+    });
+}
+
 async function runEmbeddingSpike(options) {
     const corpus = options.corpus || readJson(DEFAULT_CORPUS_PATH, null);
     const preflight = buildEmbeddingSpikePreflight({ corpus });
@@ -905,31 +941,8 @@ async function runEmbeddingSpike(options) {
     for (const spec of options.models || []) {
         models.push(await runEmbeddingModel(spec, rowsBySplit));
     }
-    const acceptance = models.map(model => {
-        const profileCandidates = model.profiles.map(profile => ({ profile,
-            point: profile.anchorCurve.find(point =>
-                point.perClassLimit === profile.selectedByCalibration
-                    && point.representationId === profile.selectedRepresentation) }))
-            .sort((left, right) => compareSelectionEvidence(left.point, right.point)
-                || left.profile.id.localeCompare(right.profile.id));
-        const selected = profileCandidates[0];
-        const macroF1Delta = selected.point.blindTest.speechActMacroF1
-            - deterministicBlindBaseline.speechActMacroF1;
-        const qualityPass = macroF1Delta >= 0.15;
-        const highRiskPass = selected.point.blindTest.highRiskFalsePositiveCount === 0;
-        const highRiskRecall = evaluateHighRiskRecall(selected.point.blindTest,
-            deterministicBlindBaseline);
-        return { modelId: model.id, profileId: selected.profile.id,
-            representationId: selected.point.representationId,
-            perClassLimit: selected.point.perClassLimit, macroF1Delta,
-            anchorSelectionPolicy: selected.point.anchorSelectionPolicy,
-            qualityPass, highRiskPass, highRiskRecall,
-            pass: qualityPass && highRiskPass && highRiskRecall.pass,
-            reasons: [!qualityPass && 'BLIND_MACRO_F1_DELTA_BELOW_0_15',
-                !highRiskPass && 'BLIND_HIGH_RISK_FALSE_POSITIVE',
-                !highRiskRecall.pass && 'BLIND_HIGH_RISK_RECALL_REGRESSION_OR_ZERO']
-                .filter(Boolean) };
-    });
+    const acceptance = buildBlindEvaluationAcceptance(models,
+        deterministicBlindBaseline);
     return { schemaVersion: 2, kind: 'STORY_SEMANTIC_EMBEDDING_SPIKE_V2',
         generatedAt: new Date().toISOString(), preflight,
         deterministicBlindBaseline, models,
@@ -954,6 +967,9 @@ function buildCalibrationStudyRecommendation(models,
             .worstFoldHighRiskFalsePositiveCount === 0
             && selected.point.selectionValidation
                 .totalHighRiskFalsePositiveCount === 0;
+        const oodPass = selected.point.selectionValidation
+            .worstFoldOodFalseAcceptanceRate === 0
+            && selected.point.selectionValidation.meanOodFalseAcceptanceRate === 0;
         const highRiskRecall = evaluateHighRiskRecall({
             perClassRecall: selected.point.selectionValidation.meanPerClassRecall
         }, deterministicCalibrationBaseline);
@@ -962,11 +978,12 @@ function buildCalibrationStudyRecommendation(models,
             perClassLimit: selected.point.perClassLimit,
             anchorSelectionPolicy: selected.point.anchorSelectionPolicy,
             selectionValidation: selected.point.selectionValidation,
-            macroF1Delta, qualityPass, highRiskPass, highRiskRecall,
+            macroF1Delta, qualityPass, highRiskPass, oodPass, highRiskRecall,
             eligibleForNewBlindEpoch: qualityPass && highRiskPass
-                && highRiskRecall.pass,
+                && oodPass && highRiskRecall.pass,
             reasons: [!qualityPass && 'OUTER_CALIBRATION_MACRO_F1_DELTA_BELOW_0_15',
                 !highRiskPass && 'OUTER_CALIBRATION_HIGH_RISK_FALSE_POSITIVE',
+                !oodPass && 'OUTER_CALIBRATION_OOD_FALSE_ACCEPTANCE',
                 !highRiskRecall.pass
                     && 'OUTER_CALIBRATION_HIGH_RISK_RECALL_REGRESSION_OR_ZERO']
                 .filter(Boolean) };
@@ -1327,6 +1344,7 @@ module.exports = {
     crossValidateEmbeddingCalibration, compareSelectionEvidence,
     summarizeEmbeddingRows, evaluateEmbeddingVectors,
     embeddingEvaluationSplits, embeddingCalibrationStudySplits,
-    evaluateHighRiskRecall, buildCalibrationStudyRecommendation, runEmbeddingSpike,
+    evaluateHighRiskRecall, buildBlindEvaluationAcceptance,
+    buildCalibrationStudyRecommendation, runEmbeddingSpike,
     runEmbeddingCalibrationStudy
 };
