@@ -11589,6 +11589,12 @@
       },
       {
         "id": "semantic-intent:blindv20031",
+        "adjudication": {
+          "id": "semantic-intent:blindv20031", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_ECONOMIC", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "ECONOMY", "target": "WORLD", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Çeyrek içindeki sayısal enflasyon değişimini bildirir; politika uygulanmasını veya fiyatlara müdahaleyi istemez.",
+          "reviewedAt": "2026-08-31T21:31:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Enflasyon bu çeyrekte yüzde on ikiden yüzde dokuza geriledi.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0031",
         "familyId": "REPRESENTATION_STABILITY_V2|QUARTERLY_INFLATION_REPORT|blind_test|0031", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11596,6 +11602,12 @@
       },
       {
         "id": "semantic-intent:blindv20032",
+        "adjudication": {
+          "id": "semantic-intent:blindv20032", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_ECONOMIC", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "ECONOMY", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Fabrikanın ölçülmüş üretim artışını bildirir; üretimi artırma veya sevkiyat yapma emri değildir.",
+          "reviewedAt": "2026-08-31T21:32:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Fabrikanın üretimi geçen aya göre sekiz yüz ton arttı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0032",
         "familyId": "REPRESENTATION_STABILITY_V2|FACTORY_OUTPUT_REPORT|blind_test|0032", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
@@ -11603,6 +11615,12 @@
       },
       {
         "id": "semantic-intent:blindv20033",
+        "adjudication": {
+          "id": "semantic-intent:blindv20033", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_ECONOMIC", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "ECONOMY", "target": "ORGANIZATION", "polarity": "NEGATIVE", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Hazine gelir-gider açığını sayısal olarak bildirir; bütçe aktarımı veya ödeme yapılmasını istemez.",
+          "reviewedAt": "2026-08-31T21:33:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Hazine gelirleri bu ay giderlerin iki milyon dinar altında kaldı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0033",
         "familyId": "REPRESENTATION_STABILITY_V2|TREASURY_DEFICIT_REPORT|blind_test|0033", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11610,6 +11628,12 @@
       },
       {
         "id": "semantic-intent:blindv20034",
+        "adjudication": {
+          "id": "semantic-intent:blindv20034", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_MILITARY", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "ORGANIZATION", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "İki taburun mevzilere ulaşmış olduğunu bildirir; birlikleri mevziye gönderme emri içermez.",
+          "reviewedAt": "2026-08-31T21:34:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Doğu sınırındaki iki tabur gece mevzilerine ulaştı.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0034",
         "familyId": "REPRESENTATION_STABILITY_V2|BATTALION_POSITION_REPORT|blind_test|0034", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11617,6 +11641,12 @@
       },
       {
         "id": "semantic-intent:blindv20035",
+        "adjudication": {
+          "id": "semantic-intent:blindv20035", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_MILITARY", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "THIRD_PARTY", "polarity": "NEGATIVE", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Düşmana ait üç aracın tespit edildiğini bildirir; bu araçlara saldırma veya keşif yapma talebi değildir.",
+          "reviewedAt": "2026-08-31T21:35:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Keşif birliği vadide üç düşman aracı tespit etti.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0035",
         "familyId": "REPRESENTATION_STABILITY_V2|ENEMY_VEHICLE_REPORT|blind_test|0035", "speakerFamily": "AGENT", "split": "blind_test",
@@ -11624,6 +11654,12 @@
       },
       {
         "id": "semantic-intent:blindv20036",
+        "adjudication": {
+          "id": "semantic-intent:blindv20036", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REPORT_MILITARY", "communicativeFunction": "TELL", "surfaceForm": "DECLARATIVE", "predicate": "MILITARY", "target": "ORGANIZATION", "polarity": "NEGATIVE", "temporality": "PAST", "epistemicStatus": "CLAIMED_CERTAIN", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "NONE", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Cephedeki mühimmat yetersizliğini mevcut sonuç olarak bildirir; ikmal gönderilmesini doğrudan istemez.",
+          "reviewedAt": "2026-08-31T21:36:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Kuzey cephesindeki mühimmat stoku üç günlük tüketimin altına düştü.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0036",
         "familyId": "REPRESENTATION_STABILITY_V2|AMMUNITION_SHORTAGE_REPORT|blind_test|0036", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11631,6 +11667,12 @@
       },
       {
         "id": "semantic-intent:blindv20037",
+        "adjudication": {
+          "id": "semantic-intent:blindv20037", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REQUEST_ACTION", "communicativeFunction": "REQUEST", "surfaceForm": "IMPERATIVE", "predicate": "MILITARY", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Dinleyiciden ikinci tugayı belirli köprüye göndermesini isteyen açık askerî sevk emridir.",
+          "reviewedAt": "2026-08-31T21:37:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "İkinci tugayı nehir köprüsüne gönderin.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0037",
         "familyId": "REPRESENTATION_STABILITY_V2|BRIDGE_DEPLOYMENT_REQUEST|blind_test|0037", "speakerFamily": "COMMANDER", "split": "blind_test",
@@ -11638,6 +11680,12 @@
       },
       {
         "id": "semantic-intent:blindv20038",
+        "adjudication": {
+          "id": "semantic-intent:blindv20038", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REQUEST_ACTION", "communicativeFunction": "REQUEST", "surfaceForm": "IMPERATIVE", "predicate": "ECONOMY", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Dinleyiciden belirli ödemeyi hazine hesabından bugün çıkarmasını isteyen doğrudan mali işlemdir.",
+          "reviewedAt": "2026-08-31T21:38:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Bu ödemeyi bugün hazine hesabından çıkarın.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0038",
         "familyId": "REPRESENTATION_STABILITY_V2|TREASURY_PAYMENT_REQUEST|blind_test|0038", "speakerFamily": "POLITICAL_FIGURE", "split": "blind_test",
@@ -11645,6 +11693,12 @@
       },
       {
         "id": "semantic-intent:blindv20039",
+        "adjudication": {
+          "id": "semantic-intent:blindv20039", "verdict": "ACCEPT", "annotationContractVersion": 1,
+          "labels": { "speechAct": "REQUEST_ACTION", "communicativeFunction": "REQUEST", "surfaceForm": "IMPERATIVE", "predicate": "ECONOMY", "target": "LISTENER", "polarity": "POSITIVE_OR_UNMARKED", "temporality": "FUTURE", "epistemicStatus": "UNMARKED", "continuity": "NEW_OR_UNMARKED", "requestedOutcome": "ACTION", "outOfDomain": false, "secondarySpeechActs": [] },
+          "notes": "Depodaki ilaçların güney kasabalarına sevk edilmesini isteyen açık lojistik eylem emridir.",
+          "reviewedAt": "2026-08-31T21:39:00.000+03:00", "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+        },
         "text": "Depodaki ilaçları güney kasabalarına sevk et.",
         "sourceType": "MODEL_GENERATED_CANDIDATE", "sourceId": "representation-stability-v2:0039",
         "familyId": "REPRESENTATION_STABILITY_V2|MEDICINE_SHIPMENT_REQUEST|blind_test|0039", "speakerFamily": "COMPANY_EXECUTIVE", "split": "blind_test",
