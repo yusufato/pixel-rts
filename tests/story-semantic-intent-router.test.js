@@ -79,6 +79,22 @@ assert.deepEqual(Object.fromEntries(Object.entries(calibrationStudySplits)
 });
 assert.throws(() => embeddingEvaluationSplits(corpus, ''),
     /EMBEDDING_EVALUATION_SOURCE_PREFIX_REQUIRED/);
+const splitSourceEvaluation = embeddingEvaluationSplits(corpus, {
+    calibrationSourceIdPrefix: 'representation-stability-v1:',
+    blindSourceIdPrefix: 'sha256:'
+});
+assert.equal(splitSourceEvaluation.calibration.length, 51);
+assert.ok(splitSourceEvaluation.blind_test.length > 0);
+assert.ok(splitSourceEvaluation.calibration.every(row =>
+    row.sourceId.startsWith('representation-stability-v1:')));
+assert.ok(splitSourceEvaluation.blind_test.every(row =>
+    row.sourceId.startsWith('sha256:')));
+const splitSourceCalibration = embeddingCalibrationStudySplits(corpus, {
+    calibrationSourceIdPrefix: 'representation-stability-v1:',
+    blindSourceIdPrefix: 'future-sealed-blind-v2:'
+});
+assert.equal(splitSourceCalibration.calibration.length, 51);
+assert.equal(splitSourceCalibration.blind_test.length, 0);
 assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {

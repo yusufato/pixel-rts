@@ -815,17 +815,31 @@ function embeddingGoldSplits(corpus) {
         [split, gold.filter(row => row.split === split)]));
 }
 
-function embeddingEvaluationSplits(corpus, sourceIdPrefix) {
-    if (typeof sourceIdPrefix !== 'string' || !sourceIdPrefix) {
+function embeddingEvaluationPrefixes(source) {
+    const legacyPrefix = typeof source === 'string' ? source
+        : source && typeof source.sourceIdPrefix === 'string'
+            ? source.sourceIdPrefix : '';
+    const calibration = source && typeof source === 'object'
+        && typeof source.calibrationSourceIdPrefix === 'string'
+        ? source.calibrationSourceIdPrefix : legacyPrefix;
+    const blindTest = source && typeof source === 'object'
+        && typeof source.blindSourceIdPrefix === 'string'
+        ? source.blindSourceIdPrefix : legacyPrefix;
+    if (!calibration || !blindTest) {
         throw new Error('EMBEDDING_EVALUATION_SOURCE_PREFIX_REQUIRED');
     }
+    return { calibration, blindTest };
+}
+
+function embeddingEvaluationSplits(corpus, source) {
+    const prefixes = embeddingEvaluationPrefixes(source);
     const allGold = embeddingGoldSplits(corpus);
-    const inEvaluationEpoch = row => String(row.sourceId || '')
-        .startsWith(sourceIdPrefix);
     return {
         prototype: allGold.prototype,
-        calibration: allGold.calibration.filter(inEvaluationEpoch),
-        blind_test: allGold.blind_test.filter(inEvaluationEpoch)
+        calibration: allGold.calibration.filter(row => String(row.sourceId || '')
+            .startsWith(prefixes.calibration)),
+        blind_test: allGold.blind_test.filter(row => String(row.sourceId || '')
+            .startsWith(prefixes.blindTest))
     };
 }
 
@@ -884,7 +898,7 @@ async function runEmbeddingSpike(options) {
         throw new Error('EMBEDDING_UNTOUCHED_EVALUATION_PREFLIGHT');
     }
     const rowsBySplit = embeddingEvaluationSplits(corpus,
-        preflight.untouchedEvaluation.sourceIdPrefix);
+        preflight.untouchedEvaluation);
     const deterministicBlindBaseline = buildDeterministicBlindBaseline(
         rowsBySplit.blind_test);
     const models = [];
@@ -978,8 +992,7 @@ async function runEmbeddingCalibrationStudy(options) {
     if (!calibrationReady) {
         throw new Error('EMBEDDING_CALIBRATION_STUDY_PREFLIGHT');
     }
-    const rowsBySplit = embeddingCalibrationStudySplits(corpus,
-        evaluation.sourceIdPrefix);
+    const rowsBySplit = embeddingCalibrationStudySplits(corpus, evaluation);
     const deterministicCalibrationBaseline = buildDeterministicBlindBaseline(
         rowsBySplit.calibration);
     const models = [];
@@ -1152,19 +1165,33 @@ function buildEmbeddingSpikePreflight(options) {
         }
     }
     const evaluationPolicy = corpus && corpus.representationEvaluationPolicy;
-    const evaluationPrefix = evaluationPolicy
+    const legacyEvaluationPrefix = evaluationPolicy
         && typeof evaluationPolicy.sourceIdPrefix === 'string'
         ? evaluationPolicy.sourceIdPrefix : '';
+    const calibrationEvaluationPrefix = evaluationPolicy
+        && typeof evaluationPolicy.calibrationSourceIdPrefix === 'string'
+        ? evaluationPolicy.calibrationSourceIdPrefix : legacyEvaluationPrefix;
+    const blindEvaluationPrefix = evaluationPolicy
+        && typeof evaluationPolicy.blindSourceIdPrefix === 'string'
+        ? evaluationPolicy.blindSourceIdPrefix : legacyEvaluationPrefix;
     const evaluationSplits = evaluationPolicy
         && Array.isArray(evaluationPolicy.evaluationSplits)
         ? evaluationPolicy.evaluationSplits.filter(split => SPLITS.includes(split)) : [];
     const evaluationMinimum = Number(evaluationPolicy
         && evaluationPolicy.minimumPerClassPerEvaluationSplit)
         || MIN_REPRESENTATION_CLASS_SUPPORT;
-    const evaluationGold = evaluationPrefix
-        ? gold.filter(row => String(row.sourceId || '').startsWith(evaluationPrefix)) : [];
-    const evaluationBySplit = Object.fromEntries(SPLITS.map(split => [split,
-        evaluationGold.filter(row => row.split === split)]));
+    const evaluationBySplit = {
+        prototype: calibrationEvaluationPrefix ? gold.filter(row =>
+            row.split === 'prototype' && String(row.sourceId || '')
+                .startsWith(calibrationEvaluationPrefix)) : [],
+        calibration: calibrationEvaluationPrefix ? gold.filter(row =>
+            row.split === 'calibration' && String(row.sourceId || '')
+                .startsWith(calibrationEvaluationPrefix)) : [],
+        blind_test: blindEvaluationPrefix ? gold.filter(row =>
+            row.split === 'blind_test' && String(row.sourceId || '')
+                .startsWith(blindEvaluationPrefix)) : []
+    };
+    const evaluationGold = SPLITS.flatMap(split => evaluationBySplit[split]);
     const evaluationSupport = Object.fromEntries([...blindActs].sort().map(act =>
         [act, Object.fromEntries(evaluationSplits.map(split => [split,
             evaluationBySplit[split].filter(row =>
@@ -1173,7 +1200,8 @@ function buildEmbeddingSpikePreflight(options) {
         evaluationBySplit[split].filter(row =>
             row.adjudication.labels.outOfDomain).length]));
     const evaluationIssues = [];
-    if (!evaluationPolicy || !evaluationPrefix || evaluationSplits.length !== 2
+    if (!evaluationPolicy || !calibrationEvaluationPrefix || !blindEvaluationPrefix
+        || evaluationSplits.length !== 2
         || !evaluationSplits.includes('calibration')
         || !evaluationSplits.includes('blind_test')) {
         evaluationIssues.push('REPRESENTATION_EVALUATION_POLICY_INVALID');
@@ -1226,7 +1254,10 @@ function buildEmbeddingSpikePreflight(options) {
         },
         untouchedEvaluation: {
             epoch: evaluationPolicy && evaluationPolicy.epoch || null,
-            sourceIdPrefix: evaluationPrefix || null,
+            sourceIdPrefix: calibrationEvaluationPrefix === blindEvaluationPrefix
+                ? calibrationEvaluationPrefix : null,
+            calibrationSourceIdPrefix: calibrationEvaluationPrefix || null,
+            blindSourceIdPrefix: blindEvaluationPrefix || null,
             priorBlindStatus: evaluationPolicy && evaluationPolicy.priorBlindStatus || null,
             blindStatus: evaluationPolicy && evaluationPolicy.blindStatus || null,
             evaluatedAt: evaluationPolicy && evaluationPolicy.evaluatedAt || null,
