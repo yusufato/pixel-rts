@@ -1681,3 +1681,19 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - İki kol da ürün adayı değildir; `createNewBlindEpoch=false`. Faz 38
   `In Progress` kalır. Sonraki deney global skor ağırlığı değil, diğer sınıfları
   bozmayan sınıf-yerel epistemik blöf aday birleşimidir.
+
+## 2026-08-31 — Epistemik blöf aday birleşimi (`calibration-passed / new-blind-required`)
+
+- İddia + kanıt saklama/erteleme bileşimi deterministik SemanticFrameV2
+  kanıtına eklendi. Sıkı blöf sözleşmesi taze kalibrasyondaki `3/3` gerçek
+  blöf ailesini ve başka hiçbir satırı eşledi. Diğer sınıfların embedding
+  skorunu değiştirmeyen aday önceliği hedef testlerle kapatıldı.
+- Kör erişimsiz BGE ölçümü ortalama macro-F1 `0,697386`, minimum kat
+  `0,598039`, taban farkı `+0,223126` ve yüksek-risk yanlış pozitif `0/0`
+  verdi. Blöf recall `1` oldu; diğer dört yüksek-risk recall değeri gerilemedi.
+- BGE bütün dış-kalibrasyon kapılarını geçti ve `createNewBlindEpoch=true`
+  üretti. E5 kalite ve üç yüksek-risk recall kapısını kaçırdı. Eski tüketilmiş
+  kör cohort kullanılmayacak; yeni hipotez için ayrı mühürlü epoch gerekir.
+- Oyun çalışma zamanı, Electron IPC ve LLM karar yetkisi değişmedi. Faz 38
+  `In Progress` kalır. Bu sonuç `%90+` veya B1 günlük Türkçe anlama kanıtı
+  değildir; o iddia için ayrı uçtan uca günlük dil kabul corpus'u gereklidir.

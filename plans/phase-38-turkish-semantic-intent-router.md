@@ -644,3 +644,29 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - Sonraki hipotez bütün sınıfların skorunu global ağırlıkla bozmayacaktır.
   Blöfün iddia+kanıt saklama/erteleme bileşimini ayrı, kaynaklı epistemik aday
   olarak birleştiren sınıf-yerel yaklaşım kalibrasyonda sınanmalıdır.
+
+### 31 Ağustos 2026 — Epistemik blöf aday birleşimi kalibrasyon kapılarını geçti
+
+- Blöf ortaklığı konu sözcüklerinden değil, bağımsız iddia ile kanıtı
+  saklama/erteleme bileşiminden türetildi. `TELL + MIXED + CLAIMED_CERTAIN +
+  NONE` sözleşmesi taze kalibrasyonda yalnız üç gerçek blöf ailesini eşledi;
+  başka kalibrasyon satırı eşleşmedi. Çerçeve düzeltmesi `de658d8` ile,
+  aday birleşimi `a3b857e` ile kaydedildi.
+- Başarısız `0,08` sınıf-yerel ağırlık yükseltilmedi: sentetik yakınlık farkını
+  kapatmak için yaklaşık `0,221112` gerektiği ölçüldü. Bunun yerine yalnız tam
+  blöf sözleşmesi eşleştiğinde deterministik aday önceliği verildi. Diğer 16
+  sınıfın kosinüs skorları ve bütün yüksek-risk sözleşme vetoları korundu.
+- Kör erişimsiz `99/51/0` dış kalibrasyonda BGE-M3 ortalama macro-F1
+  `0,697386`, minimum kat `0,598039`, taban farkı `+0,223126` ve toplam/
+  en-kötü-kat yüksek-risk yanlış pozitif `0/0` verdi. Blöf recall `0 → 1`;
+  tehdit `1`, eylem talebi `0,666667`, ticaret `1`, sır paylaşımı `0,666667`
+  kaldı. Bütün kalite, yanlış-pozitif ve recall kapıları aynı kolda geçti.
+- E5 seçimi `0,435948`, taban farkı `-0,038311`, risk `0/0` verdi; tehdit,
+  eylem talebi ve sır paylaşımı recall gereksinimlerini kaçırdığı için elendi.
+  Otomatik karar `eligibleModelIds=[bge-m3-q8_0]` ve
+  `createNewBlindEpoch=true` oldu.
+- Bu sonuç modelin ürün/EXE/IPC hattına girdiği veya B1 Türkçeyi anladığı
+  anlamına gelmez. Faz 38 `In Progress` kalır. Sıradaki uygulama, bu hipotez
+  seçildikten sonra hazırlanmış yeni, aile-sızıntısız ve önceden mühürlü kör
+  epoch'tur; eski `SPENT_AFTER_2026_08_31_ONE_SHOT` kohortu yeniden kanıt
+  olarak kullanılamaz.

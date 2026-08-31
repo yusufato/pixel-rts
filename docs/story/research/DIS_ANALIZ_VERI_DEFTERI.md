@@ -1275,3 +1275,30 @@ parametrik ele alınır.
 - Sonraki araştırma global frame ağırlığı taramayacaktır. Blöf sınıfına yerel,
   deterministik iddia+kanıt-saklama adayı veya konu-altı prototip karışımı
   tanımlanmalı; diğer 16 sınıfın sıralaması korunmalıdır.
+
+### 31 Ağustos yöntem deneyi — epistemik blöf deterministik aday birleşimi
+
+- Kalibrasyondaki üç blöf ailesinin konu alanı farklıdır; ortak yapı bağımsız
+  kesin iddia ile kanıtı açıklamama veya sonraya ertelemedir. Bu bileşim
+  `TELL + MIXED + CLAIMED_CERTAIN + NONE` olarak türetildi. Sıkı sözleşme
+  `3/3` blöfü, `0/48` diğer kalibrasyon satırını eşledi.
+- `0,08` sınıf-yerel ağırlığın sentetik kosinüs farkını kapatamadığı ölçüldü;
+  eşitlik için yaklaşık `0,221112` gerekiyordu. Ağırlık taraması yapılmadı.
+  `PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_BLUFF_CANDIDATE_V1`, tam sözleşme
+  eşleşmesini ayrı aday önceliği olarak taşır; kosinüs skorlarını değiştirmez
+  ve diğer yüksek-risk vetolarını aşamaz.
+- Kör erişimsiz sınır `99/51/0`, `blindTestAccessed=false` kaldı. BGE-M3 dış
+  kalibrasyon ortalaması `0,697386`, minimum kat `0,598039`, standart sapma
+  `0,076552`, deterministik tabana fark `+0,223126`; toplam/en-kötü-kat
+  yüksek-risk yanlış pozitif `0/0`dır. Blöf recall `1`, diğer yüksek-risk
+  recall değerleri tehdit `1`, eylem talebi `0,666667`, ticaret `1`, sır
+  paylaşımı `0,666667`dir.
+- Ağırlıksız sözleşme centroidine göre macro-F1 `+0,068627`, minimum kat
+  `+0,068627`; blöf recall `0 → 1` oldu ve diğer yüksek-risk recall değerleri
+  değişmedi. E5 `0,435948`, `-0,038311`, risk `0/0` olmasına rağmen üç recall
+  gereksinimini kaçırdı.
+- Kalibrasyon kararı BGE için `eligibleForNewBlindEpoch=true` ve genel
+  `createNewBlindEpoch=true`dır. Bu bir ürün kabulü değildir. Sonraki kanıt,
+  seçilmiş hipotezden sonra oluşturulacak yeni mühürlü kör epoch'ta tek sefer
+  ölçülmelidir. Günlük/B1 Türkçe iddiası ayrıca bağlam, eksilti, zamir, yazım
+  hatası ve takip cümlesi içeren uçtan uca kabul corpus'u gerektirir.

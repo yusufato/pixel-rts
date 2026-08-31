@@ -1625,3 +1625,10 @@
 - **What happened:** Intent-contract centroidine `0,08` SemanticFrame uyum ağırlığı eklemenin blöf recall'unu diğer kabul kapılarını koruyarak çözeceği hipotezi dış kalibrasyonda reddedildi.
 - **Evidence:** Sınır `99/51/0`, kör erişim `false`. BGE ağırlıklı kol risk `0/0` ve bütün recall kapılarını geçti; blöf `0,333333`. Macro-F1 `0,526517`, taban farkı yalnız `+0,052258`; ağırlıksız kolun `0,628758/+0,154499` kalitesinden belirgin düşük. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
 - **Implication for future audits:** Global frame ağırlığını veya ağırlık taramasını blöf çözümü diye yeniden önerme. Ağırlıksız kalite ve ağırlıklı recall sonuçlarını tek bir başarılı modelmiş gibi birleştirme; sınıf-yerel epistemik aday aynı kolda bütün kapıları geçmelidir.
+
+## 2026-08-31 — Epistemik blöf aday birleşimi bütün kalibrasyon kapılarını geçti
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` bluff-candidate outer calibration / `de658d8`, `a3b857e`
+- **What happened:** Bağımsız kesin iddia ile kanıtı saklama/erteleme bileşimi sıkı blöf sözleşmesine dönüştürüldü. Başarısız sınıf-yerel ağırlık artırılmadı; tam sözleşme eşleşmesi, diğer sınıfların kosinüs skorlarını değiştirmeyen deterministik aday önceliği olarak BGE centroid koluna eklendi.
+- **Evidence:** Sınır `99/51/0`, `blindTestAccessed=false`; sözleşme seçiciliği `3/3` blöf ve `0/48` diğer kalibrasyon satırıdır. BGE-M3 `0,697386` ortalama macro-F1, `0,598039` minimum kat, `+0,223126` taban farkı, `0/0` toplam/en-kötü-kat yüksek-risk yanlış pozitif ve blöf recall `1` verdi. Diğer yüksek-risk recall değerleri gerilemedi; `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true` oldu.
+- **Implication for future audits:** Eski tüketilmiş kör epoch'u bu hipotezin doğrulaması sayma ve BGE'yi henüz ürün/EXE/IPC hattına bağlama. Önce seçilmiş hipotezden sonra üretilmiş, aile-sızıntısız yeni kör epoch'u mühürle ve bir kez ölç. Bu kalibrasyon başarısını `%90+` veya B1 günlük Türkçe anlayışı olarak raporlama; bunun için ayrı uçtan uca dil kabul corpus'u gerekir.
