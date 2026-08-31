@@ -23,7 +23,7 @@ assert.deepEqual(report.gold.bySplit, {
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
-assert.equal(report.untouchedEvaluationPass, true);
+assert.equal(report.untouchedEvaluationPass, false);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
 assert.deepEqual(report.representationSupport.issues, []);
 assert.deepEqual(report.untouchedEvaluation.gold, {
@@ -32,11 +32,13 @@ assert.deepEqual(report.untouchedEvaluation.gold, {
 });
 assert.equal(report.untouchedEvaluation.minimumPerClassPerEvaluationSplit, 3);
 assert.equal(report.untouchedEvaluation.blindStatus,
-    'SEALED_UNTOUCHED');
+    'SPENT_AFTER_2026_08_31_V2_ONE_SHOT');
 assert.equal(report.untouchedEvaluation.priorBlindStatus,
     'SPENT_AFTER_2026_08_31_ONE_SHOT');
-assert.deepEqual(report.untouchedEvaluation.evaluatedModelIds, []);
-assert.deepEqual(report.untouchedEvaluation.issues, []);
+assert.deepEqual(report.untouchedEvaluation.evaluatedModelIds,
+    ['bge-m3-q8_0']);
+assert.deepEqual(report.untouchedEvaluation.issues,
+    ['UNTOUCHED_EVALUATION_ALREADY_SPENT:SPENT_AFTER_2026_08_31_V2_ONE_SHOT']);
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
     issue.startsWith('UNTOUCHED_CLASS_SUPPORT:THREATEN:')));
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>

@@ -14,9 +14,11 @@
     "blindSourceIdPrefix": "representation-stability-v2:",
     "sealedAt": "2026-08-31T22:55:00.000+03:00",
     "priorBlindStatus": "SPENT_AFTER_2026_08_31_ONE_SHOT",
-    "blindStatus": "SEALED_UNTOUCHED",
-    "evaluatedAt": null,
-    "evaluatedModelIds": [],
+    "blindStatus": "SPENT_AFTER_2026_08_31_V2_ONE_SHOT",
+    "evaluatedAt": "2026-08-31T20:05:39.642Z",
+    "evaluatedModelIds": [
+      "bge-m3-q8_0"
+    ],
     "minimumPerClassPerEvaluationSplit": 3,
     "evaluationSplits": [
       "calibration",
