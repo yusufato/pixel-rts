@@ -934,3 +934,28 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   yönlerini kompozisyon halinde çözmeli; aynı 83 satırlı dış kalibrasyonda
   kalite, sıfır risk, sıfır OOD ve bütün yüksek-risk recall kapıları birlikte
   geçmeden v5 hazırlanamaz.
+
+### 1 Eylül 2026 — İddia sahipliği ve eylem yönü bütün kalibrasyon kapılarını geçti
+
+- Türkçe birinci kişi iyelik/gelecek biçimleri, dinleyiciye yönelik imperative
+  biçimlerden ayrıldı. Sır; sınırlı dinleyici ile gerçekten aktarılan olgunun,
+  blöf ise konuşana bağlı kesin iddia ile saklanan/ertelenen kanıtın bileşimi
+  olarak kuruldu. İç tutarlı soru, teklif, tehdit, sır ve blöf çerçevesinin
+  çelişkili legacy kelime oyunu tarafından veto edilmesi kapatıldı (`fd59580`).
+- Taze 20 ailede deterministik doğru sınıf `3/20 → 13/20`, yüksek-risk yanlış
+  pozitif `4 → 0` oldu. Üç sır ve üç blöfün tamamı doğru; kalan yedi hata
+  rapor/suçlama/sohbet gibi düşük-risk sınıf ayrımlarıdır.
+- İlk geniş BGE ölçümünde sır/blöf recall `1`, eylem talebi `0,833333` oldu;
+  tek yanlış pozitif, durum eki almış birinci kişi vaadini
+  (`göndereceğime`) eylem talebi sanmaktı. Morfolojik aile durum ekiyle
+  tamamlandı (`7736e6b`). Ardından `kimseye` içindeki legacy “kim” kalıntısının
+  imperative isteğe ikincil soru eklediği görüldü; soru biçimi taşımayan
+  imperative REQUEST'ten bu çelişkili ikincil temizlendi (`62a46ba`).
+- Nihai seçilmiş BGE sınırı `111/83/0`, `blindTestAccessed=false`dır. Dış-kat
+  ortalama/minimum macro-F1 `0,724507/0,643098`, standart sapma `0,062912`,
+  tabana fark `+0,179736`dır. Yüksek-risk yanlış pozitif toplam/en-kötü kat
+  `0/0`, OOD yanlış kabul ortalama/en-kötü `0/0`; tehdit, eylem talebi,
+  ticari teklif, sır ve blöf recall değerlerinin tamamı `1`dir.
+- `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true`. Bu yalnız seçilen
+  kompozisyon hipotezinden sonra hazırlanacak aile-sızıntısız V5 blind iznidir.
+  V4 spent kalır; runtime/Electron/IPC, `%90+` ve B1 kabulü hâlâ kapalıdır.
