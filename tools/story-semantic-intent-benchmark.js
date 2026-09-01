@@ -759,11 +759,25 @@ function compareSelectionEvidence(left, right) {
         || left.perClassLimit - right.perClassLimit;
 }
 
-function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
+function selectEmbeddingRepresentations(representationIds) {
+    if (!Array.isArray(representationIds) || representationIds.length === 0) {
+        return EMBEDDING_REPRESENTATIONS.slice();
+    }
+    const requested = [...new Set(representationIds)];
+    const knownIds = new Set(EMBEDDING_REPRESENTATIONS.map(row => row.id));
+    const unknown = requested.filter(id => !knownIds.has(id));
+    if (unknown.length) {
+        throw new Error(`EMBEDDING_REPRESENTATION_UNKNOWN:${unknown.join(',')}`);
+    }
+    return EMBEDDING_REPRESENTATIONS.filter(row => requested.includes(row.id));
+}
+
+function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors, representationIds) {
     const proposalById = buildBaselineProposals([
         ...rowsBySplit.calibration, ...rowsBySplit.blind_test
     ]);
-    return EMBEDDING_REPRESENTATIONS.flatMap(representation => {
+    return selectEmbeddingRepresentations(representationIds)
+        .flatMap(representation => {
         const anchorCounts = representation.anchorCountIndependent
             ? [null] : EMBEDDING_ANCHOR_COUNTS;
         return anchorCounts.map(perClassLimit => {
@@ -850,7 +864,8 @@ async function runEmbeddingModel(spec, rowsBySplit) {
                 cosine: cosineSimilarity(anchors[0].vector, anchors[1].vector),
                 normalizedDot: dotProduct(anchors[0].vector, anchors[1].vector)
             } : null;
-            const curve = evaluateEmbeddingVectors(rowsBySplit, vectors, anchors);
+            const curve = evaluateEmbeddingVectors(rowsBySplit, vectors, anchors,
+                spec.representationIds);
             const selected = curve.slice().sort(compareSelectionEvidence)[0];
             profiles.push({ id: profile.id,
                 encoding: { queryPrefix: profile.queryPrefix,
@@ -1376,6 +1391,11 @@ if (require.main === module) {
         const bgePath = value('bge-model');
         const models = embeddingModelSpecs(e5Path, bgePath);
         if (!models.length) throw new Error('EMBEDDING_MODEL_PATH_REQUIRED');
+        const representation = value('representation');
+        const representationIds = representation
+            ? representation.split(',').map(id => id.trim()).filter(Boolean) : [];
+        selectEmbeddingRepresentations(representationIds);
+        for (const model of models) model.representationIds = representationIds;
         const run = process.argv.includes('--embedding-calibration-study')
             ? runEmbeddingCalibrationStudy : runEmbeddingSpike;
         run({ models }).then(report => {
@@ -1411,6 +1431,7 @@ module.exports = {
     l2Normalize, dotProduct, cosineSimilarity, frameCompatibility,
     matchesHighRiskFrameContract, hasBoundedDomainGrounding,
     matchesBoundedDomainFrameContract,
+    selectEmbeddingRepresentations,
     selectPrototypeAnchors, buildPrototypeClassCentroids, rankEmbeddingCandidates,
     fitEmbeddingCalibration, buildStratifiedCalibrationFolds,
     crossValidateEmbeddingCalibration, compareSelectionEvidence,

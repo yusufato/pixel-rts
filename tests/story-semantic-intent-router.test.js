@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     frameCompatibility, matchesHighRiskFrameContract, hasBoundedDomainGrounding,
-    matchesBoundedDomainFrameContract, selectPrototypeAnchors,
+    matchesBoundedDomainFrameContract, selectEmbeddingRepresentations,
+    selectPrototypeAnchors,
     buildPrototypeClassCentroids, rankEmbeddingCandidates, fitEmbeddingCalibration,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
@@ -12,6 +13,12 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     buildBlindEvaluationAcceptance, buildCalibrationStudyRecommendation } =
     require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
+
+assert.deepEqual(selectEmbeddingRepresentations([
+    'bounded-domain-contract-bluff-centroid-guard'
+]).map(row => row.id), ['bounded-domain-contract-bluff-centroid-guard']);
+assert.throws(() => selectEmbeddingRepresentations(['not-a-representation']),
+    /EMBEDDING_REPRESENTATION_UNKNOWN:not-a-representation/);
 
 const report = buildEmbeddingSpikePreflight();
 const oodTaxonomyRows = corpus.candidates.filter(row =>
