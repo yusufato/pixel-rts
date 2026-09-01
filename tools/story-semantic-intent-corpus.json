@@ -750,7 +750,28 @@
     },
     {
       "id": "semantic-intent:consstress0021",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0021",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "OFFER_SUPPORT",
+          "communicativeFunction": "OFFER",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dosyayı müsteşara götürme işini konuşan bedel veya karşı eylem istemeden üstlenmeyi önerir; dinleyiciye görev yükleyen talep ya da ticaret değildir.",
+        "reviewedAt": "2026-09-01T22:05:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "İstersen dosyayı müsteşara ben ulaştırabilirim.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0021",
@@ -763,7 +784,28 @@
     },
     {
       "id": "semantic-intent:consstress0022",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0022",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "WORLD",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Bakırın güncel ton fiyatını bildirir; alım, satım, karşılık veya dinleyici eylemi önermediği için ticari teklif değildir.",
+        "reviewedAt": "2026-09-01T22:06:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bakırın tonu bugün sekiz yüz krediye yükseldi.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0022",
@@ -776,7 +818,28 @@
     },
     {
       "id": "semantic-intent:consstress0023",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0023",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "OFFER_SUPPORT",
+          "communicativeFunction": "OFFER",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "LOCATION",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Tahıl gemilerine ücretsiz kılavuz göndermeyi koşullu olarak sunar; açıkça bedelsiz olduğu ve karşı eylem istemediği için ekonomik değişim değildir.",
+        "reviewedAt": "2026-09-01T22:07:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "İsterseniz tahıl gemilerinize ücretsiz kılavuz gönderirim.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0023",
@@ -789,7 +852,28 @@
     },
     {
       "id": "semantic-intent:consstress0024",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0024",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "ECONOMY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Olası tahıl-jeneratör değişiminin oranını sorar; bağlayıcı miktar veya kabul edilebilir teklif sunmadığı için ana eylem fiyat bilgisidir.",
+        "reviewedAt": "2026-09-01T22:08:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "On kamyon tahılın karşılığında kaç jeneratör verirsiniz?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0024",
@@ -802,7 +886,28 @@
     },
     {
       "id": "semantic-intent:consstress0025",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0025",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "SECRET",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyiciden konuyu gizli tutma davranışı ister, fakat korunacak olguyu bu cümlede açıklamaz; bu nedenle sır paylaşımı değil gizlilik eylemi talebidir.",
+        "reviewedAt": "2026-09-01T22:09:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu konuyu aramızda tutar mısın?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0025",
@@ -815,7 +920,28 @@
     },
     {
       "id": "semantic-intent:consstress0026",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0026",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Kabinenin gelecekteki görevden alma kararını doğrulatmak için bilgi ister; gizlilik çerçevesi veya açıklanmış sır taşımadığı için sır paylaşımı değildir.",
+        "reviewedAt": "2026-09-01T22:10:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Kabine valiyi yarın görevden mi alacak?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0026",
@@ -828,7 +954,28 @@
     },
     {
       "id": "semantic-intent:consstress0027",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0027",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_MILITARY",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "MILITARY",
+          "target": "ORGANIZATION",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "HEARSAY",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Generalin emir kaynağına ilişkin üçüncü taraf söylentisini aktarır; konuşan iddiayı kendi kesin bilgisi olarak sahiplenmediği ve kanıt saklamadığı için blöf değildir.",
+        "reviewedAt": "2026-09-01T22:11:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Generalin emirlerinin başkentten gelmediği söyleniyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0027",
@@ -841,7 +988,28 @@
     },
     {
       "id": "semantic-intent:consstress0028",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0028",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ACCUSE",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "MILITARY",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyiciyi füze kilidi kanıtını saklamakla itham eder; kanıtsız kesin askerî iddiayı konuşanın kendisi üretmediği için blöf adayı değildir.",
+        "reviewedAt": "2026-09-01T22:12:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Füzelerin hedefe kilitlendiğine dair kanıtı saklıyorsunuz.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0028",
@@ -854,7 +1022,28 @@
     },
     {
       "id": "semantic-intent:consstress0029",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0029",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "ORGANIZATION",
+          "polarity": "MIXED",
+          "temporality": "PAST",
+          "epistemicStatus": "HEARSAY",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Rezerv artışını duyum olarak aktarır ve doğrulama kaydı olmadığını açıkça kabul eder; kesinlik iddiası taşımadığı için kanıtsız blöf değildir.",
+        "reviewedAt": "2026-09-01T22:13:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Rezervin arttığını duydum ama doğrulayacak kaydım yok.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0029",
@@ -867,7 +1056,30 @@
     },
     {
       "id": "semantic-intent:consstress0030",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0030",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "CHALLENGE",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "FUTURE",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "ASK_INFORMATION"
+          ]
+        },
+        "notes": "Dinleyicinin bütün oyları kontrol ettiği iddiasını hangi tutanakla kanıtlayacağını sorgular; sıradan bilgi sorusundan farklı olarak iddianın dayanağına meydan okur.",
+        "reviewedAt": "2026-09-01T22:14:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bütün oyların sizde olduğunu hangi tutanakla kanıtlayacaksınız?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0030",

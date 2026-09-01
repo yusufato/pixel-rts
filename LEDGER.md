@@ -1737,3 +1737,10 @@
 - **What happened:** Checksum ile önceden mühürlenmiş 51 aileli V6 epoch, yalnız doğrulanmış BGE-M3 modeli, düz profil ve önceden seçilmiş sınıf-özel yüksek-risk uzlaşma temsiliyle bir kez ölçüldü. Sonuçtan bağımsız olarak epoch yeniden kullanıma kapatıldı.
 - **Evidence:** Deterministik blind macro-F1 `0,333333`; BGE `0,310714`, fark `-0,022619 < +0,15`. OOD yanlış kabul `0/3`, fakat yüksek-risk yanlış pozitif `2`; ticari teklif recall `0/3 < 1/3`; `acceptedModelIds=[]`. Model SHA-256 `aa473d51…4047a173`, blind checksum `6a7bdf8a…68a47057`; sıcak CPU p50/p95 `866,09/1455,12 ms`.
 - **Implication for future audits:** V6 satırlarını threshold, parser, temsil, aday üretimi veya uzlaşma kuralı ayarı için yeniden kullanma. OOD başarısını genel kabul sayma; sınıf-özel uzlaşma hipotezi bağımsız V6'da kaliteyi ve güvenliği genellemedi. Runtime/Electron/IPC ile `%90+`/B1 oyuncu dili iddiası kapalıdır; sonraki hipotez yalnız prototip+kalibrasyon verisinden kurulmalıdır.
+
+## 2026-09-01 — Parser uzlaşması için bağımsız stres kalibrasyonu tamamlandı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` consensus-stress-v2 / `d937663`, `5cb421e`, `b2f5ad2`
+- **What happened:** V6 içeriği ve tahminleri kullanılmadan; 15 yüksek-risk farklı anlatım ile 15 konu-yakın fakat eylemce farklı karşı örnek, bütün SemanticFrameV2 eksenleriyle tek tek incelenerek calibration gold yapıldı.
+- **Evidence:** Kohort `30/30` `CODEX_INDIVIDUAL_REVIEW`, `30` benzersiz metin ve `30` benzersiz aile taşır. Dağılım tehdit/sır/blöf/ticaret `3'er`, eylem talebi `4`, bilgi sorusu/ekonomik rapor `3'er` ve sekiz tamamlayıcı karşı sınıftır; corpus toplamı `620` gold oldu. Router ve review-server testleri geçti, V6 checksum `6a7bdf8a…68a47057` değişmedi.
+- **Implication for future audits:** Eski 83 satırlı kolay uzlaşma kalibrasyonunu tek başına genelleme kanıtı sayma. Yeni model/temsil hipotezini blind açmadan önce bu genişletilmiş `113` satırlı evaluation calibration üzerinde kalite, sıfır yüksek-risk yanlış pozitif, sıfır OOD yanlış kabul ve recall kapılarıyla ölç. Bu kohort runtime, `%90+` veya B1 kabulü değildir.

@@ -103,8 +103,8 @@ assert.equal(new Set(consensusStressRows.map(row => row.id)).size, 30);
 assert.equal(new Set(consensusStressRows.map(row => row.familyId)).size, 30);
 assert.equal(new Set(consensusStressRows.map(row => row.text)).size, 30);
 const consensusStressReviewed = consensusStressRows.filter(row => row.adjudication);
-assert.equal(consensusStressReviewed.length, 20);
-assert.equal(consensusStressRows.filter(row => !row.adjudication).length, 10);
+assert.equal(consensusStressReviewed.length, 30);
+assert.equal(consensusStressRows.filter(row => !row.adjudication).length, 0);
 assert.ok(consensusStressReviewed.every(row =>
     row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW'
     && row.adjudication.id === row.id),
@@ -113,14 +113,17 @@ assert.deepEqual(Object.fromEntries([...new Set(consensusStressReviewed.map(row 
     row.adjudication.labels.speechAct))].sort().map(label => [label,
     consensusStressReviewed.filter(row =>
         row.adjudication.labels.speechAct === label).length])), {
-    ASK_INFORMATION: 1,
+    ACCUSE: 1,
+    ASK_INFORMATION: 3,
     BLUFF_CANDIDATE: 3,
+    CHALLENGE: 1,
     MAKE_PROMISE: 1,
+    OFFER_SUPPORT: 2,
     PROPOSE_COMMERCIAL_DEAL: 3,
     REJECT: 1,
-    REPORT_ECONOMIC: 1,
-    REPORT_MILITARY: 1,
-    REQUEST_ACTION: 3,
+    REPORT_ECONOMIC: 3,
+    REPORT_MILITARY: 2,
+    REQUEST_ACTION: 4,
     SHARE_SECRET: 3,
     THREATEN: 3
 });
@@ -219,10 +222,10 @@ assert.ok(oodTaxonomyRows.filter(row => row.split === 'calibration').every(row =
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 610);
+assert.equal(report.gold.total, 620);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 111,
-    calibration: 148,
+    calibration: 158,
     blind_test: 351
 });
 assert.equal(report.modelSelectionPass, true);
@@ -231,8 +234,8 @@ assert.equal(report.untouchedEvaluationPass, false);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
 assert.deepEqual(report.representationSupport.issues, []);
 assert.deepEqual(report.untouchedEvaluation.gold, {
-    total: 164,
-    bySplit: { prototype: 10, calibration: 103, blind_test: 51 }
+    total: 174,
+    bySplit: { prototype: 10, calibration: 113, blind_test: 51 }
 });
 assert.equal(report.untouchedEvaluation.minimumPerClassPerEvaluationSplit, 3);
 assert.equal(report.untouchedEvaluation.blindStatus,
@@ -282,7 +285,7 @@ assert.equal(corpus.representationEvaluationPolicy.evaluationPass, false);
 assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
     .map(([split, rows]) => [split, rows.length])), {
     prototype: 111,
-    calibration: 103,
+    calibration: 113,
     blind_test: 51
 });
 assert.ok(evaluationSplits.calibration.every(row =>
@@ -308,7 +311,7 @@ const calibrationStudySplits = embeddingCalibrationStudySplits(corpus,
 assert.deepEqual(Object.fromEntries(Object.entries(calibrationStudySplits)
     .map(([split, rows]) => [split, rows.length])), {
     prototype: 111,
-    calibration: 103,
+    calibration: 113,
     blind_test: 0
 });
 assert.throws(() => embeddingEvaluationSplits(corpus, ''),
@@ -317,7 +320,7 @@ const splitSourceEvaluation = embeddingEvaluationSplits(corpus, {
     calibrationSourceIdPrefix: 'representation-stability-v1:',
     blindSourceIdPrefix: 'sha256:'
 });
-assert.equal(splitSourceEvaluation.calibration.length, 103);
+assert.equal(splitSourceEvaluation.calibration.length, 113);
 assert.ok(splitSourceEvaluation.blind_test.length > 0);
 assert.ok(splitSourceEvaluation.calibration.every(row =>
     row.sourceId.startsWith('representation-stability-v1:')));
@@ -327,13 +330,13 @@ const splitSourceCalibration = embeddingCalibrationStudySplits(corpus, {
     calibrationSourceIdPrefix: 'representation-stability-v1:',
     blindSourceIdPrefix: 'future-sealed-blind-v2:'
 });
-assert.equal(splitSourceCalibration.calibration.length, 103);
+assert.equal(splitSourceCalibration.calibration.length, 113);
 assert.equal(splitSourceCalibration.blind_test.length, 0);
 assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 15 },
-    calibration: { inDomain: 130, outOfDomain: 18 },
+    calibration: { inDomain: 140, outOfDomain: 18 },
     blind_test: { inDomain: 330, outOfDomain: 21 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
@@ -358,7 +361,7 @@ assert.deepEqual(report.highRiskCoverage.PROPOSE_COMMERCIAL_DEAL, {
 });
 assert.deepEqual(report.highRiskCoverage.REQUEST_ACTION, {
     prototype: 6,
-    calibration: 10,
+    calibration: 11,
     blind_test: 23
 });
 assert.deepEqual(report.issues, []);
