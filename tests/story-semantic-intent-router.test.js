@@ -32,11 +32,11 @@ assert.ok(oodTaxonomyRows.filter(row => row.split === 'calibration').every(row =
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 375);
+assert.equal(report.gold.total, 384);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 111,
     calibration: 108,
-    blind_test: 156
+    blind_test: 165
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
@@ -119,7 +119,7 @@ assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 15 },
     calibration: { inDomain: 90, outOfDomain: 18 },
-    blind_test: { inDomain: 147, outOfDomain: 9 }
+    blind_test: { inDomain: 156, outOfDomain: 9 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,

@@ -26,8 +26,8 @@ assert.equal(v3Candidates.length, 51);
 assert.equal(new Set(v3Candidates.map(row => row.familyId)).size, 51);
 assert.ok(v3Candidates.every(row => row.split === 'blind_test'
     && row.labelStatus === 'CANDIDATE_UNREVIEWED'));
-assert.equal(v3Candidates.filter(row => row.adjudication).length, 9);
-assert.equal(v3Candidates.filter(row => !row.adjudication).length, 42);
+assert.equal(v3Candidates.filter(row => row.adjudication).length, 18);
+assert.equal(v3Candidates.filter(row => !row.adjudication).length, 33);
 assert.ok(v3Candidates.filter(row => row.adjudication).every(row =>
     row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW'
     && benchmark.validateLabels(row.adjudication.labels).ok),
