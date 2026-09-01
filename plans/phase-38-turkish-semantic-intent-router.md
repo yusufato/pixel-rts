@@ -31,7 +31,7 @@ conflicts_with:
   - bugfix-story-invalid-battle-target-guard
   - electron-story-lifecycle-acceptance
 created: 2026-08-27
-last_touched: 2026-08-31
+last_touched: 2026-09-01
 ---
 
 # Faz 38 — Türkçe Semantik Niyet Yönlendiricisi
@@ -691,3 +691,29 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   çevirmeden, bağımsız kalibrasyonda eylem yönü + gizlilik yönü + OOD abstain
   kapılarını birlikte kanıtlamalıdır. Yeni blind ancak bu kapılar geçerse v3
   olarak hazırlanabilir.
+
+### 1 Eylül 2026 — OOD kabul kapısı eklendi, eşik hipotezi genellemedi
+
+- V2 ölçümünde `3/3` OOD yanlış kabulüne rağmen kalite, yüksek-risk yanlış
+  pozitif ve recall kapılarının tek başına model kabulüne izin verebildiği
+  bulundu. Temsil seçimi, yeni kör epoch uygunluğu ve son blind kabulü artık
+  sıfır OOD yanlış kabulünü zorunlu tutar; düzeltme commit `46ac613` ile
+  sentetik regresyon altında kilitlendi.
+- Ayrı hipotez olarak sınıf eşikleri, sınıf F1'ı hesaplanmadan önce fit
+  dilimindeki bütün OOD kabullerini reddedecek şekilde eğitildi; global marj
+  seçimi de yüksek-risk yanlış pozitiften hemen sonra OOD sızıntısını
+  karşılaştırır. Değişiklik commit `c4aac06` ile test edildi.
+- Kör erişimsiz BGE-M3 dış kalibrasyonu `99/51/0` sınırında ve
+  `blindTestAccessed=false` ile çalıştı. Seçilen sözleşme+blöf centroid kolu
+  ortalama macro-F1 `0,664706`, minimum kat `0,568627`, taban farkı
+  `+0,190447`, toplam/en-kötü-kat yüksek-risk yanlış pozitif `0/0` verdi;
+  bütün yüksek-risk recall şartları geçti.
+- Buna rağmen ortalama OOD yanlış kabul `0,666667`, en kötü kat `1` oldu.
+  Üç dış kattan ikisi `UNKNOWN` girdiyi sırasıyla `SMALL_TALK` ve
+  `ASK_INFORMATION` sınıfına zorladı. `eligibleModelIds=[]` ve
+  `createNewBlindEpoch=false` kaldı.
+- Yalnız eşik ayarı OOD genellemesi sağlamadı; aynı eşik ailesinde yeni tarama
+  yapılmayacaktır. Sonraki hipotez, harcanmış v2 kör satırlarına bakmadan,
+  bağımsız kalibrasyonda açık bir OOD temsil/abstention katmanını eylem ve sır
+  yönüyle birlikte kanıtlamalıdır. Runtime, Electron/IPC ve `%90+`/B1 iddiası
+  kapalıdır.

@@ -1639,3 +1639,10 @@
 - **What happened:** Önceden seçilmiş BGE sözleşme+blöf centroid hipotezi, sabit v1 kalibrasyonundan sonra hazırlanmış 51 kayıtlı v2 blind epoch'ta yalnız bir kez ölçüldü. Sonuç görüldükten sonra epoch tekrar kullanıma kapatıldı.
 - **Evidence:** Taban macro-F1 `0,314458`; BGE `0,484744`, fark `+0,170286`, yüksek-risk yanlış pozitif `0`. `REQUEST_ACTION` ve `SHARE_SECRET` recall `0/3`, OOD yanlış kabul `3/3`; `acceptedModelIds=[]`. Model SHA-256 `aa473d51…4047a173`; yeniden kullanım preflight'ı `UNTOUCHED_EVALUATION_ALREADY_SPENT:SPENT_AFTER_2026_08_31_V2_ONE_SHOT` üretir.
 - **Implication for future audits:** BGE'yi ürün/EXE/IPC adayı veya `%90+`/B1 anlama kanıtı sayma; v2 epoch'u threshold, temsil ya da parser ayarı için yeniden kullanma. Yeni hipotez bağımsız kalibrasyonda eylem yönü, gizlilik yönü ve OOD abstention kapılarını birlikte geçmeden yeni blind epoch açılmamalıdır.
+
+## 2026-09-01 — OOD-öncelikli eşikleme dış kalibrasyon katlarına genellenmedi
+- **Type:** Refuted
+- **Source:** `phase-38-turkish-semantic-intent-router` OOD kabul kapısı ve eşik fit'i / `46ac613`, `c4aac06`
+- **What happened:** V2'de görünür olan kabul politikası açığı kapatıldı; temsil seçimi, yeni blind uygunluğu ve son blind kabulü sıfır OOD yanlış kabulünü zorunlu tutuyor. Ardından sınıf eşiklerinin fit OOD'sini F1'dan önce reddetmesinin bağımsız katlara genelleneceği hipotezi, harcanmış kör sete erişmeden BGE-M3 üzerinde ölçüldü.
+- **Evidence:** Sınır `99/51/0`, `blindTestAccessed=false`. Seçilen contract+bluff centroid kolu ortalama macro-F1 `0,664706`, minimum kat `0,568627`, taban farkı `+0,190447`, risk `0/0` ve geçen bütün yüksek-risk recall kapıları verdi. Ortalama/en-kötü OOD yanlış kabul `0,666667/1`; iki kat `UNKNOWN` girdiyi `SMALL_TALK` ve `ASK_INFORMATION` yaptı. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+- **Implication for future audits:** Sıfır-OOD kabul kapısını kaldırma; kalite, risk ve recall başarısını OOD başarısı gibi raporlama. Aynı eşik ailesinde tarama yapma veya v2 blind'ı kalibrasyona çevirme. Yeni blind'dan önce açık OOD temsil/abstention hipotezini bağımsız kalibrasyonda eylem ve sır yönüyle birlikte kanıtla.

@@ -1326,3 +1326,26 @@ parametrik ele alınır.
   günlük Türkçe kanıtı değildir. Sonraki araştırma v2 cümlelerinde ayar
   yapmayacak; bağımsız kalibrasyonda yön, gizlilik ve OOD abstention hipotezi
   kurmadan yeni v3 blind açmayacaktır.
+
+### 1 Eylül yöntem deneyi — OOD-öncelikli eşikleme tek başına genellemedi
+
+- V2 blind sonrası kabul politikasındaki eksik kapı kapatıldı: temsil seçimi,
+  yeni blind uygunluğu ve son model kabulü artık OOD yanlış kabul `0` değilse
+  başarısızdır. Kalite, yüksek-risk yanlış pozitif ve recall başarısı bu kapıyı
+  aşamaz (`46ac613`).
+- Sınıf eşiği fit'i, sınıf F1'ından önce gözlenen bütün OOD kabullerini eler;
+  global marj adayları da riskten sonra OOD sızıntısına göre sıralanır.
+  Sentetik test, OOD kabul ederek F1 kazanan eşiğin reddedildiğini ve temiz
+  alan-içi örneğin korunduğunu doğrular (`c4aac06`).
+- BGE-M3 ölçümü kör erişimsiz `99/51/0` sınırında kaldı. Seçilen
+  `PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_BLUFF_CANDIDATE_V1` kolu ortalama
+  macro-F1 `0,664706`, minimum kat `0,568627`, standart sapma `0,067980`,
+  taban farkı `+0,190447`, risk `0/0` ve geçen bütün yüksek-risk recall
+  kapıları verdi.
+- OOD genellemesi yine başarısızdır: ortalama yanlış kabul `0,666667`, en kötü
+  kat `1`; iki kat `UNKNOWN` girdiyi `SMALL_TALK` ve `ASK_INFORMATION` yaptı.
+  Sonuç `eligibleModelIds=[]`, `createNewBlindEpoch=false`tır.
+- Hipotez reddedildi. Fit dilimindeki OOD'yi threshold ile ezmek bağımsız dış
+  katlara taşınmıyor; yeni threshold taraması yapılmayacak. Sonraki deney,
+  bağımsız kalibrasyonla sınanabilen açık OOD temsili veya abstention kapısı
+  kurmalıdır. V2 blind kalibrasyon verisine çevrilmeyecektir.

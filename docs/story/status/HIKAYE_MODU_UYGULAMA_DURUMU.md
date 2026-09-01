@@ -1714,3 +1714,21 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   oyuncuyu `%90+` veya B1 seviyesinde anladığı söylenemez. Faz 38
   `In Progress`; sonraki kapı bağımsız kalibrasyonda eylem/sır yönü ve OOD
   abstention birlikte geçmeden yeni v3 blind oluşturmamaktır.
+
+## 2026-09-01 — Faz 38 OOD kabul kapısı (`implemented / threshold-hypothesis-rejected`)
+
+- V2'nin `3/3` OOD yanlış kabulü artık yalnız raporlanan metrik değildir.
+  Temsil karşılaştırması, yeni kör epoch uygunluğu ve son blind model kabulü
+  sıfır OOD yanlış kabulünü zorunlu tutar (`46ac613`).
+- Sınıf eşikleri fit diliminde OOD kabul eden adayları F1 kazancına bakmadan
+  reddeder; global marj seçimi OOD sızıntısını kalite bağlayıcısından önce
+  değerlendirir (`c4aac06`). Hedefli router, semantic-frame ve review-server
+  testleri geçti.
+- Kör sete erişmeyen `99/51/0` BGE-M3 ölçümü macro-F1 `0,664706`, taban farkı
+  `+0,190447`, risk `0/0` ve geçen recall kapıları verdi; fakat ortalama/en-kötü
+  OOD yanlış kabul `0,666667/1` oldu. İki dış kat `UNKNOWN` girdiyi oyun içi
+  sınıfa zorladı.
+- `eligibleModelIds=[]`, `createNewBlindEpoch=false`; Faz 38 `In Progress`.
+  Eşik taraması sonlandırıldı. Yeni iş, bağımsız kalibrasyonda açık OOD
+  temsil/abstention hipotezini eylem ve sır yönüyle birlikte sınamaktır.
+  Runtime, Electron/IPC, LLM mekanik yetkisi ve `%90+`/B1 iddiası değişmedi.
