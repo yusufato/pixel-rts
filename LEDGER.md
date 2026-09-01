@@ -1695,3 +1695,10 @@
 - **What happened:** Seçilmiş authoritative high-risk hipotezinden sonra üretilen v4 kohortundaki 51 benzersiz Türkçe aile, model çıktısına bakılmadan tek tek incelendi ve 17 sınıfın her biri üç gold örnekle tamamlandı.
 - **Evidence:** V4 `51/51` bireysel `CODEX_INDIVIDUAL_REVIEW` kaydı, `51` benzersiz metin/aile ve `17 × 3` dengeli sınıf taşır; corpus toplamı `468` gold, blind dağılımı `249` oldu. `node tests/story-semantic-intent-router.test.js` her birimde `ok=true`, `issues=0` verdi.
 - **Implication for future audits:** Bu kohortu yeniden üretme veya toplu/otomatik etiketlenmiş sayma. V4 henüz ölçülmemiş ve spent değildir; model/temsil politikasını değiştirmeden önce checksum ile mühürle, sonra yalnız bir kez değerlendir. Hazırlık tamamlanmasını runtime/EXE/IPC ya da `%90+`/B1 kabulü olarak raporlama.
+
+## 2026-09-01 — V4 blind kalite kazancını doğruladı, yüksek-risk kabulünü reddetti
+- **Type:** Refuted
+- **Source:** `phase-38-turkish-semantic-intent-router` authoritative high-risk v4 one-shot / `d850825`, `c72a22a`
+- **What happened:** Checksum'la önceden mühürlenen 51 aileli v4 epoch, yalnız doğrulanmış BGE-M3 modeli, düz profil ve seçilmiş authoritative high-risk temsiliyle bir kez ölçüldü. Sonuç görüldükten sonra epoch spent olarak kilitlendi.
+- **Evidence:** Taban macro-F1 `0,245865`, OOD yanlış kabul `2/3`, yüksek-risk yanlış pozitif `5`; BGE macro-F1 `0,401323`, fark `+0,155458`, OOD yanlış kabul `0/3`, yüksek-risk yanlış pozitif `4`. `SHARE_SECRET` recall `1/3 < 2/3`, `BLUFF_CANDIDATE` recall `0/3 < 1/3`; `acceptedModelIds=[]`. Model SHA-256 `aa473d51…4047a173`, blind checksum `5116021c…31feb14`.
+- **Implication for future audits:** V4'ü threshold, parser, temsil veya model seçimi için yeniden kullanma; kalite ve sıfır OOD sonucunu güvenli model kabulü gibi raporlama. Runtime/EXE/IPC ile `%90+`/B1 iddiası kapalıdır. Sonraki hipotez yalnız prototip+kalibrasyonda sır/blöf recall'u ile yüksek-risk yanlış pozitifleri birlikte geçmeli; yeni blind ancak hipotez seçildikten sonra bağımsız v5 olabilir.

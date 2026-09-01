@@ -880,3 +880,30 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   temsil politikasını değiştirmeden v4 kanonik gold içeriğini checksum ile
   mühürlemek; ardından önceden tanımlı kabul kapılarıyla yalnız bir kez
   değerlendirmektir. Bu kayıtlar runtime/EXE/IPC veya `%90+`/B1 kabulü değildir.
+
+### 1 Eylül 2026 — V4 tek-seferlik blind kaliteyi geçti, güvenliği reddetti
+
+- V4 `51/51` gold ve `51` benzersiz aile olarak
+  `5116021ce91d10d6bc304267bbabce760c2b805cb9c2a922d1b6e3ac131feb14`
+  checksum'ıyla ölçüm öncesinde mühürlendi (`d850825`). Policy v3 spent
+  durumunu önceki epoch olarak korudu ve bütün ölçüm alanlarını temizledi.
+- Tek koşu yalnız SHA-256'sı `aa473d51…4047a173` olan `bge-m3-q8_0`, tek
+  `bge-m3-plain` profil ve önceden seçilmiş
+  `bounded-domain-authoritative-high-risk-centroid-guard` temsilini kullandı.
+  Ham makbuz geçici çalışma alanındaki `representation-stability-v4-result.json`
+  dosyasındadır.
+- Deterministik blind tabanı macro-F1 `0,245865`, OOD yanlış kabul `2/3` ve
+  yüksek-risk yanlış pozitif `5` verdi. BGE macro-F1 `0,401323`, fark
+  `+0,155458` ve OOD yanlış kabul `0/3` ile kalite/OOD kapılarını geçti; ancak
+  `4` yüksek-risk yanlış pozitif üretti. Hata kimlikleri `blindv40021`,
+  `blindv40023`, `blindv40027`, `blindv40030`dur.
+- Yüksek-risk recall: `THREATEN=1/3`, `REQUEST_ACTION=3/3`,
+  `PROPOSE_COMMERCIAL_DEAL=1/3`, `SHARE_SECRET=1/3`,
+  `BLUFF_CANDIDATE=0/3`. Sır için gereken `2/3`, blöf için gereken `1/3`
+  karşılanmadı; `acceptedModelIds=[]`. Sıcak CPU p50/p95
+  `481,63/674,34 ms`, vektör boyutu `1024`tür.
+- Epoch `SPENT_AFTER_2026_09_01_V4_ONE_SHOT` olarak kilitlendi (`c72a22a`).
+  V4 threshold, parser veya temsil ayarı için tekrar kullanılamaz. Runtime,
+  Electron/IPC, `%90+` ve B1 günlük Türkçe kabulü kapalı kalır. Sonraki hipotez
+  v4 hatalarına cümle bazlı kural yazmadan, yalnız prototip+kalibrasyon
+  verisinde sır/blöf yönü ve yüksek-risk yanlış pozitiflerini birlikte çözmelidir.
