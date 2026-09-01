@@ -9,16 +9,18 @@
   },
   "representationEvaluationPolicy": {
     "schemaVersion": 2,
-    "epoch": "representation-stability-v2",
+    "epoch": "representation-stability-v3",
     "calibrationSourceIdPrefix": "representation-stability-v1:",
-    "blindSourceIdPrefix": "representation-stability-v2:",
-    "sealedAt": "2026-08-31T22:55:00.000+03:00",
-    "priorBlindStatus": "SPENT_AFTER_2026_08_31_ONE_SHOT",
-    "blindStatus": "SPENT_AFTER_2026_08_31_V2_ONE_SHOT",
-    "evaluatedAt": "2026-08-31T20:05:39.642Z",
-    "evaluatedModelIds": [
-      "bge-m3-q8_0"
-    ],
+    "blindSourceIdPrefix": "representation-stability-v3:",
+    "sealedAt": "2026-09-01T13:00:00.000+03:00",
+    "priorBlindStatus": "SPENT_AFTER_2026_08_31_V2_ONE_SHOT",
+    "blindStatus": "SEALED_UNTOUCHED",
+    "evaluatedAt": null,
+    "evaluatedModelIds": [],
+    "blindChecksumContract": "SHA256_JSON_SORTED_ID_SOURCE_FAMILY_TEXT_LABELS_V1",
+    "blindChecksumSha256": "c043ffa3735c6901d868a5917fe0620372727d85a1c1fbc4935b6b173955a05e",
+    "blindCount": 51,
+    "blindFamilyCount": 51,
     "minimumPerClassPerEvaluationSplit": 3,
     "evaluationSplits": [
       "calibration",
