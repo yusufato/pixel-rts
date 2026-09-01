@@ -55,7 +55,8 @@ const STORY_SEMANTIC_PREDICATES = Object.freeze({
     ECONOMY: ['ekonomi', 'hazine', 'butce', 'enflasyon', 'fiyat', 'piyasa', 'borc', 'ticaret',
         'issizlik', 'bugday', 'liman', 'bakim', 'sozlesme', 'gelir', 'dinar', 'gumruk',
         'fabrika', 'vardiya'],
-    LOCATION: ['nerede', 'konum', 'sehir', 'bolge', 'bulun'],
+    LOCATION: ['nerede', 'konum', 'sehir', 'bolge', 'bulun', 'getir', 'gotur',
+        'tasi', 'sevk', 'yonlendir', 'gonder'],
     WEATHER: ['hava', 'yagmur', 'sicak', 'soguk'],
     OPINION: ['fikir', 'gorus', 'dusun', 'sence']
 });
@@ -161,7 +162,8 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     const thanksEvidence = storySemanticFrameEvidence(tokens, ['tesekkur', 'sagol', 'minnettar']);
     const apologyEvidence = storySemanticFrameEvidence(tokens, ['ozur', 'affet', 'kusura']);
     const requestEvidence = storySemanticFrameEvidence(tokens,
-        ['ver', 'yap', 'gonder', 'yonlendir', 'baslat', 'artir', 'getir', 'bosalt',
+        ['ver', 'yap', 'gonder', 'yonlendir', 'baslat', 'artir', 'getir', 'gotur',
+            'tasi', 'sevk', 'bosalt',
             'ode', 'cagir', 'dondur', 'istiyorum', 'istiyoruz', 'isterim', 'isteriz',
             'rica', 'lazim', 'gerekiyor']);
     const offerEvidence = storySemanticFrameEvidence(tokens,
@@ -244,9 +246,11 @@ function storySemanticFrameSurfaceForm(raw, tokens) {
     const questionEvidence = storySemanticFrameQuestionEvidence(tokens);
     if (text.includes('?') || questionEvidence.length) return { value: 'INTERROGATIVE', evidence: questionEvidence };
     if (text.endsWith('!')) return { value: 'EXCLAMATORY', evidence: ['!'] };
-    if (storySemanticFrameHas(tokens, ['yap', 'ver', 'git', 'gel', 'gonder', 'bekle', 'dur'])) {
+    if (storySemanticFrameHas(tokens, ['yap', 'ver', 'git', 'gel', 'gonder', 'bekle',
+        'dur', 'getir', 'gotur', 'tasi', 'sevk', 'yonlendir'])) {
         return { value: 'IMPERATIVE', evidence: storySemanticFrameEvidence(tokens,
-            ['yap', 'ver', 'git', 'gel', 'gonder', 'bekle', 'dur']) };
+            ['yap', 'ver', 'git', 'gel', 'gonder', 'bekle', 'dur', 'getir', 'gotur',
+                'tasi', 'sevk', 'yonlendir']) };
     }
     if (tokens.length <= 2) return { value: 'FRAGMENT', evidence: tokens.slice() };
     return { value: 'DECLARATIVE', evidence: [] };

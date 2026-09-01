@@ -63,6 +63,20 @@ try {
         assert.equal(result.semanticFrame.requestedOutcome, outcome, text);
         assert.equal(result.semanticFrame.suggestedSpeechAct, speechAct, text);
     }
+    const movementRequests = [
+        'Elçiyi öğleden önce toplantı salonuna getirin.',
+        'Birliği kuzey kapısına götürün.',
+        'Yükü merkez depoya taşıyın.',
+        'Tahliye kafilesini güvenli bölgeye sevk edin.'
+    ];
+    for (const text of movementRequests) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'REQUEST', text);
+        assert.equal(result.semanticFrame.predicate, 'LOCATION', text);
+        assert.equal(result.semanticFrame.surfaceForm, 'IMPERATIVE', text);
+        assert.equal(result.semanticFrame.suggestedSpeechAct, 'REQUEST_ACTION', text);
+        assert.equal(result.speechAct, 'REQUEST_ACTION', text);
+    }
 
     const epistemicBluffFamilies = [
         ['Üç ülke de planımı destekliyor; isimlerini vermem.', true],
