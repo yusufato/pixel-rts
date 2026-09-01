@@ -108,6 +108,12 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
             label !== 'BLUFF_CANDIDATE')),
         highRiskFrameContract: true, boundedDomainFrameContract: true,
         anchorCountIndependent: true }),
+    Object.freeze({ id: 'bounded-domain-consensus-high-risk-centroid-guard',
+        aggregation: 'centroid', topCount: 1, frameCompatibilityWeight: 0,
+        authoritativeSpeechActCandidates: Object.freeze(HIGH_RISK_ACTS),
+        highRiskSpeechActConsensus: true,
+        highRiskFrameContract: true, boundedDomainFrameContract: true,
+        anchorCountIndependent: true }),
     Object.freeze({ id: 'contract-bluff-candidate-centroid-ood-max-guard',
         aggregation: 'centroid', oodAggregation: 'max', topCount: 1,
         frameCompatibilityWeight: 0,
@@ -522,7 +528,10 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
                 && ((options.highRiskMinimumFrameCompatibility != null
                     && compatibility < options.highRiskMinimumFrameCompatibility)
                 || (options.highRiskFrameContract
-                    && !matchesHighRiskFrameContract(row.label, options.queryFrame)));
+                    && !matchesHighRiskFrameContract(row.label, options.queryFrame))
+                || (options.highRiskSpeechActConsensus
+                    && !matchesAuthoritativeSpeechActContract(row.label,
+                        options.queryFrame)));
             const blockedByDomainGuard = options.boundedDomainFrameContract
                 && !matchesBoundedDomainFrameContract(row.label, options.queryFrame,
                     options.queryGrounding);

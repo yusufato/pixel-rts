@@ -123,6 +123,9 @@ assert.deepEqual(selectEmbeddingRepresentations([
 assert.deepEqual(selectEmbeddingRepresentations([
     'bounded-domain-authoritative-high-risk-centroid-guard'
 ]).map(row => row.id), ['bounded-domain-authoritative-high-risk-centroid-guard']);
+assert.deepEqual(selectEmbeddingRepresentations([
+    'bounded-domain-consensus-high-risk-centroid-guard'
+]).map(row => row.id), ['bounded-domain-consensus-high-risk-centroid-guard']);
 assert.throws(() => selectEmbeddingRepresentations(['not-a-representation']),
     /EMBEDDING_REPRESENTATION_UNKNOWN:not-a-representation/);
 
@@ -532,6 +535,35 @@ assert.equal(inconsistentCommercial[0].label, 'REQUEST_ACTION',
     'an inconsistent deterministic direction must not receive authoritative priority');
 assert.equal(inconsistentCommercial.find(row => row.label === 'PROPOSE_COMMERCIAL_DEAL').score,
     -Infinity, 'the existing high-risk contract veto must remain active');
+
+const consensusGuarded = rankEmbeddingCandidates([1, 0], [
+    { id: 'request-semantically-near', label: 'REQUEST_ACTION', vector: [1, 0],
+        labels: actionFrame },
+    { id: 'correction-direction', label: 'CORRECT_STATEMENT', vector: [0.75, 0.25],
+        labels: greetingFrame }
+], null, { aggregation: 'centroid', queryFrame: {
+    ...actionFrame, speechAct: 'CORRECT_STATEMENT', surfaceForm: 'DECLARATIVE',
+    continuity: 'CORRECTION', secondarySpeechActs: []
+}, authoritativeSpeechActCandidates: ['REQUEST_ACTION'],
+highRiskFrameContract: true, highRiskSpeechActConsensus: true });
+assert.equal(consensusGuarded[0].label, 'CORRECT_STATEMENT',
+    'embedding similarity cannot create a high-risk act without parser consensus');
+assert.equal(consensusGuarded.find(row => row.label === 'REQUEST_ACTION').score,
+    -Infinity, 'a high-risk candidate without deterministic speech-act agreement is vetoed');
+
+const consensusRequest = rankEmbeddingCandidates([1, 0], [
+    { id: 'request-consensus', label: 'REQUEST_ACTION', vector: [0.72, 0.28],
+        labels: actionFrame },
+    { id: 'threat-topic', label: 'THREATEN', vector: [1, 0], labels: actionFrame }
+], null, { aggregation: 'centroid', queryFrame: {
+    ...actionFrame, speechAct: 'REQUEST_ACTION', surfaceForm: 'IMPERATIVE',
+    continuity: 'NEW_OR_UNMARKED', secondarySpeechActs: []
+}, authoritativeSpeechActCandidates: ['REQUEST_ACTION', 'THREATEN'],
+highRiskFrameContract: true, highRiskSpeechActConsensus: true });
+assert.equal(consensusRequest[0].label, 'REQUEST_ACTION',
+    'strict parser and frame consensus must retain the intended high-risk candidate');
+assert.equal(consensusRequest.find(row => row.label === 'THREATEN').score,
+    -Infinity, 'consensus applies per high-risk class rather than to the risk group');
 
 const balanced = rankEmbeddingCandidates([1, 0], [
     { id: 'g1', label: 'GREETING', vector: [1, 0] },
