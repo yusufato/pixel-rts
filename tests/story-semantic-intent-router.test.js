@@ -21,7 +21,7 @@ const blindV4Gold = blindV4Rows.filter(row => row.adjudication);
 assert.equal(blindV4Rows.length, 51);
 assert.equal(new Set(blindV4Rows.map(row => row.familyId)).size, 51);
 assert.equal(new Set(blindV4Rows.map(row => row.text)).size, 51);
-assert.equal(blindV4Gold.length, 36);
+assert.equal(blindV4Gold.length, 45);
 assert.ok(blindV4Gold.every(row =>
     row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW'));
 assert.deepEqual(Object.fromEntries([...new Set(blindV4Gold.map(row =>
@@ -38,7 +38,10 @@ assert.deepEqual(Object.fromEntries([...new Set(blindV4Gold.map(row =>
     PROPOSE_COMMERCIAL_DEAL: 3,
     REJECT: 3,
     REPORT_ECONOMIC: 3,
-    REPORT_MILITARY: 3
+    REPORT_MILITARY: 3,
+    REQUEST_ACTION: 3,
+    SHARE_SECRET: 3,
+    SMALL_TALK: 3
 });
 
 assert.deepEqual(selectEmbeddingRepresentations([
@@ -70,11 +73,11 @@ assert.ok(oodTaxonomyRows.filter(row => row.split === 'calibration').every(row =
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 453);
+assert.equal(report.gold.total, 462);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 111,
     calibration: 108,
-    blind_test: 234
+    blind_test: 243
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
@@ -183,7 +186,7 @@ assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 15 },
     calibration: { inDomain: 90, outOfDomain: 18 },
-    blind_test: { inDomain: 222, outOfDomain: 12 }
+    blind_test: { inDomain: 231, outOfDomain: 12 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,
@@ -193,7 +196,7 @@ assert.deepEqual(report.highRiskCoverage.THREATEN, {
 assert.deepEqual(report.highRiskCoverage.SHARE_SECRET, {
     prototype: 3,
     calibration: 6,
-    blind_test: 12
+    blind_test: 15
 });
 assert.deepEqual(report.highRiskCoverage.BLUFF_CANDIDATE, {
     prototype: 3,
@@ -208,7 +211,7 @@ assert.deepEqual(report.highRiskCoverage.PROPOSE_COMMERCIAL_DEAL, {
 assert.deepEqual(report.highRiskCoverage.REQUEST_ACTION, {
     prototype: 6,
     calibration: 6,
-    blind_test: 14
+    blind_test: 17
 });
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
