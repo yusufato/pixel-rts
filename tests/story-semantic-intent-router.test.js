@@ -10,6 +10,7 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     selectPrototypeAnchors,
     buildPrototypeClassCentroids, rankEmbeddingCandidates, fitEmbeddingCalibration,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
+    crossValidateLearnedAnchorRepresentation,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
     embeddingCalibrationStudySplits, evaluateHighRiskRecall,
     buildBlindEvaluationAcceptance, buildCalibrationStudyRecommendation } =
@@ -819,6 +820,18 @@ for (const fold of folds) {
 assert.deepEqual(buildStratifiedCalibrationFolds(nestedRows.slice().reverse(), 3)
     .map(fold => fold.validationRows.map(row => row.id)),
 folds.map(fold => fold.validationRows.map(row => row.id)));
+const sharedFamilyFolds = buildStratifiedCalibrationFolds(nestedRows.concat({
+    id: 'g1-paraphrase', actual: 'GREETING', familyId: 'family-g1',
+    outOfDomain: false, rawPrediction: 'GREETING', score: 0.88, margin: 0.2
+}), 3);
+assert.ok(sharedFamilyFolds.some(fold => {
+    const ids = new Set(fold.validationRows.map(row => row.id));
+    return ids.has('g1') && ids.has('g1-paraphrase');
+}), 'all rows from one family must remain in the same outer validation fold');
+assert.ok(sharedFamilyFolds.every(fold => {
+    const validationFamilies = new Set(fold.validationRows.map(row => row.familyId));
+    return fold.fitRows.every(row => !validationFamilies.has(row.familyId));
+}), 'no family may cross from outer validation into outer fit');
 assert.throws(() => buildStratifiedCalibrationFolds(nestedRows.slice(0, 2), 3),
     /EMBEDDING_CALIBRATION_FOLD_SUPPORT/);
 const nested = crossValidateEmbeddingCalibration(nestedRows, 3);
@@ -827,6 +840,23 @@ assert.equal(nested.rowCount, 6);
 assert.equal(nested.minimumHighRiskRecall, 0);
 assert.equal(nested.folds.every(fold => fold.fitCount === 4
     && fold.validationCount === 2), true);
+const learnedRows = nestedRows.map((row, index) => ({ ...row,
+    adjudication: { labels: { speechAct: row.actual } },
+    text: `learned-${index}` }));
+const learnedVectors = new Map(learnedRows.map(row => [row.id,
+    row.actual === 'GREETING' ? [1, 0] : [0, 1]]));
+const learnedProposals = new Map(learnedRows.map(row => [row.id,
+    { labels: { speechAct: row.actual } }]));
+const learnedValidation = crossValidateLearnedAnchorRepresentation(learnedRows,
+    learnedVectors, [
+        { id: 'prototype-greeting', label: 'GREETING', vector: [1, 0] },
+        { id: 'prototype-threat', label: 'THREATEN', vector: [0, 1] }
+    ], { aggregation: 'centroid' }, learnedProposals, 3);
+assert.equal(learnedValidation.method,
+    'STRATIFIED_OUTER_LEAVE_FAMILY_OUT_FIT_ANCHOR_V1');
+assert.equal(learnedValidation.rowCount, 6);
+assert.ok(learnedValidation.folds.every(fold => fold.familyOverlapCount === 0
+    && fold.learnedAnchorCount === fold.fitCount));
 assert.equal(compareSelectionEvidence({ representationId: 'a', perClassLimit: 1,
     selectionValidation: { worstFoldHighRiskFalsePositiveCount: 0,
         totalHighRiskFalsePositiveCount: 0, meanSpeechActMacroF1: 0.4,
@@ -859,6 +889,14 @@ const riskRecallPass = evaluateHighRiskRecall({ perClassRecall: {
     SHARE_SECRET: 2 / 3, BLUFF_CANDIDATE: 1 / 3
 } }, { perClassRecall: { SHARE_SECRET: 2 / 3 } });
 assert.equal(riskRecallPass.pass, true);
+const riskRecallFloatingPointPass = evaluateHighRiskRecall({ perClassRecall: {
+    THREATEN: 1 / 3, REQUEST_ACTION: 1 / 3, PROPOSE_COMMERCIAL_DEAL: 1 / 3,
+    SHARE_SECRET: 0.7777777777777777, BLUFF_CANDIDATE: 0.5555555555555555
+} }, { perClassRecall: {
+    SHARE_SECRET: 0.7777777777777778, BLUFF_CANDIDATE: 0.5555555555555556
+} });
+assert.equal(riskRecallFloatingPointPass.pass, true,
+    'binary floating-point noise must not fail an equal high-risk recall gate');
 const riskRecallFail = evaluateHighRiskRecall({ perClassRecall: {
     THREATEN: 0, REQUEST_ACTION: 1, PROPOSE_COMMERCIAL_DEAL: 1,
     SHARE_SECRET: 1, BLUFF_CANDIDATE: 1

@@ -63,6 +63,43 @@ try {
         assert.equal(result.semanticFrame.requestedOutcome, outcome, text);
         assert.equal(result.semanticFrame.suggestedSpeechAct, speechAct, text);
     }
+    const reciprocalCommercialFamilies = [
+        'Bakırın tonu için sekiz yüz verirseniz altı aylık sevkiyat garantisi sunarız.',
+        'Liman kullanımını bize açın, karşılığında gümrük payını yüzde iki artırayım.',
+        'Limanı tahsis ederseniz gelecek yıl gelir payını yükseltiriz.'
+    ];
+    for (const text of reciprocalCommercialFamilies) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'OFFER', text);
+        assert.equal(result.semanticFrame.predicate, 'ECONOMY', text);
+        assert.equal(result.semanticFrame.requestedOutcome, 'ACTION', text);
+        assert.equal(result.semanticFrame.suggestedSpeechAct,
+            'PROPOSE_COMMERCIAL_DEAL', text);
+        assert.equal(result.speechAct, 'PROPOSE_COMMERCIAL_DEAL', text);
+    }
+    const preferenceConditionalSupportFamilies = [
+        'İsterseniz tahıl gemilerinize ücretsiz kılavuz gönderirim.',
+        'Dilerseniz limanınıza ücretsiz bir mühendis yollarız.',
+        'Arzu ederseniz kervanınıza bedelsiz muhafız gönderirim.'
+    ];
+    for (const text of preferenceConditionalSupportFamilies) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'OFFER', text);
+        assert.notEqual(result.semanticFrame.suggestedSpeechAct,
+            'PROPOSE_COMMERCIAL_DEAL', text);
+        assert.equal(result.speechAct, 'OFFER_SUPPORT', text);
+    }
+    const reciprocalCommercialHardNegatives = [
+        ['Liman kullanımını bize açın.', 'REQUEST_ACTION'],
+        ['Bakırın tonu sekiz yüz dinar.', 'REPORT_ECONOMIC'],
+        ['Sınır karakolunu boşaltmazsanız topçu ateşi başlatacağız.', 'THREATEN']
+    ];
+    for (const [text, speechAct] of reciprocalCommercialHardNegatives) {
+        const result = analyze(text);
+        assert.notEqual(result.semanticFrame.suggestedSpeechAct,
+            'PROPOSE_COMMERCIAL_DEAL', text);
+        assert.equal(result.speechAct, speechAct, text);
+    }
     const movementRequests = [
         'Elçiyi öğleden önce toplantı salonuna getirin.',
         'Birliği kuzey kapısına götürün.',

@@ -1045,3 +1045,37 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   çapalarından kurulur. Sonraki hipotez, dış-kat fit calibration ailelerini yalnız
   kendi validation katının dışında temsil çapası yapabilen sızıntısız fit-anchor
   düzenidir. Blind, runtime ve B1 kabulü kapalı kalır.
+
+### 1 Eylül 2026 — Sızıntısız fit-anchor kaliteyi geçirdi, eylem talebi recall'u blind'ı kapalı tuttu
+
+- Calibration gold artık yalnız eşik ölçmüyor: dış kattaki fit aileleri öğrenilmiş
+  centroid çapalarına dönüşüyor; validation satırının bütün ailesi hem çapadan hem
+  eşik-fit hesabından çıkarılıyor. Aileler katlar arasında bölünmiyor ve karışık
+  etiketli tek aile fail-closed hata veriyor. Makbuz `111` prototype, `113`
+  öğrenilmiş calibration çapası, `113` öğrenilmiş aile ve her katta `0` aile
+  çakışması gösterir. Blind çapaları yalnız calibration'dan kurulacak olsa da bu
+  koşuda evaluation blind sayısı `0` ve `blindTestAccessed=false` kaldı.
+- İlk ölçüm ticari karşılıklılık ile yöneltilmiş talebi karıştıran genel parser
+  açığını gösterdi. Karşı tarafın koşullu edimi + konuşanın taahhüdü veya açık
+  karşılık + yöneltilmiş talep artık ticari takastır. Buna karşılık `isterseniz`,
+  `dilerseniz` ve `arzu ederseniz` tercih koşulları karşılıksız desteği ticarete
+  çeviremez. Ticaret, yalın talep, ekonomik rapor, tehdit ve ücretsiz destek
+  aileleri birlikte regresyonla kilitlendi.
+- Son BGE-M3 sınırı `111/113/0`; model SHA-256
+  `aa473d51f451a22f0fcf39ba3330c14bed38a385712b1113440f69df4047a173`.
+  Seçilen fit-anchor parser-uzlaşması ortalama/minimum macro-F1
+  `0,674948/0,573256`, deterministik tabana fark `+0,165118`, toplam/en-kötü-kat
+  yüksek-risk yanlış pozitif `0/0` ve OOD yanlış kabul `0/0` verdi. Risk-grubu
+  alternatifi `0,604145` macro-F1 ile daha zayıf kaldı.
+- Recall tehdit `0,722222 ≥ 0,714286`, ticari teklif `1 = 1`, sır
+  `0,777778 = 0,777778` ve blöf `0,555556 = 0,555556` kapılarını geçti. İkili
+  kayan-nokta gösterim farkının eşit değerleri yanlış reddetmemesi için kapıya
+  `1e-12` karşılaştırma toleransı eklendi. Eylem talebi ise gerçek biçimde
+  `0,611111 < 0,75` kaldı; `eligibleModelIds=[]` ve
+  `createNewBlindEpoch=false` değişmedi.
+- Bu sonuç gold'un sızıntısız öğrenilmiş temsilde ölçülebilir yarar sağladığını,
+  fakat ürün kabulü için hâlâ yeterli olmadığını gösterir. Sonraki çalışma yeni
+  threshold taraması veya spent V3–V6 verisi değil; yalnız prototype+calibration
+  içinde REQUEST_ACTION ile OFFER_SUPPORT/ASK_INFORMATION ayrımının genel
+  kompozisyon ve temsil hatalarını incelemelidir. Runtime/Electron/IPC ile `%90+`
+  ve B1 günlük Türkçe kabulü kapalıdır.

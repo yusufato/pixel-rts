@@ -126,6 +126,18 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
         highRiskEmbeddingGroupConsensus: true,
         highRiskFrameContract: true, boundedDomainFrameContract: true,
         anchorCountIndependent: true }),
+    Object.freeze({ id: 'bounded-domain-fit-anchor-risk-group-consensus-high-risk-centroid-guard',
+        aggregation: 'centroid', topCount: 1, frameCompatibilityWeight: 0,
+        authoritativeSpeechActCandidates: Object.freeze(HIGH_RISK_ACTS),
+        highRiskEmbeddingGroupConsensus: true, learnCalibrationAnchors: true,
+        highRiskFrameContract: true, boundedDomainFrameContract: true,
+        anchorCountIndependent: true }),
+    Object.freeze({ id: 'bounded-domain-fit-anchor-consensus-high-risk-centroid-guard',
+        aggregation: 'centroid', topCount: 1, frameCompatibilityWeight: 0,
+        authoritativeSpeechActCandidates: Object.freeze(HIGH_RISK_ACTS),
+        highRiskSpeechActConsensus: true, learnCalibrationAnchors: true,
+        highRiskFrameContract: true, boundedDomainFrameContract: true,
+        anchorCountIndependent: true }),
     Object.freeze({ id: 'contract-bluff-candidate-centroid-ood-max-guard',
         aggregation: 'centroid', oodAggregation: 'max', topCount: 1,
         frameCompatibilityWeight: 0,
@@ -815,22 +827,32 @@ function fitEmbeddingCalibration(rows) {
 function buildStratifiedCalibrationFolds(rows, foldCount) {
     const count = Math.max(2, Number(foldCount) || 3);
     const byClass = new Map();
+    const byFamily = new Map();
     for (const row of rows || []) {
-        if (!byClass.has(row.actual)) byClass.set(row.actual, []);
-        byClass.get(row.actual).push(row);
+        const familyId = String(row.familyId || row.id);
+        if (!byFamily.has(familyId)) byFamily.set(familyId, []);
+        byFamily.get(familyId).push(row);
+    }
+    for (const [familyId, familyRows] of byFamily) {
+        const labels = [...new Set(familyRows.map(row => row.actual))];
+        if (labels.length !== 1) {
+            throw new Error(`EMBEDDING_CALIBRATION_FAMILY_LABEL:${familyId}`);
+        }
+        const label = labels[0];
+        if (!byClass.has(label)) byClass.set(label, []);
+        byClass.get(label).push({ familyId, rows: familyRows });
     }
     const validationIds = Array.from({ length: count }, () => new Set());
-    for (const [label, classRows] of [...byClass.entries()]
+    for (const [label, classFamilies] of [...byClass.entries()]
         .sort((left, right) => left[0].localeCompare(right[0]))) {
-        const ordered = classRows.slice().sort((left, right) =>
-            String(left.familyId || left.id).localeCompare(
-                String(right.familyId || right.id))
-            || String(left.id).localeCompare(String(right.id)));
+        const ordered = classFamilies.slice().sort((left, right) =>
+            left.familyId.localeCompare(right.familyId));
         if (ordered.length < count) {
             throw new Error(`EMBEDDING_CALIBRATION_FOLD_SUPPORT:${label}`
                 + `:${ordered.length}/${count}`);
         }
-        ordered.forEach((row, index) => validationIds[index % count].add(row.id));
+        ordered.forEach((family, index) => family.rows.forEach(row =>
+            validationIds[index % count].add(row.id)));
     }
     return validationIds.map((ids, index) => ({
         index,
@@ -838,6 +860,50 @@ function buildStratifiedCalibrationFolds(rows, foldCount) {
         validationRows: (rows || []).filter(row => ids.has(row.id))
             .sort((left, right) => String(left.id).localeCompare(String(right.id)))
     }));
+}
+
+function learnedCalibrationAnchors(rows, vectors) {
+    return (rows || []).map(row => ({ id: `learned:${row.id}`,
+        familyId: row.familyId || row.id,
+        label: row.adjudication.labels.speechAct,
+        labels: row.adjudication.labels,
+        vector: vectors.get(row.id) }));
+}
+
+function leaveFamilyOutEmbeddingRows(rows, vectors, prototypeAnchors,
+    learnedRows, representation, proposalById) {
+    return (rows || []).map(row => {
+        const familyId = String(row.familyId || row.id);
+        const anchors = (prototypeAnchors || []).concat(learnedCalibrationAnchors(
+            (learnedRows || []).filter(candidate =>
+                String(candidate.familyId || candidate.id) !== familyId), vectors));
+        return rawEmbeddingRows([row], vectors, anchors, null, representation,
+            proposalById)[0];
+    });
+}
+
+function summarizeCrossValidationResults(results, rowCount) {
+    const macroF1 = results.map(row => row.metrics.speechActMacroF1);
+    const highRisk = results.map(row => row.metrics.highRiskFalsePositiveCount);
+    const meanPerClassRecall = Object.fromEntries([...new Set(results.flatMap(row =>
+        Object.keys(row.metrics.perClassRecall)))].sort().map(label => [label,
+        average(results.map(row => row.metrics.perClassRecall[label] ?? 0))]));
+    const highRiskRecall = HIGH_RISK_ACTS.map(label => meanPerClassRecall[label] ?? 0);
+    const ood = results.map(row => row.metrics.oodFalseAcceptanceRate)
+        .filter(value => value != null);
+    return { schemaVersion: 1, method: 'STRATIFIED_OUTER_CALIBRATION_V1',
+        foldCount: results.length, rowCount,
+        meanSpeechActMacroF1: average(macroF1),
+        minimumSpeechActMacroF1: Math.min(...macroF1),
+        speechActMacroF1StdDev: standardDeviation(macroF1),
+        meanPerClassRecall,
+        minimumHighRiskRecall: Math.min(...highRiskRecall),
+        meanHighRiskRecall: average(highRiskRecall),
+        totalHighRiskFalsePositiveCount: highRisk.reduce((sum, value) => sum + value, 0),
+        worstFoldHighRiskFalsePositiveCount: Math.max(...highRisk),
+        meanOodFalseAcceptanceRate: average(ood),
+        worstFoldOodFalseAcceptanceRate: ood.length ? Math.max(...ood) : null,
+        folds: results };
 }
 
 function average(values) {
@@ -861,27 +927,42 @@ function crossValidateEmbeddingCalibration(rows, foldCount) {
             validationCount: fold.validationRows.length,
             validationIds: fold.validationRows.map(row => row.id), metrics };
     });
-    const macroF1 = results.map(row => row.metrics.speechActMacroF1);
-    const highRisk = results.map(row => row.metrics.highRiskFalsePositiveCount);
-    const meanPerClassRecall = Object.fromEntries([...new Set(results.flatMap(row =>
-        Object.keys(row.metrics.perClassRecall)))].sort().map(label => [label,
-        average(results.map(row => row.metrics.perClassRecall[label] ?? 0))]));
-    const highRiskRecall = HIGH_RISK_ACTS.map(label => meanPerClassRecall[label] ?? 0);
-    const ood = results.map(row => row.metrics.oodFalseAcceptanceRate)
-        .filter(value => value != null);
-    return { schemaVersion: 1, method: 'STRATIFIED_OUTER_CALIBRATION_V1',
-        foldCount: folds.length, rowCount: (rows || []).length,
-        meanSpeechActMacroF1: average(macroF1),
-        minimumSpeechActMacroF1: Math.min(...macroF1),
-        speechActMacroF1StdDev: standardDeviation(macroF1),
-        meanPerClassRecall,
-        minimumHighRiskRecall: Math.min(...highRiskRecall),
-        meanHighRiskRecall: average(highRiskRecall),
-        totalHighRiskFalsePositiveCount: highRisk.reduce((sum, value) => sum + value, 0),
-        worstFoldHighRiskFalsePositiveCount: Math.max(...highRisk),
-        meanOodFalseAcceptanceRate: average(ood),
-        worstFoldOodFalseAcceptanceRate: ood.length ? Math.max(...ood) : null,
-        folds: results };
+    return summarizeCrossValidationResults(results, (rows || []).length);
+}
+
+function crossValidateLearnedAnchorRepresentation(rows, vectors, prototypeAnchors,
+    representation, proposalById, foldCount) {
+    const folds = buildStratifiedCalibrationFolds((rows || []).map(row => ({
+        ...row, actual: row.adjudication.labels.speechAct })), foldCount);
+    const results = folds.map(fold => {
+        const validationFamilies = new Set(fold.validationRows.map(row =>
+            String(row.familyId || row.id)));
+        const anchorFamilies = new Set(fold.fitRows.map(row =>
+            String(row.familyId || row.id)));
+        const overlap = [...validationFamilies].filter(familyId =>
+            anchorFamilies.has(familyId));
+        if (overlap.length) {
+            throw new Error(`EMBEDDING_CALIBRATION_ANCHOR_FAMILY_LEAK:${overlap[0]}`);
+        }
+        const fitRows = leaveFamilyOutEmbeddingRows(fold.fitRows, vectors,
+            prototypeAnchors, fold.fitRows, representation, proposalById);
+        const fitted = fitEmbeddingCalibration(fitRows);
+        const anchors = (prototypeAnchors || []).concat(
+            learnedCalibrationAnchors(fold.fitRows, vectors));
+        const validationRows = rawEmbeddingRows(fold.validationRows, vectors,
+            anchors, null, representation, proposalById);
+        return { index: fold.index, fitCount: fold.fitRows.length,
+            validationCount: fold.validationRows.length,
+            learnedAnchorCount: fold.fitRows.length,
+            validationFamilyCount: validationFamilies.size,
+            anchorFamilyCount: anchorFamilies.size,
+            familyOverlapCount: overlap.length,
+            validationIds: fold.validationRows.map(row => row.id),
+            metrics: summarizeEmbeddingRows(validationRows, fitted.calibration) };
+    });
+    const summary = summarizeCrossValidationResults(results, (rows || []).length);
+    summary.method = 'STRATIFIED_OUTER_LEAVE_FAMILY_OUT_FIT_ANCHOR_V1';
+    return summary;
 }
 
 function compareSelectionEvidence(left, right) {
@@ -928,19 +1009,30 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors, representationI
         const anchorCounts = representation.anchorCountIndependent
             ? [null] : EMBEDDING_ANCHOR_COUNTS;
         return anchorCounts.map(perClassLimit => {
-            const calibrationRows = rawEmbeddingRows(rowsBySplit.calibration,
-                vectors, anchors, perClassLimit, representation, proposalById);
+            const learnedAnchors = representation.learnCalibrationAnchors
+                ? learnedCalibrationAnchors(rowsBySplit.calibration, vectors) : [];
+            const evaluationAnchors = anchors.concat(learnedAnchors);
+            const calibrationRows = representation.learnCalibrationAnchors
+                ? leaveFamilyOutEmbeddingRows(rowsBySplit.calibration, vectors,
+                    anchors, rowsBySplit.calibration, representation, proposalById)
+                : rawEmbeddingRows(rowsBySplit.calibration,
+                    vectors, anchors, perClassLimit, representation, proposalById);
             const semanticConsensusDiagnostics = (representation.highRiskEmbeddingConsensus
                 || representation.highRiskEmbeddingGroupConsensus)
                 ? buildHighRiskSemanticRankDiagnostics(rowsBySplit.calibration,
-                    vectors, anchors, proposalById) : null;
-            const selectionValidation = crossValidateEmbeddingCalibration(
-                calibrationRows, 3);
+                    vectors, evaluationAnchors, proposalById) : null;
+            const selectionValidation = representation.learnCalibrationAnchors
+                ? crossValidateLearnedAnchorRepresentation(rowsBySplit.calibration,
+                    vectors, anchors, representation, proposalById, 3)
+                : crossValidateEmbeddingCalibration(calibrationRows, 3);
             const fitted = fitEmbeddingCalibration(calibrationRows);
             const blindRows = rawEmbeddingRows(rowsBySplit.blind_test,
-                vectors, anchors, perClassLimit, representation, proposalById);
+                vectors, evaluationAnchors, perClassLimit, representation,
+                proposalById);
             return { representationId: representation.id, perClassLimit,
-                anchorSelectionPolicy: representation.id === 'contract-centroid-guard'
+                anchorSelectionPolicy: representation.learnCalibrationAnchors
+                    ? 'PROTOTYPE_PLUS_CALIBRATION_LEAVE_FAMILY_OUT_CENTROID_V1'
+                    : representation.id === 'contract-centroid-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_V1'
                     : representation.id === 'contract-frame-centroid-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_FRAME_V1'
@@ -959,6 +1051,15 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors, representationI
                 selectionValidation,
                 calibration: fitted.metrics, thresholds: fitted.calibration,
                 blindTest: summarizeEmbeddingRows(blindRows, fitted.calibration),
+                ...(representation.learnCalibrationAnchors ? { fitAnchorReceipt: {
+                    schemaVersion: 1,
+                    method: 'LEAVE_FAMILY_OUT_CALIBRATION_ANCHOR_V1',
+                    prototypeAnchorCount: anchors.length,
+                    learnedAnchorCount: learnedAnchors.length,
+                    learnedFamilyCount: new Set(rowsBySplit.calibration.map(row =>
+                        String(row.familyId || row.id))).size,
+                    selfFamilyExcludedFromThresholdFit: true,
+                    blindAnchorsUseCalibrationOnly: true } } : {}),
                 ...(semanticConsensusDiagnostics
                     ? { semanticConsensusDiagnostics } : {}) };
         });
@@ -1132,7 +1233,9 @@ function evaluateHighRiskRecall(metrics, baseline) {
         Math.max(1 / MIN_REPRESENTATION_CLASS_SUPPORT,
             Number(baseline && baseline.perClassRecall
                 && baseline.perClassRecall[label]) || 0)]));
-    const failures = HIGH_RISK_ACTS.filter(label => observed[label] < required[label]);
+    const comparisonEpsilon = 1e-12;
+    const failures = HIGH_RISK_ACTS.filter(label =>
+        observed[label] + comparisonEpsilon < required[label]);
     return { pass: failures.length === 0, observed, required, failures };
 }
 
@@ -1589,7 +1692,9 @@ module.exports = {
     selectEmbeddingRepresentations,
     selectPrototypeAnchors, buildPrototypeClassCentroids, rankEmbeddingCandidates,
     fitEmbeddingCalibration, buildStratifiedCalibrationFolds,
-    crossValidateEmbeddingCalibration, compareSelectionEvidence,
+    learnedCalibrationAnchors, leaveFamilyOutEmbeddingRows,
+    crossValidateEmbeddingCalibration, crossValidateLearnedAnchorRepresentation,
+    compareSelectionEvidence,
     summarizeEmbeddingRows, evaluateEmbeddingVectors,
     embeddingEvaluationSplits, embeddingCalibrationStudySplits,
     evaluateHighRiskRecall, buildBlindEvaluationAcceptance,
