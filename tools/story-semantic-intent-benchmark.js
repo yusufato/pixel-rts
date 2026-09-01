@@ -58,6 +58,10 @@ const HIGH_RISK_FRAME_CONTRACTS = Object.freeze({
     THREATEN: Object.freeze({ communicativeFunction: Object.freeze(['TELL', 'REQUEST']),
         requestedOutcome: 'ACTION' }),
     REQUEST_ACTION: Object.freeze({ communicativeFunction: 'REQUEST',
+        predicate: Object.freeze([
+            'IDENTITY', 'HEALTH', 'EMOTION', 'RELATIONSHIP', 'WORK', 'SECRET',
+            'TECHNOLOGY', 'MILITARY', 'ECONOMY', 'LOCATION', 'WEATHER', 'OPINION'
+        ]),
         requestedOutcome: 'ACTION' }),
     PROPOSE_COMMERCIAL_DEAL: Object.freeze({ communicativeFunction: 'OFFER',
         requestedOutcome: 'ACTION' }),

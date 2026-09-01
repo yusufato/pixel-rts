@@ -217,6 +217,7 @@ const greetingFrame = { communicativeFunction: 'GREET',
     polarity: 'POSITIVE_OR_UNMARKED', temporality: 'CURRENT_OR_UNMARKED',
     epistemicStatus: 'UNMARKED', requestedOutcome: 'NONE' };
 const actionFrame = { communicativeFunction: 'REQUEST',
+    predicate: 'WORK',
     polarity: 'POSITIVE_OR_UNMARKED', temporality: 'CURRENT_OR_UNMARKED',
     epistemicStatus: 'UNMARKED', requestedOutcome: 'ACTION' };
 const guardedCentroid = rankEmbeddingCandidates([1, 0], [
@@ -233,6 +234,11 @@ assert.equal(guardedCentroid.find(row => row.label === 'REQUEST_ACTION').score,
     -Infinity, 'incompatible high-risk centroid must be deterministically vetoed');
 
 assert.equal(matchesHighRiskFrameContract('REQUEST_ACTION', actionFrame), true);
+assert.equal(matchesHighRiskFrameContract('REQUEST_ACTION', {
+    ...actionFrame, predicate: 'WORK' }), true);
+assert.equal(matchesHighRiskFrameContract('REQUEST_ACTION', {
+    ...actionFrame, predicate: 'UNSPECIFIED', target: 'WORLD' }), false,
+    'an unresolved out-of-domain task must not become an executable action request');
 assert.equal(matchesHighRiskFrameContract('THREATEN', actionFrame), true);
 assert.equal(matchesHighRiskFrameContract('THREATEN', {
     communicativeFunction: 'TELL', requestedOutcome: 'ACTION' }), true);
