@@ -737,3 +737,27 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   birleşimini yeniden taramak yerine, sonraki çalışma OOD'nin açık
   kapsam/taksonomi eksikliğini bağımsız kalibrasyon ailelerinde ele almalıdır.
   Harcanmış v2 satırları hâlâ kalibrasyon değildir.
+
+### 1 Eylül 2026 — Bağımsız OOD taksonomisi reddi büyük ölçüde iyileştirdi
+
+- Meta-oyun desteği, güncel gerçek dünya, programlama, sağlık, çeviri,
+  yaratıcılık, kişisel tavsiye, seyahat, hukuk, rol aşımı, anlamsız dil ve
+  akademik soru olmak üzere 12 ayrı kapsam ailesi tanımlandı. Her aile için
+  ayrı prototip ve ayrı kalibrasyon cümlesi tek tek etiketlendi; 24 kayıt,
+  24 aile, `24/24 CODEX_INDIVIDUAL_REVIEW`, `24/24 UNKNOWN/OOD` ve sıfır
+  blind kaydı commit `62612c5` ile mühürlendi.
+- Corpus `466` benzersiz cümle, `426` aile ve `366` gold oldu. Yeni dış
+  kalibrasyon sınırı `111/63/0`, `blindTestAccessed=false`tır.
+- Güvenlik öncelikli seçim `frame-centroid-guard` koluna geçti. Bu kol OOD
+  yanlış kabulünü önceki `0,666667/1` ortalama/en-kötü değerden
+  `0,066667/0,2`ye düşürdü; UNKNOWN recall `0,933333` oldu. Fakat macro-F1
+  `0,511647`, taban farkı yalnız `+0,072109`, risk `1/1`; tehdit, eylem
+  talebi ve blöf recall `0` olduğu için bütün kabul kapılarını geçmedi.
+- Önceki contract+bluff kolu kaliteyi korudu: macro-F1 `0,719390`, minimum kat
+  `0,625490`, taban farkı `+0,279852` ve yüksek-risk recall kapıları geçti.
+  Ancak risk `1/1`, OOD yanlış kabul `0,133333/0,2` kaldı. OOD-max kolu daha
+  kötü `0,266667/0,4` OOD sonucu verdi.
+- `eligibleModelIds=[]`, `createNewBlindEpoch=false`. Taksonomi hipotezi güçlü
+  iyileşme üretti fakat tek başına kabul değildir. Sonraki kök, oyun dışı gezi
+  planının `REQUEST_ACTION` sayılması örneğinde görülen kanonik eylem/varlık
+  kapsam kapısıdır; blind kullanılmadan kalibrasyonda sınanmalıdır.

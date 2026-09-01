@@ -1747,3 +1747,19 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   runtime ve Electron entegrasyonu açılmadı. Sonraki araştırma üç OOD örneğini
   farklı aggregation'larla çevirmek değil, bağımsız OOD aile kapsamını
   tasarlamaktır.
+
+## 2026-09-01 — Faz 38 bağımsız OOD taksonomisi (`measured / major-improvement-not-accepted`)
+
+- On iki kapsam türünde 12 prototip + 12 bağımsız kalibrasyon cümlesi tek tek
+  gold yapıldı; blind eklenmedi. Corpus `466` cümle, `426` aile ve `366` gold
+  taşır (`62612c5`). Hedefli corpus/router/frame/review testleri geçti.
+- BGE `111/63/0` dış kalibrasyonda OOD yanlış kabulü seçilen kolda
+  `0,066667`, en kötü katta `0,2`ye düştü; UNKNOWN recall `0,933333`tür.
+  Ancak seçilen frame-centroid macro-F1 farkı yalnız `+0,072109`, risk `1/1`
+  ve üç yüksek-risk recall `0` verdi.
+- Contract+bluff kolu `0,719390` macro-F1, `+0,279852` fark ve geçen recall
+  kapıları verdi; fakat OOD `0,133333/0,2` ve risk `1/1` kaldı. Bu nedenle
+  `eligibleModelIds=[]`, `createNewBlindEpoch=false`; runtime/EXE kapalıdır.
+- Sıradaki iş, oyun dışı bir planın etkili `REQUEST_ACTION` sayılmasını önleyen
+  kanonik eylem+varlık kapsam kapısını blind kullanmadan kalibrasyonda
+  sınamaktır. `%90+`/B1 iddiası hâlâ açık değildir.

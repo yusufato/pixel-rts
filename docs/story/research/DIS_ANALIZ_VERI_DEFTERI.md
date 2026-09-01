@@ -1367,3 +1367,23 @@ parametrik ele alınır.
   Bu ölçüm, mevcut üç OOD prototipinin çok-modlu korunmasının gerekli olabilse
   de yeterli olmadığını gösterir. Sonraki hipotez eşik/aggregation taraması
   değil, bağımsız ve kapsamlı OOD aile taksonomisi olmalıdır.
+
+### 1 Eylül yöntem deneyi — 12 aileli OOD taksonomisi güçlü fakat yetersiz
+
+- Daha önceki üç konu örneği yerine 12 ayrı kapsam türü, birbirinden bağımsız
+  12 prototip ve 12 kalibrasyon cümlesiyle temsil edildi. Her kayıt tek tek
+  `UNKNOWN/OOD` olarak incelendi; blind tarafı değişmedi (`62612c5`). Corpus
+  `466` cümle, `426` aile, `366` gold; ölçüm sınırı `111/63/0` oldu.
+- Seçilen frame-centroid kolunda dış-kat UNKNOWN recall `0,933333`, OOD yanlış
+  kabul ortalama/en-kötü `0,066667/0,2`dir. Önceki `0,666667/1` sonucuna göre
+  OOD kapsamının gerçek ve büyük etkisi doğrulandı.
+- Bu kol macro-F1 `0,511647`, taban farkı `+0,072109`, risk `1/1`; tehdit,
+  eylem talebi ve blöf recall `0` verdi. Güvenli görünen seçim eylem sınıflarını
+  reddederek vacuous kaldığı için kabul edilmedi.
+- Contract+bluff kolu macro-F1 `0,719390`, fark `+0,279852` ve geçen bütün
+  yüksek-risk recall kapıları verdi; OOD `0,133333/0,2`, risk `1/1` kaldı.
+  Kaçan yüksek-risk OOD, gerçek Kapadokya gezi planını `REQUEST_ACTION` saydı.
+- Taksonomi gerekli fakat yeterli değildir. Yeni blind açılmaz. Sonraki deney,
+  REQUEST_ACTION gibi etkili adayların yalnız iletişim işleviyle değil,
+  kanonik oyun eylemi ve çözülebilir dünya varlığıyla doğrulanmasını mevcut
+  kalibrasyonda ölçmelidir.
