@@ -1413,3 +1413,20 @@ parametrik ele alınır.
   `predicate != UNSPECIFIED` kapısı uygulanmadı; çünkü geçerli Cermen
   Federasyonu haber/yönetim soruları mevcut parser'da aynı belirsiz predicate'i
   taşır. Çözüm sözlük yasağı değil, çözülebilir oyun varlığı/alanı kanıtıdır.
+
+### 1 Eylül yöntem deneyi — bounded domain sözleşmesi kalibrasyonu geçti
+
+- Salt predicate zorunluluğu yerine `ASK_INFORMATION/SMALL_TALK` adaylarına
+  sınırlı domain sözleşmesi uygulandı: predicate, açık hedef, söylem devamı veya
+  onarımı ya da kesin kanonik varlık çözümü gerekir. Typo-tolerant eşleşme,
+  basketbol cümlesindeki “maçının → maden” hatası nedeniyle özellikle kanıt
+  dışıdır (`5f5bc9c`).
+- BGE `111/63/0` dış kalibrasyonda ortalama/minimum macro-F1
+  `0,747109/0,653092`, taban farkı `+0,308963`, risk `0/0`, OOD `0/0` ve
+  UNKNOWN recall `1` verdi. Yüksek-risk recall değerlerinin tamamı geçti.
+- Önceki kaliteli contract+bluff kolunun OOD sonucu `0,133333/0,2`, macro-F1'ı
+  `0,723965` idi. Yeni kol iki OOD kaçağını kaldırırken kaliteyi de artırdı.
+- Düşük-risk bilgi ve sohbet recall'u `0,333333/0,333333` kaldığından sonuç
+  günlük Türkçe kabulü değildir. `eligibleModelIds=[bge-m3-q8_0]` ve
+  `createNewBlindEpoch=true`; sıradaki falsifikasyon seçilmiş koldan sonra
+  hazırlanacak v3 one-shot blind'dır.

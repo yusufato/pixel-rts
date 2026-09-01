@@ -793,3 +793,27 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   zorunluluğu geçerli fakat parser'ın konusu belirsiz Cermen Federasyonu
   sorularını da keseceği için reddedildi. Sıradaki kök açık oyun-alanı/varlık
   kanıtıdır. Runtime, Electron/IPC ve `%90+`/B1 iddiası kapalı kalır.
+
+### 1 Eylül 2026 — Sınırlı domain sözleşmesi bütün kalibrasyon kapılarını geçti
+
+- `ASK_INFORMATION` ve `SMALL_TALK` için yalnız deneysel yeni temsil kolunda
+  yön sözleşmesine kaynaklı oyun-alanı kanıtı eklendi (`5f5bc9c`). Kanıt;
+  kanonik predicate, açık hedef, devam/onarım bağı veya yalnız
+  `EXACT_NORMALIZED_ALIAS` ile çözülmüş kamusal varlıktır. Typo-tolerant varlık
+  eşleşmesi kanıt değildir. Mevcut temsil kolları değiştirilmedi.
+- Kör erişimsiz BGE-M3 dış kalibrasyonu `111/63/0` sınırında çalıştı.
+  `bounded-domain-contract-bluff-centroid-guard` ortalama macro-F1 `0,747109`,
+  minimum kat `0,653092`, standart sapma `0,077599` ve deterministik tabana
+  `+0,308963` fark verdi.
+- OOD yanlış kabul ortalama/en-kötü `0/0`, UNKNOWN recall `1`; yüksek-risk
+  yanlış pozitif toplam/en-kötü `0/0`dır. Recall değerleri tehdit `1`, eylem
+  talebi `1`, ticari teklif `1`, sır paylaşımı `0,666667`, blöf `1` olup bütün
+  anti-vacuity kapıları geçti.
+- Düşük-risk ASK_INFORMATION ve SMALL_TALK recall'u ayrı ayrı `0,333333`tür;
+  bu kayıp macro-F1 içinde hesaba katılmış olsa da yeni blind'da özellikle
+  izlenecektir. Sonuç `eligibleModelIds=[bge-m3-q8_0]` ve
+  `createNewBlindEpoch=true`tır.
+- Bu yalnız v3 blind hazırlama kapısını açar. Model runtime/EXE/IPC hattına
+  bağlanmamış, ürün için kabul edilmemiş ve `%90+`/B1 iddiası kanıtlanmamıştır.
+  Sıradaki adım seçilmiş hipotezden sonra üretilen, aile-sızıntısız, önceden
+  mühürlü v3 değerlendirme epoch'udur; v1/v2 blind tekrar kullanılmaz.

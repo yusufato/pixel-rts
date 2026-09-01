@@ -1782,3 +1782,17 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   parça → `ASK_INFORMATION` ve gezi planı → `SMALL_TALK` sızıntıları vardır.
   Sıradaki hedef bunları geçerli belirsiz-konulu oyun sorularını kesmeden açık
   oyun alanı/varlık kapsam kanıtıyla durdurmaktır.
+
+## 2026-09-01 — Faz 38 bounded domain kolu (`calibration-passed / blind-required`)
+
+- Bounded domain sözleşmesi yalnız deneysel BGE temsil koluna eklendi
+  (`5f5bc9c`); kesin predicate/hedef/devam/onarım/kanonik varlık kanıtı olmayan
+  `ASK_INFORMATION` ve `SMALL_TALK` adayları abstain eder. Typo-tolerant varlık
+  benzerliği domain kanıtı değildir.
+- Kör erişimsiz `111/63/0` dış kalibrasyon macro-F1 `0,747109`, taban farkı
+  `+0,308963`, risk `0/0`, OOD `0/0`, UNKNOWN recall `1` ve geçen bütün
+  yüksek-risk recall kapıları verdi. `eligibleModelIds=[bge-m3-q8_0]`,
+  `createNewBlindEpoch=true`.
+- Faz 38 `In Progress`. Bu sonuç runtime/EXE kabulü veya `%90+`/B1 kanıtı
+  değildir. Sıradaki adım aile-sızıntısız v3 blind'ı önceden mühürlemek ve
+  seçilmiş tek hipotezi yalnız bir kez ölçmektir.
