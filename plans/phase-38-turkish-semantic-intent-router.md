@@ -817,3 +817,29 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   bağlanmamış, ürün için kabul edilmemiş ve `%90+`/B1 iddiası kanıtlanmamıştır.
   Sıradaki adım seçilmiş hipotezden sonra üretilen, aile-sızıntısız, önceden
   mühürlü v3 değerlendirme epoch'udur; v1/v2 blind tekrar kullanılmaz.
+
+### 1 Eylül 2026 — V3 tek-seferlik blind bounded-domain hipotezini reddetti
+
+- V3 cohort `51/51` kayıt, `51` benzersiz aile ve `17 × 3` sınıf dengesiyle
+  tek tek incelendi (`c9e0e7b`). Kör içerik
+  `c043ffa3735c6901d868a5917fe0620372727d85a1c1fbc4935b6b173955a05e`
+  checksum'ıyla mühürlendi (`7237cf0`).
+- Mevcut koşucunun blind'da bütün temsil kollarını puanladığı ölçüm öncesinde
+  fark edildi. `--representation` filtresi bilinmeyen kimliği model yüklenmeden
+  reddedecek ve yalnız önceden seçilmiş kolu çalıştıracak şekilde eklendi
+  (`73fdff3`). V3 koşusu tek model, tek profil ve tek
+  `bounded-domain-contract-bluff-centroid-guard` eğrisi taşıdı.
+- Deterministik blind tabanı macro-F1 `0,340017`; BGE sonucu `0,309900`, fark
+  `-0,030117` oldu. OOD yanlış kabul `0/3` ile geçti; fakat iki yüksek-risk
+  yanlış pozitif oluştu (`blindv30026 → REQUEST_ACTION`,
+  `blindv30037 → THREATEN`). Recall değerleri `REQUEST_ACTION=0`,
+  `SHARE_SECRET=0`, `BLUFF_CANDIDATE=0`; gerekli kapılar sırasıyla
+  `0,666667/0,333333/0,333333`tür. `acceptedModelIds=[]`.
+- Epoch `SPENT_AFTER_2026_09_01_V3_ONE_SHOT` olarak kilitlendi (`7419381`).
+  BGE SHA-256 `aa473d51…4047a173`; ham makbuz yerel geçici çalışma alanındaki
+  `representation-stability-v3-result.json` dosyasındadır. V3 yeniden eşik,
+  parser veya temsil seçimi için kullanılamaz.
+- Runtime/Electron/IPC entegrasyonu açılmadı; `%90+` veya B1 günlük Türkçe
+  iddiası desteklenmiyor. Sonraki araştırma, v3 hatalarını ezberlemeden yeni
+  eylem-gizlilik-blöf yön hipotezini yalnız bağımsız kalibrasyonda kurmalıdır.
+  Yeni blind gerekirse seçilmiş yeni hipotezden sonra bağımsız v4 olmalıdır.

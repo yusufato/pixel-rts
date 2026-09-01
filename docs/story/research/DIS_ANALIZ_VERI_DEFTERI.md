@@ -1430,3 +1430,21 @@ parametrik ele alınır.
   günlük Türkçe kabulü değildir. `eligibleModelIds=[bge-m3-q8_0]` ve
   `createNewBlindEpoch=true`; sıradaki falsifikasyon seçilmiş koldan sonra
   hazırlanacak v3 one-shot blind'dır.
+
+### 1 Eylül yöntem deneyi — bounded domain v3 blind'da falsifiye edildi
+
+- `51` kayıtlı, `51` aileli ve her 17 sınıfta üç örnek taşıyan v3, insan
+  incelemesinden sonra checksum ile mühürlendi. Koşucu blind'a yalnız önceden
+  seçilmiş `bounded-domain-contract-bluff-centroid-guard` kolunu açacak şekilde
+  daraltıldı; makbuz bir model, bir profil ve bir temsil eğrisi taşır.
+- Deterministik taban macro-F1 `0,340017` ve OOD yanlış kabul `0,666667` idi.
+  BGE OOD yanlış kabulünü `0`a ve UNKNOWN recall'unu `1`e çıkardı; bu,
+  bounded-domain abstention fikrinin OOD yönündeki etkisini doğrular.
+- Aynı blind'da BGE macro-F1 `0,309900` ile tabanın `-0,030117` altında kaldı.
+  `blindv30026` ticari teklifken `REQUEST_ACTION`, `blindv30037` eylem
+  talebiyken `THREATEN` oldu. Eylem talebi, sır paylaşımı ve blöf recall'u
+  ayrı ayrı `0`; yüksek-risk yanlış pozitif sayısı `2`dir.
+- Hipotez OOD-alt başarısı ile genel kabul başarısını birlikte sağlayamadığı
+  için reddedildi. `acceptedModelIds=[]`; v3 tek seferden sonra spent'tir ve
+  kalibrasyona çevrilemez. Bu sonuç yerel embedding'in mevcut haliyle oyuncu
+  dilini `%90+` veya B1 seviyesinde anladığını göstermez.

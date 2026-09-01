@@ -1674,3 +1674,10 @@
 - **What happened:** Bilgi ve sohbet adayları; iletişim yönüne ek olarak kanonik predicate, açık hedef, söylem devamı/onarımı veya kesin çözülmüş kamusal varlık kanıtına bağlandı. Typo-tolerant varlık eşleşmeleri domain kanıtı sayılmadı; mevcut temsil kolları değiştirilmedi.
 - **Evidence:** BGE sınırı `111/63/0`, `blindTestAccessed=false`. Yeni kol ortalama/minimum macro-F1 `0,747109/0,653092`, taban farkı `+0,308963`, yüksek-risk yanlış pozitif `0/0`, OOD yanlış kabul `0/0`, UNKNOWN recall `1` ve geçen bütün yüksek-risk recall değerleri verdi. `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true`.
 - **Implication for future audits:** Bu sonucu ürün/runtime veya `%90+`/B1 kabulü sayma. Eski v1/v2 blind'ı yeniden kullanma. Seçilmiş bounded-domain hipotezinden sonra hazırlanmış, aile-sızıntısız v3 epoch'u önceden mühürleyip yalnız bir kez ölç; düşük-risk ASK_INFORMATION ve SMALL_TALK recall'unu özellikle denetle.
+
+## 2026-09-01 — V3 blind bounded-domain hipotezini reddetti
+- **Type:** Refuted
+- **Source:** `phase-38-turkish-semantic-intent-router` v3 one-shot / `c9e0e7b`, `7237cf0`, `73fdff3`, `7419381`
+- **What happened:** `51/51` bireysel incelenmiş ve checksum'la mühürlenmiş v3 cohort, yalnız önceden seçilmiş BGE bounded-domain contract/bluff centroid hipoteziyle bir kez ölçüldü. Koşucu bir model, bir profil ve bir temsil eğrisiyle sınırlandı; sonuçtan sonra epoch spent olarak kilitlendi.
+- **Evidence:** Taban macro-F1 `0,340017`; BGE `0,309900`, fark `-0,030117`. OOD yanlış kabul `0`, UNKNOWN recall `1`; fakat yüksek-risk yanlış pozitif `2`. `REQUEST_ACTION`, `SHARE_SECRET` ve `BLUFF_CANDIDATE` recall `0`; `acceptedModelIds=[]`. Model SHA-256 `aa473d51…4047a173`; blind checksum `c043ffa3…a05e`.
+- **Implication for future audits:** OOD başarısını genel niyet kabulü diye raporlama ve v3 satırlarını kalibrasyon/threshold/temsil ayarı için yeniden kullanma. Mevcut BGE kolunu runtime, Electron/IPC veya `%90+`/B1 oyuncu dili iddiasına bağlama. Sonraki hipotez eylem, gizlilik ve blöf yönlerini bağımsız kalibrasyonda çözmeli; yeni blind gerekiyorsa ancak önceden seçilmiş hipotezden sonra bağımsız v4 olarak hazırlanmalıdır.

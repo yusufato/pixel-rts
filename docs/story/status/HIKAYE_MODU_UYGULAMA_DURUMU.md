@@ -1796,3 +1796,16 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Faz 38 `In Progress`. Bu sonuç runtime/EXE kabulü veya `%90+`/B1 kanıtı
   değildir. Sıradaki adım aile-sızıntısız v3 blind'ı önceden mühürlemek ve
   seçilmiş tek hipotezi yalnız bir kez ölçmektir.
+
+## 2026-09-01 — Faz 38 v3 kör değerlendirme (`measured / candidate-rejected`)
+
+- V3 `51/51` bireysel gold, `51` benzersiz aile ve `17 × 3` sınıf dengesiyle
+  checksum altında mühürlendi. Tek-seferlik koşu yalnız BGE-M3, tek profil ve
+  önceden seçilmiş bounded-domain temsil kolunu değerlendirdi.
+- Blind macro-F1 `0,309900`, deterministik taban `0,340017`, fark
+  `-0,030117`dir. OOD yanlış kabul `0` olsa da iki yüksek-risk yanlış pozitif
+  oluştu; `REQUEST_ACTION`, `SHARE_SECRET` ve `BLUFF_CANDIDATE` recall `0`dır.
+  `acceptedModelIds=[]`.
+- Epoch `SPENT_AFTER_2026_09_01_V3_ONE_SHOT` olarak kilitlendi. Runtime,
+  Electron/IPC ve paketleme değişmedi. Faz 38 semantik planı `In Progress`;
+  `%90+`/B1 oyuncu dili anlama kabulü yoktur.
