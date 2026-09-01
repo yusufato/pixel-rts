@@ -1716,3 +1716,17 @@
 - **What happened:** Birinci kişi iyelik/gelecek biçimi dinleyici emrinden ayrıldı; sır sınırlı dinleyici+aktarılan olgu, blöf konuşana bağlı kesin iddia+saklanan/ertelenen kanıt olarak bileştirildi. İç tutarlı yön çerçevelerinin legacy veto ve çelişkili soru ikincili giderildi.
 - **Evidence:** Taze kohort `3/20 → 13/20` doğru ve yüksek-risk yanlış pozitif `4 → 0`. Nihai BGE sınırı `111/83/0`, blind erişim `false`; ortalama/minimum macro-F1 `0,724507/0,643098`, fark `+0,179736`, risk `0/0`, OOD `0/0`; beş yüksek-risk recall değerinin tamamı `1`. `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true`.
 - **Implication for future audits:** Kişi eklerini yok sayan kök eşleştirmeyi veya legacy çelişkisini yeniden temel yön kuralı yapma. Bu sonucu ürün/runtime/%90+/B1 kabulü sayma; yalnız seçilmiş hipotezden sonra hazırlanacak bağımsız, önceden mühürlü V5 blind'a izin verir. V4 spent kalır ve yeniden kullanılamaz.
+
+## 2026-09-01 — V5 blind OOD ve recall'u geçti, kalite ve güvenliği reddetti
+- **Type:** Refuted
+- **Source:** `phase-38-turkish-semantic-intent-router` compositional ownership-direction v5 one-shot / `9ff5366`, `034edd2`
+- **What happened:** Önceden mühürlenmiş 51 aileli V5 epoch yalnız seçilmiş BGE-M3 authoritative temsil koluyla bir kez ölçüldü ve sonuçtan sonra tekrar kullanıma kapatıldı.
+- **Evidence:** BGE blind macro-F1 `0,569901`, deterministik tabana fark `+0,128487 < +0,15`; OOD yanlış kabul `0/3`, yüksek-risk yanlış pozitif `3`. Beş yüksek-risk recall kapısı geçti fakat `acceptedModelIds=[]`; epoch `SPENT_AFTER_2026_09_01_V5_ONE_SHOT` oldu.
+- **Implication for future audits:** V5 satırlarını threshold, parser, temsil veya aday üretimi için kullanma. OOD ve recall başarısını genel model kabulü sayma; runtime/EXE/IPC ile `%90+`/B1 iddiası kapalıdır. Sonraki hipotezi yalnız prototip+kalibrasyonda kur.
+
+## 2026-09-01 — Sınıf-özel yüksek-risk uzlaşması bütün kalibrasyon kapılarını geçti
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` consensus high-risk calibration / `0b1f5d3`
+- **What happened:** Embedding'in etkili bir niyet üretmesi, aynı sınıfta deterministik speech-act kararı ve katı SemanticFrame sözleşmesiyle uzlaşmaya bağlandı; önceki authoritative kol değiştirilmeden yeni deney temsili olarak ölçüldü.
+- **Evidence:** BGE sınırı `111/83/0`, `blindTestAccessed=false`; dış-kat ortalama/minimum macro-F1 `0,714630/0,643098`, tabana fark `+0,169859`, yüksek-risk yanlış pozitif `0/0`, OOD yanlış kabul `0/0`. Recall tehdit/eylem/ticaret/sır `1`, blöf `0,833333`; `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true`.
+- **Implication for future audits:** Sınıf-özel uzlaşmayı salt konu benzerliğine geri gevşetme ve sonucu runtime veya `%90+`/B1 kabulü sayma. V5 spent kalır; seçilmiş bu hipotez yalnız sonradan üretilecek aile-sızıntısız, önceden mühürlü bağımsız V6 blind epoch'unda bir kez sınanabilir.
