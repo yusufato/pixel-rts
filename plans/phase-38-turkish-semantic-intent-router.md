@@ -717,3 +717,23 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   bağımsız kalibrasyonda açık bir OOD temsil/abstention katmanını eylem ve sır
   yönüyle birlikte kanıtlamalıdır. Runtime, Electron/IPC ve `%90+`/B1 iddiası
   kapalıdır.
+
+### 1 Eylül 2026 — En yakın OOD prototipi bağımsız katlarda genellemedi
+
+- Tek `UNKNOWN` centroidinin ilgisiz OOD ailelerini ortalamada ezdiği hipotezi
+  için oyun içi 16 sınıf centroidte bırakıldı; OOD, en yakın üç gerçek
+  prototipten maksimum benzerlikle ayrı karşı-aday oldu. Sentetik çok-modlu
+  örnekte centroidin kaçırdığı OOD doğru yakalandı ve giriş sırası değişmezliği
+  test edildi; uygulama commit `1174129`.
+- Kör erişimsiz `99/51/0` BGE-M3 ölçümünde OOD-max kolu ortalama macro-F1
+  `0,641830`, minimum kat `0,588235`, taban farkı `+0,167571`, risk `0/0` ve
+  geçen yüksek-risk recall kapıları verdi. Tam `51` kalibrasyona fit edildiğinde
+  OOD `3/3` reddedildi.
+- Dış katlarda OOD recall yalnız `1/3` oldu: ortalama yanlış kabul `0,666667`,
+  en kötü kat `1`. Standart contract+bluff centroid de `0,666667/1` verdi ve
+  daha yüksek `0,664706` macro-F1 nedeniyle seçili kaldı. OOD-max yeni blind
+  uygunluğu açmadı: `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+- Hipotez reddedildi. Üç OOD prototipinin centroid veya nearest-neighbor
+  birleşimini yeniden taramak yerine, sonraki çalışma OOD'nin açık
+  kapsam/taksonomi eksikliğini bağımsız kalibrasyon ailelerinde ele almalıdır.
+  Harcanmış v2 satırları hâlâ kalibrasyon değildir.

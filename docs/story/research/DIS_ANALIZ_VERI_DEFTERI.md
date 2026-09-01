@@ -1349,3 +1349,21 @@ parametrik ele alınır.
   katlara taşınmıyor; yeni threshold taraması yapılmayacak. Sonraki deney,
   bağımsız kalibrasyonla sınanabilen açık OOD temsili veya abstention kapısı
   kurmalıdır. V2 blind kalibrasyon verisine çevrilmeyecektir.
+
+### 1 Eylül yöntem deneyi — çok-modlu OOD max karşı-adayı genellemedi
+
+- `UNKNOWN` için tek centroid yerine en yakın gerçek OOD prototipinin skorunu
+  koruyan `PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_BLUFF_CANDIDATE_OOD_MAX_V1`
+  eklendi. Oyun içi sınıflar, yüksek-risk sözleşmeleri ve deterministik blöf
+  adayı değişmedi (`1174129`).
+- Sentetik örnekte birbirinden uzak iki OOD vektörünün ortalaması alan-içi
+  sınıfa yenilirken OOD-max doğru `UNKNOWN` üretti. Gerçek tam kalibrasyon
+  fit'inde de OOD recall `3/3` ve yanlış kabul `0` oldu.
+- Bağımsız üç dış katta genelleme yoktur: ortalama macro-F1 `0,641830`, minimum
+  kat `0,588235`, taban farkı `+0,167571`, risk `0/0`; OOD recall `1/3`,
+  ortalama/en-kötü yanlış kabul `0,666667/1`. Standart centroidin OOD sonucu
+  aynıdır ve macro-F1'ı daha yüksek `0,664706`dır.
+- OOD-max seçilmedi; `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+  Bu ölçüm, mevcut üç OOD prototipinin çok-modlu korunmasının gerekli olabilse
+  de yeterli olmadığını gösterir. Sonraki hipotez eşik/aggregation taraması
+  değil, bağımsız ve kapsamlı OOD aile taksonomisi olmalıdır.

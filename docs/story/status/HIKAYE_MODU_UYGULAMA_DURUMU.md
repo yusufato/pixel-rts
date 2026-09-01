@@ -1732,3 +1732,18 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   Eşik taraması sonlandırıldı. Yeni iş, bağımsız kalibrasyonda açık OOD
   temsil/abstention hipotezini eylem ve sır yönüyle birlikte sınamaktır.
   Runtime, Electron/IPC, LLM mekanik yetkisi ve `%90+`/B1 iddiası değişmedi.
+
+## 2026-09-01 — Faz 38 OOD-max karşı-temsili (`measured / hypothesis-rejected`)
+
+- `UNKNOWN` centroidine alternatif olarak en yakın OOD prototipini koruyan,
+  diğer sınıfları mevcut centroid+sözleşme+blöf hattında bırakan temsil eklendi
+  ve sıra-değişmez sentetik regresyonla kapatıldı (`1174129`).
+- Kör erişimsiz BGE `99/51/0` ölçümünde yeni kol macro-F1 `0,641830`, taban
+  farkı `+0,167571`, risk `0/0` ve geçen recall kapıları verdi. Ancak dış-kat
+  OOD yanlış kabul ortalama/en-kötü `0,666667/1` kaldı; standart kol ile aynı
+  güvenlik sonucu ve daha düşük kalite verdi.
+- Standart `contract-bluff-candidate-centroid-guard` seçili kaldı ama OOD
+  kapısından geçmedi. `eligibleModelIds=[]`, `createNewBlindEpoch=false`;
+  runtime ve Electron entegrasyonu açılmadı. Sonraki araştırma üç OOD örneğini
+  farklı aggregation'larla çevirmek değil, bağımsız OOD aile kapsamını
+  tasarlamaktır.
