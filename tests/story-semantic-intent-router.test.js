@@ -91,6 +91,20 @@ assert.equal(corpus.representationEvaluationPolicy.epoch,
 assert.equal(corpus.representationEvaluationPolicy.blindStatus,
     'SPENT_AFTER_2026_09_01_V6_ONE_SHOT');
 
+const consensusStressRows = corpus.candidates.filter(row =>
+    String(row.sourceId || '').startsWith(
+        'representation-stability-v1:consensus-stress-v2:'));
+assert.equal(consensusStressRows.length, 30);
+assert.ok(consensusStressRows.every(row => row.split === 'calibration'
+    && row.sourceType === 'MODEL_GENERATED_CANDIDATE'
+    && row.labelStatus === 'CANDIDATE_UNREVIEWED'
+    && row.proposalSpeechAct === null));
+assert.equal(new Set(consensusStressRows.map(row => row.id)).size, 30);
+assert.equal(new Set(consensusStressRows.map(row => row.familyId)).size, 30);
+assert.equal(new Set(consensusStressRows.map(row => row.text)).size, 30);
+assert.equal(consensusStressRows.filter(row => row.adjudication).length, 0,
+    'Stress candidates cannot become gold before individual review');
+
 const directionalRiskCalibrationRows = corpus.candidates.filter(row =>
     String(row.sourceId || '').startsWith(
         'representation-stability-v1:directional-risk-v2:'));
