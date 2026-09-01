@@ -338,6 +338,17 @@ const calibrated = summarizeEmbeddingRows(calibrationRows, fitted.calibration);
 assert.equal(calibrated.highRiskFalsePositiveCount, 0);
 assert.equal(calibrated.count, 4);
 
+const observableOodLeak = summarizeEmbeddingRows([calibrationRows[3]], {
+    minimumMargin: 0,
+    defaultThreshold: 0,
+    classThresholds: { GREETING: 0 },
+    fallbackConfidence: 0.5
+});
+assert.deepEqual(observableOodLeak.oodFalseAcceptanceIds, ['ood']);
+assert.deepEqual(observableOodLeak.oodFalseAcceptances,
+    [{ id: 'ood', predicted: 'GREETING' }],
+    'OOD leakage receipts must identify both the source row and forced class');
+
 const oodCompetingRows = [
     { id: 'safe-high', actual: 'GREETING', outOfDomain: false,
         rawPrediction: 'GREETING', score: 0.7, margin: 0.2 },

@@ -541,6 +541,7 @@ function summarizeEmbeddingRows(rows, calibration) {
         return [label, classRows.filter(row => row.predicted === label).length / classRows.length];
     }));
     const ood = evaluated.filter(row => row.outOfDomain);
+    const oodFalseAcceptances = ood.filter(row => row.predicted !== 'UNKNOWN');
     const highRiskFalsePositives = evaluated.filter(row =>
         HIGH_RISK_ACTS.includes(row.predicted) && row.actual !== row.predicted);
     const confusionKeys = [...new Set(evaluated.map(row =>
@@ -549,8 +550,10 @@ function summarizeEmbeddingRows(rows, calibration) {
         count: evaluated.length,
         speechActMacroF1: macroF1(actual, predicted),
         perClassRecall,
-        oodFalseAcceptanceRate: ood.length
-            ? ood.filter(row => row.predicted !== 'UNKNOWN').length / ood.length : null,
+        oodFalseAcceptanceRate: ood.length ? oodFalseAcceptances.length / ood.length : null,
+        oodFalseAcceptanceIds: oodFalseAcceptances.map(row => row.id),
+        oodFalseAcceptances: oodFalseAcceptances.map(row => ({
+            id: row.id, predicted: row.predicted })),
         highRiskFalsePositiveCount: highRiskFalsePositives.length,
         highRiskFalsePositiveIds: highRiskFalsePositives.map(row => row.id),
         top1Top2Margin: { p50: percentile(evaluated.map(row => row.margin), 0.5),
@@ -893,6 +896,7 @@ function buildDeterministicBlindBaseline(rows) {
     const actual = evaluated.map(row => row.actual);
     const predicted = evaluated.map(row => row.predicted);
     const ood = evaluated.filter(row => row.outOfDomain);
+    const oodFalseAcceptances = ood.filter(row => row.predicted !== 'UNKNOWN');
     const highRiskFalsePositives = evaluated.filter(row =>
         HIGH_RISK_ACTS.includes(row.predicted) && row.actual !== row.predicted);
     return { count: evaluated.length,
@@ -902,8 +906,10 @@ function buildDeterministicBlindBaseline(rows) {
             return [label, classRows.filter(row => row.predicted === label).length
                 / classRows.length];
         })),
-        oodFalseAcceptanceRate: ood.length
-            ? ood.filter(row => row.predicted !== 'UNKNOWN').length / ood.length : null,
+        oodFalseAcceptanceRate: ood.length ? oodFalseAcceptances.length / ood.length : null,
+        oodFalseAcceptanceIds: oodFalseAcceptances.map(row => row.id),
+        oodFalseAcceptances: oodFalseAcceptances.map(row => ({
+            id: row.id, predicted: row.predicted })),
         highRiskFalsePositiveCount: highRiskFalsePositives.length,
         highRiskFalsePositiveIds: highRiskFalsePositives.map(row => row.id),
         expectedCalibrationError: expectedCalibrationError(evaluated.map(row => ({
