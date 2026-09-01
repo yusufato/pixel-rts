@@ -24,13 +24,13 @@ assert.equal(new Set(directionalRiskCalibrationRows.map(row => row.familyId)).si
 assert.equal(new Set(directionalRiskCalibrationRows.map(row => row.text)).size, 20);
 const directionalRiskReviewed = directionalRiskCalibrationRows.filter(row =>
     row.adjudication && row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW');
-assert.equal(directionalRiskReviewed.length, 18);
-assert.equal(directionalRiskCalibrationRows.filter(row => !row.adjudication).length, 2);
+assert.equal(directionalRiskReviewed.length, 20);
+assert.equal(directionalRiskCalibrationRows.filter(row => !row.adjudication).length, 0);
 assert.deepEqual(Object.fromEntries([...new Set(directionalRiskReviewed.map(row =>
     row.adjudication.labels.speechAct))].sort().map(label => [label,
     directionalRiskReviewed.filter(row =>
         row.adjudication.labels.speechAct === label).length])), {
-    ACCUSE: 1,
+    ACCUSE: 3,
     ASK_INFORMATION: 1,
     BLUFF_CANDIDATE: 3,
     CHALLENGE: 1,
@@ -106,10 +106,10 @@ assert.ok(oodTaxonomyRows.filter(row => row.split === 'calibration').every(row =
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 486);
+assert.equal(report.gold.total, 488);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 111,
-    calibration: 126,
+    calibration: 128,
     blind_test: 249
 });
 assert.equal(report.modelSelectionPass, true);
@@ -118,8 +118,8 @@ assert.equal(report.untouchedEvaluationPass, false);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
 assert.deepEqual(report.representationSupport.issues, []);
 assert.deepEqual(report.untouchedEvaluation.gold, {
-    total: 142,
-    bySplit: { prototype: 10, calibration: 81, blind_test: 51 }
+    total: 144,
+    bySplit: { prototype: 10, calibration: 83, blind_test: 51 }
 });
 assert.equal(report.untouchedEvaluation.minimumPerClassPerEvaluationSplit, 3);
 assert.equal(report.untouchedEvaluation.blindStatus,
@@ -167,7 +167,7 @@ assert.equal(corpus.representationEvaluationPolicy.evaluationPass, false);
 assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
     .map(([split, rows]) => [split, rows.length])), {
     prototype: 111,
-    calibration: 81,
+    calibration: 83,
     blind_test: 51
 });
 assert.ok(evaluationSplits.calibration.every(row =>
@@ -193,7 +193,7 @@ const calibrationStudySplits = embeddingCalibrationStudySplits(corpus,
 assert.deepEqual(Object.fromEntries(Object.entries(calibrationStudySplits)
     .map(([split, rows]) => [split, rows.length])), {
     prototype: 111,
-    calibration: 81,
+    calibration: 83,
     blind_test: 0
 });
 assert.throws(() => embeddingEvaluationSplits(corpus, ''),
@@ -202,7 +202,7 @@ const splitSourceEvaluation = embeddingEvaluationSplits(corpus, {
     calibrationSourceIdPrefix: 'representation-stability-v1:',
     blindSourceIdPrefix: 'sha256:'
 });
-assert.equal(splitSourceEvaluation.calibration.length, 81);
+assert.equal(splitSourceEvaluation.calibration.length, 83);
 assert.ok(splitSourceEvaluation.blind_test.length > 0);
 assert.ok(splitSourceEvaluation.calibration.every(row =>
     row.sourceId.startsWith('representation-stability-v1:')));
@@ -212,13 +212,13 @@ const splitSourceCalibration = embeddingCalibrationStudySplits(corpus, {
     calibrationSourceIdPrefix: 'representation-stability-v1:',
     blindSourceIdPrefix: 'future-sealed-blind-v2:'
 });
-assert.equal(splitSourceCalibration.calibration.length, 81);
+assert.equal(splitSourceCalibration.calibration.length, 83);
 assert.equal(splitSourceCalibration.blind_test.length, 0);
 assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 15 },
-    calibration: { inDomain: 108, outOfDomain: 18 },
+    calibration: { inDomain: 110, outOfDomain: 18 },
     blind_test: { inDomain: 234, outOfDomain: 15 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
