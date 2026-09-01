@@ -15,6 +15,38 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
 
+const blindV6CandidateRows = corpus.candidates.filter(row =>
+    String(row.sourceId || '').startsWith('representation-stability-v6:'));
+assert.equal(blindV6CandidateRows.length, 51);
+assert.equal(new Set(blindV6CandidateRows.map(row => row.familyId)).size, 51);
+assert.equal(new Set(blindV6CandidateRows.map(row => row.text)).size, 51);
+assert.ok(blindV6CandidateRows.every(row => row.split === 'blind_test'
+    && row.sourceType === 'MODEL_GENERATED_CANDIDATE'
+    && row.labelStatus === 'CANDIDATE_UNREVIEWED'));
+assert.equal(blindV6CandidateRows.filter(row => row.adjudication).length, 0,
+    'V6 candidates must not become gold before individual review');
+assert.deepEqual(Object.fromEntries([...new Set(blindV6CandidateRows.map(row =>
+    row.proposalSpeechAct))].sort().map(label => [label,
+    blindV6CandidateRows.filter(row => row.proposalSpeechAct === label).length])), {
+    ASK_INFORMATION: 3,
+    ASK_PERSONAL_OPINION: 3,
+    BLUFF_CANDIDATE: 3,
+    CHALLENGE: 3,
+    CORRECT_STATEMENT: 3,
+    GREETING: 3,
+    MAKE_PROMISE: 3,
+    OFFER_SUPPORT: 3,
+    PROPOSE_COMMERCIAL_DEAL: 3,
+    REJECT: 3,
+    REPORT_ECONOMIC: 3,
+    REPORT_MILITARY: 3,
+    REQUEST_ACTION: 3,
+    SHARE_SECRET: 3,
+    SMALL_TALK: 3,
+    THREATEN: 3,
+    UNKNOWN: 3
+});
+
 const blindV5CandidateRows = corpus.candidates.filter(row =>
     String(row.sourceId || '').startsWith('representation-stability-v5:'));
 assert.equal(blindV5CandidateRows.length, 51);
