@@ -129,6 +129,11 @@ try {
         assert.notEqual(result.semanticFrame.suggestedSpeechAct, 'BLUFF_CANDIDATE', text);
         assert.notEqual(result.speechAct, 'BLUFF_CANDIDATE', text);
     }
+    const directedPromise = analyze(
+        'Yardım birliğini gün batmadan göndereceğime söz veriyorum.');
+    assert.equal(directedPromise.semanticFrame.surfaceForm, 'DECLARATIVE');
+    assert.equal(directedPromise.speechAct, 'MAKE_PROMISE');
+    assert.notEqual(directedPromise.speechAct, 'REQUEST_ACTION');
 
     const functions = [
         ['Bana güveniyor musunuz?', 'ASK'],

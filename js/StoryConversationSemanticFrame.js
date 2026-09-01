@@ -172,7 +172,7 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
             'ode', 'cagir', 'dondur', 'istiyorum', 'istiyoruz', 'isterim', 'isteriz',
             'rica', 'lazim', 'gerekiyor']);
     const firstPersonActionEvidence = requestEvidence.filter(token =>
-        /(?:arim|erim|irim|urim|ariz|eriz|iriz|uriz|acagim|ecegim|acagiz|ecegiz)$/.test(token));
+        /(?:arim|erim|irim|urim|ariz|eriz|iriz|uriz|acagim|ecegim|acagiz|ecegiz)(?:i|e)?$/.test(token));
     const directedRequestEvidence = requestEvidence.filter(token =>
         !firstPersonActionEvidence.includes(token));
     const offerEvidence = storySemanticFrameEvidence(tokens,
@@ -276,7 +276,7 @@ function storySemanticFrameSurfaceForm(raw, tokens) {
     const imperativeEvidence = storySemanticFrameEvidence(tokens,
             ['yap', 'ver', 'git', 'gel', 'gonder', 'bekle', 'dur', 'getir', 'gotur',
                 'tasi', 'sevk', 'yonlendir']).filter(token =>
-        !/(?:arim|erim|irim|urim|ariz|eriz|iriz|uriz|acagim|ecegim|acagiz|ecegiz)$/.test(token));
+        !/(?:arim|erim|irim|urim|ariz|eriz|iriz|uriz|acagim|ecegim|acagiz|ecegiz)(?:i|e)?$/.test(token));
     const negativeImperativeEvidence = tokens.filter(token =>
         /^(?:anlat|soyle|paylas|ver|goster|emanet|sizdir)(?:ma|me)$/.test(token));
     if (imperativeEvidence.length || negativeImperativeEvidence.length) {
