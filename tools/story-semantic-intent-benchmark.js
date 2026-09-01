@@ -120,6 +120,12 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
         highRiskEmbeddingConsensus: true,
         highRiskFrameContract: true, boundedDomainFrameContract: true,
         anchorCountIndependent: true }),
+    Object.freeze({ id: 'bounded-domain-risk-group-consensus-high-risk-centroid-guard',
+        aggregation: 'centroid', topCount: 1, frameCompatibilityWeight: 0,
+        authoritativeSpeechActCandidates: Object.freeze(HIGH_RISK_ACTS),
+        highRiskEmbeddingGroupConsensus: true,
+        highRiskFrameContract: true, boundedDomainFrameContract: true,
+        anchorCountIndependent: true }),
     Object.freeze({ id: 'contract-bluff-candidate-centroid-ood-max-guard',
         aggregation: 'centroid', oodAggregation: 'max', topCount: 1,
         frameCompatibilityWeight: 0,
@@ -547,6 +553,7 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
                     && matchesHighRiskFrameContract(row.label, options.queryFrame))
                 || (authoritativeSpeechActCandidates.has(row.label)
                     && !options.highRiskEmbeddingConsensus
+                    && !options.highRiskEmbeddingGroupConsensus
                     && matchesAuthoritativeSpeechActContract(row.label,
                         options.queryFrame)));
             return { row, semanticScore, compatibility, deterministicContractCandidate,
@@ -569,8 +576,12 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
                 ? scored[0].row.sourceAnchorIds || [scored[0].row.id]
                 : selected.map(item => item.row.id) };
     });
-    if (options.highRiskEmbeddingConsensus) {
-        const semanticWinner = candidates.slice().sort((left, right) =>
+    if (options.highRiskEmbeddingConsensus
+        || options.highRiskEmbeddingGroupConsensus) {
+        const consensusPool = options.highRiskEmbeddingGroupConsensus
+            ? candidates.filter(candidate => HIGH_RISK_ACTS.includes(candidate.label))
+            : candidates;
+        const semanticWinner = consensusPool.slice().sort((left, right) =>
             right.semanticScore - left.semanticScore
                 || left.label.localeCompare(right.label))[0];
         for (const candidate of candidates) {
@@ -606,6 +617,86 @@ function rawEmbeddingRows(rows, vectors, anchors, perClassLimit, representation,
                 ? 1 : first.score - second.score,
             anchorId: first.anchorId };
     });
+}
+
+function buildHighRiskSemanticRankDiagnostics(rows, vectors, anchors, proposalById) {
+    const details = (rows || []).map(row => {
+        const actual = row.adjudication.labels.speechAct;
+        const proposal = proposalById && proposalById.get(row.id);
+        const parserSpeechAct = proposal && proposal.labels
+            ? proposal.labels.speechAct : 'UNKNOWN';
+        if (!HIGH_RISK_ACTS.includes(actual)
+            && !HIGH_RISK_ACTS.includes(parserSpeechAct)) return null;
+        const semanticRanking = rankEmbeddingCandidates(vectors.get(row.id), anchors,
+            null, { aggregation: 'centroid' }).slice().sort((left, right) =>
+            right.semanticScore - left.semanticScore
+                || left.label.localeCompare(right.label));
+        const rankOf = label => {
+            const index = semanticRanking.findIndex(candidate => candidate.label === label);
+            return index < 0 ? null : index + 1;
+        };
+        const scoreOf = label => {
+            const candidate = semanticRanking.find(item => item.label === label);
+            return candidate ? candidate.semanticScore : null;
+        };
+        const top = semanticRanking[0] || { label: 'UNKNOWN', semanticScore: null };
+        const highRiskRanking = semanticRanking.filter(candidate =>
+            HIGH_RISK_ACTS.includes(candidate.label));
+        const highRiskTop = highRiskRanking[0]
+            || { label: 'UNKNOWN', semanticScore: null };
+        const highRiskRankOf = label => {
+            const index = highRiskRanking.findIndex(candidate => candidate.label === label);
+            return index < 0 ? null : index + 1;
+        };
+        const actualScore = scoreOf(actual);
+        const parserScore = scoreOf(parserSpeechAct);
+        return { id: row.id, actual, parserSpeechAct,
+            semanticTop: top.label,
+            highRiskSemanticTop: highRiskTop.label,
+            actualRank: HIGH_RISK_ACTS.includes(actual) ? rankOf(actual) : null,
+            actualHighRiskRank: HIGH_RISK_ACTS.includes(actual)
+                ? highRiskRankOf(actual) : null,
+            parserRank: HIGH_RISK_ACTS.includes(parserSpeechAct)
+                ? rankOf(parserSpeechAct) : null,
+            parserHighRiskRank: HIGH_RISK_ACTS.includes(parserSpeechAct)
+                ? highRiskRankOf(parserSpeechAct) : null,
+            actualGapFromTop: actualScore == null || top.semanticScore == null
+                ? null : top.semanticScore - actualScore,
+            parserGapFromTop: parserScore == null || top.semanticScore == null
+                ? null : top.semanticScore - parserScore,
+            parserAgreesWithActual: parserSpeechAct === actual };
+    }).filter(Boolean);
+    const trueHighRisk = details.filter(row => HIGH_RISK_ACTS.includes(row.actual));
+    const coverage = limit => trueHighRisk.filter(row => row.actualRank != null
+        && row.actualRank <= limit).length;
+    const highRiskCoverage = limit => trueHighRisk.filter(row =>
+        row.actualHighRiskRank != null && row.actualHighRiskRank <= limit).length;
+    const byClass = Object.fromEntries(HIGH_RISK_ACTS.map(label => {
+        const classRows = trueHighRisk.filter(row => row.actual === label);
+        return [label, { count: classRows.length,
+            parserAgreement: classRows.filter(row => row.parserAgreesWithActual).length,
+            top1: classRows.filter(row => row.actualRank === 1).length,
+            top2: classRows.filter(row => row.actualRank != null
+                && row.actualRank <= 2).length,
+            top3: classRows.filter(row => row.actualRank != null
+                && row.actualRank <= 3).length,
+            top5: classRows.filter(row => row.actualRank != null
+                && row.actualRank <= 5).length,
+            highRiskTop1: classRows.filter(row =>
+                row.actualHighRiskRank === 1).length }];
+    }));
+    return { schemaVersion: 1, method: 'CALIBRATION_CLASS_CENTROID_RAW_RANK_V1',
+        calibrationOnly: true, rowCount: details.length,
+        trueHighRiskCount: trueHighRisk.length,
+        parserHighRiskFalsePositiveCount: details.filter(row =>
+            !HIGH_RISK_ACTS.includes(row.actual)
+                && HIGH_RISK_ACTS.includes(row.parserSpeechAct)).length,
+        actualRankCoverage: { top1: coverage(1), top2: coverage(2),
+            top3: coverage(3), top5: coverage(5) },
+        actualHighRiskRankCoverage: { top1: highRiskCoverage(1),
+            top2: highRiskCoverage(2), top3: highRiskCoverage(3),
+            top5: highRiskCoverage(5) },
+        byClass, rows: details };
 }
 
 function applyEmbeddingCalibration(row, calibration) {
@@ -839,6 +930,10 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors, representationI
         return anchorCounts.map(perClassLimit => {
             const calibrationRows = rawEmbeddingRows(rowsBySplit.calibration,
                 vectors, anchors, perClassLimit, representation, proposalById);
+            const semanticConsensusDiagnostics = (representation.highRiskEmbeddingConsensus
+                || representation.highRiskEmbeddingGroupConsensus)
+                ? buildHighRiskSemanticRankDiagnostics(rowsBySplit.calibration,
+                    vectors, anchors, proposalById) : null;
             const selectionValidation = crossValidateEmbeddingCalibration(
                 calibrationRows, 3);
             const fitted = fitEmbeddingCalibration(calibrationRows);
@@ -863,7 +958,9 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors, representationI
                     : 'PROTOTYPE_GREEDY_COVERAGE_V1',
                 selectionValidation,
                 calibration: fitted.metrics, thresholds: fitted.calibration,
-                blindTest: summarizeEmbeddingRows(blindRows, fitted.calibration) };
+                blindTest: summarizeEmbeddingRows(blindRows, fitted.calibration),
+                ...(semanticConsensusDiagnostics
+                    ? { semanticConsensusDiagnostics } : {}) };
         });
     });
 }
@@ -1488,6 +1585,7 @@ module.exports = {
     matchesHighRiskFrameContract, matchesAuthoritativeSpeechActContract,
     hasBoundedDomainGrounding,
     matchesBoundedDomainFrameContract,
+    buildHighRiskSemanticRankDiagnostics,
     selectEmbeddingRepresentations,
     selectPrototypeAnchors, buildPrototypeClassCentroids, rankEmbeddingCandidates,
     fitEmbeddingCalibration, buildStratifiedCalibrationFolds,

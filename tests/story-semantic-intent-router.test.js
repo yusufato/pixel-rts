@@ -6,6 +6,7 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     frameCompatibility, matchesHighRiskFrameContract,
     matchesAuthoritativeSpeechActContract, hasBoundedDomainGrounding,
     matchesBoundedDomainFrameContract, selectEmbeddingRepresentations,
+    buildHighRiskSemanticRankDiagnostics,
     selectPrototypeAnchors,
     buildPrototypeClassCentroids, rankEmbeddingCandidates, fitEmbeddingCalibration,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
@@ -675,6 +676,62 @@ assert.ok(semanticConsensusDisagreement.filter(row => [
     'BLUFF_CANDIDATE'
 ].includes(row.label))
     .every(row => row.score === -Infinity));
+
+const riskGroupConsensusRequest = rankEmbeddingCandidates([1, 0], [
+    { id: 'safe-semantic-winner', label: 'REPORT_MILITARY', vector: [1, 0],
+        labels: greetingFrame },
+    { id: 'request-risk-winner', label: 'REQUEST_ACTION', vector: [0.8, 0.2],
+        labels: actionFrame },
+    { id: 'threat-risk-runner-up', label: 'THREATEN', vector: [0.7, 0.3],
+        labels: actionFrame }
+], null, { aggregation: 'centroid', queryFrame: {
+    ...actionFrame, speechAct: 'REQUEST_ACTION', surfaceForm: 'IMPERATIVE',
+    continuity: 'NEW_OR_UNMARKED', secondarySpeechActs: []
+}, authoritativeSpeechActCandidates: ['REQUEST_ACTION', 'THREATEN'],
+highRiskFrameContract: true, highRiskEmbeddingGroupConsensus: true });
+assert.equal(riskGroupConsensusRequest[0].label, 'REQUEST_ACTION',
+    'safe topic similarity may lead globally when the risk-group winner agrees');
+assert.equal(riskGroupConsensusRequest[0].deterministicContractCandidate, true);
+
+const riskGroupConsensusDisagreement = rankEmbeddingCandidates([1, 0], [
+    { id: 'safe-commercial-topic', label: 'OFFER_SUPPORT', vector: [1, 0],
+        labels: greetingFrame },
+    { id: 'commercial-risk-winner', label: 'PROPOSE_COMMERCIAL_DEAL',
+        vector: [0.9, 0.1], labels: commercialFrame },
+    { id: 'request-risk-runner-up', label: 'REQUEST_ACTION', vector: [0.8, 0.2],
+        labels: actionFrame }
+], null, { aggregation: 'centroid', queryFrame: {
+    ...actionFrame, speechAct: 'REQUEST_ACTION', surfaceForm: 'IMPERATIVE',
+    continuity: 'NEW_OR_UNMARKED', secondarySpeechActs: []
+}, authoritativeSpeechActCandidates: ['REQUEST_ACTION', 'PROPOSE_COMMERCIAL_DEAL'],
+highRiskFrameContract: true, highRiskEmbeddingGroupConsensus: true });
+assert.equal(riskGroupConsensusDisagreement[0].label, 'OFFER_SUPPORT',
+    'risk-group disagreement must veto both consequential alternatives');
+
+const semanticRankDiagnostics = buildHighRiskSemanticRankDiagnostics([
+    { id: 'rank-true-request', adjudication: { labels: {
+        speechAct: 'REQUEST_ACTION' } } },
+    { id: 'rank-false-request', adjudication: { labels: {
+        speechAct: 'OFFER_SUPPORT' } } }
+], new Map([
+    ['rank-true-request', [1, 0]], ['rank-false-request', [0, 1]]
+]), [
+    { id: 'rank-request-anchor', label: 'REQUEST_ACTION', vector: [1, 0] },
+    { id: 'rank-offer-anchor', label: 'OFFER_SUPPORT', vector: [0, 1] },
+    { id: 'rank-threat-anchor', label: 'THREATEN', vector: [0.7, 0.3] }
+], new Map([
+    ['rank-true-request', { labels: { speechAct: 'REQUEST_ACTION' } }],
+    ['rank-false-request', { labels: { speechAct: 'REQUEST_ACTION' } }]
+]));
+assert.equal(semanticRankDiagnostics.calibrationOnly, true);
+assert.equal(semanticRankDiagnostics.trueHighRiskCount, 1);
+assert.deepEqual(semanticRankDiagnostics.actualRankCoverage,
+    { top1: 1, top2: 1, top3: 1, top5: 1 });
+assert.deepEqual(semanticRankDiagnostics.actualHighRiskRankCoverage,
+    { top1: 1, top2: 1, top3: 1, top5: 1 });
+assert.equal(semanticRankDiagnostics.parserHighRiskFalsePositiveCount, 1);
+assert.equal(semanticRankDiagnostics.rows.find(row =>
+    row.id === 'rank-false-request').parserRank, 3);
 
 const balanced = rankEmbeddingCandidates([1, 0], [
     { id: 'g1', label: 'GREETING', vector: [1, 0] },

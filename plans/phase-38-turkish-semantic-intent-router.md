@@ -1017,3 +1017,31 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   konu-yakın eylem zıtlarında sıfır yanlış pozitifi ve mevcut recall tabanlarını
   birlikte geçmeden seçilemez. Bu sonuç runtime/Electron/IPC ya da B1 kabulü
   değildir.
+
+### 1 Eylül 2026 — Semantik sıra makbuzu risk-grubu uzlaşmasını reddetti
+
+- Calibration-only `CALIBRATION_CLASS_CENTROID_RAW_RANK_V1` makbuzu eklendi.
+  Makbuz cümle metni veya blind satırı taşımaz; yalnız ilgili calibration
+  kimliği, gold/parser sınıfı, ham centroid sırası ve top skora uzaklığı verir.
+  BGE sınırı `111/113/0`, `blindTestAccessed=false` kaldı.
+- `40` gerçek yüksek-risk satırın doğru sınıfı global centroid sırasında top-1
+  `18`, top-2 `25`, top-3 `26`, top-5 `28` kez bulundu. Sır ve blöf için top-5
+  kapsaması ayrı ayrı yalnız `4/9`dur. Bu nedenle global top-K büyütmenin bu
+  temsil altında recall'u çözemeyeceği ölçüldü.
+- Beş etkili sınıf kendi aralarında sıralandığında kapsama top-1 `24/40`, top-2
+  `32/40`, top-3 `34/40`, top-5 `40/40` oldu. Parser'ın yanlış yüksek-risk
+  sınıf seçip deterministik sözleşmeyi geçtiği iki bağımsız satırda embedding'in
+  risk-grubu birincisi parser'dan farklıydı. Bu kanıttan ayrı
+  `bounded-domain-risk-group-consensus-high-risk-centroid-guard` kolu üretildi:
+  yalnız risk grubu içindeki ham embedding birincisi ile deterministik çerçeve
+  aynı sınıfta buluşursa etkili aday yetki kazanır.
+- Sentetik uzlaşma/anlaşmazlık testleri geçti. Geniş calibration'da yeni kol
+  yüksek-risk yanlış pozitifi `0` ve OOD yanlış kabulü `0` tuttu; fakat dış-kat
+  macro-F1 farkı `+0,060541` kaldı. Eylem/ticaret/sır/blöf recall değerleri
+  `0,388889/0,444444/0,333333/0,111111` ile kapıları geçmedi.
+  `eligibleModelIds=[]`, `createNewBlindEpoch=false`; hipotez reddedildi.
+- Gold artışı mevcut mimaride temsili otomatik geliştirmez: calibration kayıtları
+  eşik seçimi ve değerlendirme içindir, sınıf centroidleri hâlâ yalnız prototype
+  çapalarından kurulur. Sonraki hipotez, dış-kat fit calibration ailelerini yalnız
+  kendi validation katının dışında temsil çapası yapabilen sızıntısız fit-anchor
+  düzenidir. Blind, runtime ve B1 kabulü kapalı kalır.
