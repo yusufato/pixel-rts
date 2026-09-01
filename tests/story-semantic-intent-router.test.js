@@ -48,7 +48,7 @@ assert.deepEqual(report.gold.bySplit, {
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
-assert.equal(report.untouchedEvaluationPass, true);
+assert.equal(report.untouchedEvaluationPass, false);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
 assert.deepEqual(report.representationSupport.issues, []);
 assert.deepEqual(report.untouchedEvaluation.gold, {
@@ -57,11 +57,13 @@ assert.deepEqual(report.untouchedEvaluation.gold, {
 });
 assert.equal(report.untouchedEvaluation.minimumPerClassPerEvaluationSplit, 3);
 assert.equal(report.untouchedEvaluation.blindStatus,
-    'SEALED_UNTOUCHED');
+    'SPENT_AFTER_2026_09_01_V3_ONE_SHOT');
 assert.equal(report.untouchedEvaluation.priorBlindStatus,
     'SPENT_AFTER_2026_08_31_V2_ONE_SHOT');
-assert.deepEqual(report.untouchedEvaluation.evaluatedModelIds, []);
-assert.deepEqual(report.untouchedEvaluation.issues, []);
+assert.deepEqual(report.untouchedEvaluation.evaluatedModelIds,
+    ['bge-m3-q8_0']);
+assert.deepEqual(report.untouchedEvaluation.issues,
+    ['UNTOUCHED_EVALUATION_ALREADY_SPENT:SPENT_AFTER_2026_09_01_V3_ONE_SHOT']);
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
     issue.startsWith('UNTOUCHED_CLASS_SUPPORT:THREATEN:')));
 assert.ok(!report.untouchedEvaluation.issues.some(issue =>
@@ -87,9 +89,15 @@ const evaluationSplits = embeddingEvaluationSplits(corpus,
 assert.equal(corpus.representationEvaluationPolicy.epoch,
     'representation-stability-v3');
 assert.equal(corpus.representationEvaluationPolicy.blindStatus,
-    'SEALED_UNTOUCHED');
-assert.equal(corpus.representationEvaluationPolicy.evaluatedAt, null);
-assert.deepEqual(corpus.representationEvaluationPolicy.evaluatedModelIds, []);
+    'SPENT_AFTER_2026_09_01_V3_ONE_SHOT');
+assert.equal(corpus.representationEvaluationPolicy.evaluatedAt,
+    '2026-09-01T09:05:27.573Z');
+assert.deepEqual(corpus.representationEvaluationPolicy.evaluatedModelIds,
+    ['bge-m3-q8_0']);
+assert.deepEqual(corpus.representationEvaluationPolicy.evaluatedRepresentationIds,
+    ['bounded-domain-contract-bluff-centroid-guard']);
+assert.deepEqual(corpus.representationEvaluationPolicy.evaluationAcceptedModelIds, []);
+assert.equal(corpus.representationEvaluationPolicy.evaluationPass, false);
 assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
     .map(([split, rows]) => [split, rows.length])), {
     prototype: 111,
