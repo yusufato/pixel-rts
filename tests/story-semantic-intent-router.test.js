@@ -17,6 +17,9 @@ const corpus = require('../tools/story-semantic-intent-corpus.json');
 assert.deepEqual(selectEmbeddingRepresentations([
     'bounded-domain-contract-bluff-centroid-guard'
 ]).map(row => row.id), ['bounded-domain-contract-bluff-centroid-guard']);
+assert.deepEqual(selectEmbeddingRepresentations([
+    'bounded-domain-authoritative-high-risk-centroid-guard'
+]).map(row => row.id), ['bounded-domain-authoritative-high-risk-centroid-guard']);
 assert.throws(() => selectEmbeddingRepresentations(['not-a-representation']),
     /EMBEDDING_REPRESENTATION_UNKNOWN:not-a-representation/);
 
@@ -372,6 +375,49 @@ assert.ok(Math.abs(bluffContractCandidateCentroid.find(row => row.label === 'GRE
     'bluff candidate priority must leave every safe-class score unchanged');
 assert.equal(bluffContractCandidateCentroid.find(row => row.label === 'REQUEST_ACTION').score,
     -Infinity, 'bluff candidate priority must not bypass another intent-contract veto');
+
+const commercialFrame = { speechAct: 'PROPOSE_COMMERCIAL_DEAL',
+    communicativeFunction: 'OFFER', predicate: 'ECONOMY', target: 'LISTENER',
+    polarity: 'POSITIVE_OR_UNMARKED', temporality: 'CURRENT_OR_UNMARKED',
+    epistemicStatus: 'UNMARKED', continuity: 'NEW_OR_UNMARKED',
+    requestedOutcome: 'ACTION' };
+const authoritativeCommercial = rankEmbeddingCandidates([1, 0], [
+    { id: 'request-topic-nearer', label: 'REQUEST_ACTION', vector: [1, 0],
+        labels: actionFrame },
+    { id: 'commercial-direction', label: 'PROPOSE_COMMERCIAL_DEAL', vector: [0.7, 0.3],
+        labels: commercialFrame }
+], null, { aggregation: 'centroid', queryFrame: commercialFrame,
+    authoritativeSpeechActCandidates: [
+        'REQUEST_ACTION', 'PROPOSE_COMMERCIAL_DEAL', 'THREATEN'
+    ], highRiskFrameContract: true, boundedDomainFrameContract: true });
+assert.equal(authoritativeCommercial[0].label, 'PROPOSE_COMMERCIAL_DEAL',
+    'a strict commercial direction must outrank the semantically nearer action topic');
+assert.equal(authoritativeCommercial[0].deterministicContractCandidate, true);
+
+const authoritativeRequest = rankEmbeddingCandidates([1, 0], [
+    { id: 'threat-topic-nearer', label: 'THREATEN', vector: [1, 0], labels: actionFrame },
+    { id: 'request-direction', label: 'REQUEST_ACTION', vector: [0.72, 0.28],
+        labels: actionFrame }
+], null, { aggregation: 'centroid', queryFrame: {
+    ...actionFrame, speechAct: 'REQUEST_ACTION'
+}, authoritativeSpeechActCandidates: ['REQUEST_ACTION', 'THREATEN'],
+highRiskFrameContract: true });
+assert.equal(authoritativeRequest[0].label, 'REQUEST_ACTION',
+    'a strict request direction must outrank the semantically nearer threat topic');
+
+const inconsistentCommercial = rankEmbeddingCandidates([1, 0], [
+    { id: 'request-consistent', label: 'REQUEST_ACTION', vector: [1, 0],
+        labels: actionFrame },
+    { id: 'commercial-inconsistent', label: 'PROPOSE_COMMERCIAL_DEAL', vector: [0.7, 0.3],
+        labels: commercialFrame }
+], null, { aggregation: 'centroid', queryFrame: {
+    ...commercialFrame, communicativeFunction: 'REQUEST'
+}, authoritativeSpeechActCandidates: ['PROPOSE_COMMERCIAL_DEAL'],
+highRiskFrameContract: true });
+assert.equal(inconsistentCommercial[0].label, 'REQUEST_ACTION',
+    'an inconsistent deterministic direction must not receive authoritative priority');
+assert.equal(inconsistentCommercial.find(row => row.label === 'PROPOSE_COMMERCIAL_DEAL').score,
+    -Infinity, 'the existing high-risk contract veto must remain active');
 
 const balanced = rankEmbeddingCandidates([1, 0], [
     { id: 'g1', label: 'GREETING', vector: [1, 0] },

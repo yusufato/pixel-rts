@@ -101,6 +101,11 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
         deterministicContractCandidates: Object.freeze(['BLUFF_CANDIDATE']),
         highRiskFrameContract: true, boundedDomainFrameContract: true,
         anchorCountIndependent: true }),
+    Object.freeze({ id: 'bounded-domain-authoritative-high-risk-centroid-guard',
+        aggregation: 'centroid', topCount: 1, frameCompatibilityWeight: 0,
+        authoritativeSpeechActCandidates: HIGH_RISK_ACTS,
+        highRiskFrameContract: true, boundedDomainFrameContract: true,
+        anchorCountIndependent: true }),
     Object.freeze({ id: 'contract-bluff-candidate-centroid-ood-max-guard',
         aggregation: 'centroid', oodAggregation: 'max', topCount: 1,
         frameCompatibilityWeight: 0,
@@ -478,6 +483,9 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
     const deterministicContractCandidates = new Set(
         Array.isArray(options.deterministicContractCandidates)
             ? options.deterministicContractCandidates : []);
+    const authoritativeSpeechActCandidates = new Set(
+        Array.isArray(options.authoritativeSpeechActCandidates)
+            ? options.authoritativeSpeechActCandidates : []);
     const grouped = new Map();
     let selectedAnchors = aggregation === 'centroid'
         ? buildPrototypeClassCentroids(anchors)
@@ -509,8 +517,11 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
                     options.queryGrounding);
             const blocked = blockedByFrameGuard || blockedByDomainGuard;
             const deterministicContractCandidate = !blocked
-                && deterministicContractCandidates.has(row.label)
-                && matchesHighRiskFrameContract(row.label, options.queryFrame);
+                && ((deterministicContractCandidates.has(row.label)
+                    && matchesHighRiskFrameContract(row.label, options.queryFrame))
+                || (authoritativeSpeechActCandidates.has(row.label)
+                    && options.queryFrame && options.queryFrame.speechAct === row.label
+                    && matchesHighRiskFrameContract(row.label, options.queryFrame)));
             return { row, semanticScore, compatibility, deterministicContractCandidate,
                 score: blocked ? -Infinity
                     : semanticScore * (1 - frameWeight) + compatibility * frameWeight };
