@@ -988,3 +988,32 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   kullanılamaz. Sonraki hipotez yalnız prototip+kalibrasyon verisinden kurulmalı
   ve V5'e cümle/kimlik özel düzeltme yazılmamalıdır. Runtime/Electron/IPC,
   `%90+` karakter anlama ve B1 günlük Türkçe kabulü hâlâ kapalıdır.
+
+### 1 Eylül 2026 — Geniş uzlaşma kalibrasyonu iki katı uzlaşma hipotezini reddetti
+
+- V6 içeriği ve tahminleri kullanılmadan tek tek gold yapılan 30 bağımsız stres
+  ailesi evaluation calibration sınırını `83 → 113` kayda çıkardı. Mevcut
+  `bounded-domain-consensus-high-risk-centroid-guard` bu geniş sınırda yalnız
+  prototype+calibration ile yeniden ölçüldü; sınır `111/113/0` ve
+  `blindTestAccessed=false` kaldı.
+- Eski uzlaşma kolunun dış-kat macro-F1 farkı `+0,113791` ile gereken `+0,15`
+  kapısını geçmedi. Yüksek-risk yanlış pozitif `1`, OOD yanlış kabul `0` oldu;
+  eylem talebi recall'u `0,277778`e düştü. Ticaret, sır ve blöf recall kapıları
+  da geçmedi; `eligibleModelIds=[]` ve `createNewBlindEpoch=false` kaldı.
+- Kök inceleme, eski kolun gerçek iki-sinyal uzlaşması olmadığını gösterdi:
+  deterministik parser yüksek-risk sınıfını embedding sıralamasının önüne
+  taşıyor, embedding yalnız son mutlak eşikte etkili oluyordu. Geçmiş ölçümü
+  değiştirmemek için bu kol korunarak ayrı
+  `bounded-domain-semantic-consensus-high-risk-centroid-guard` eklendi. Yeni
+  kol, ham embedding birincisi ile deterministik yüksek-risk çerçevesi aynı
+  sınıfta buluşmadıkça bütün yüksek-risk adayları veto eder.
+- Sentetik uzlaşma ve anlaşmazlık regresyonları geçti. Geniş kalibrasyonda yeni
+  kol yüksek-risk yanlış pozitifi `0` ve OOD yanlış kabulü `0` yaptı; fakat
+  macro-F1 farkı `+0,026781`e, eylem/ticaret/sır/blöf recall değerleri sırasıyla
+  `0,222222/0,444444/0,222222/0,111111`e düştü. Hipotez güvenli fakat aşırı
+  katıdır ve reddedildi; yeni blind açılmaz.
+- Sonraki araştırma yalnız calibration verisinde doğru yüksek-risk sınıfının
+  ham semantik sıra ve marj dağılımını ölçmelidir. Top-K veya anlaşma bandı,
+  konu-yakın eylem zıtlarında sıfır yanlış pozitifi ve mevcut recall tabanlarını
+  birlikte geçmeden seçilemez. Bu sonuç runtime/Electron/IPC ya da B1 kabulü
+  değildir.

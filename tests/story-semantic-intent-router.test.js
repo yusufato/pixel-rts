@@ -638,6 +638,44 @@ assert.equal(consensusRequest[0].label, 'REQUEST_ACTION',
 assert.equal(consensusRequest.find(row => row.label === 'THREATEN').score,
     -Infinity, 'consensus applies per high-risk class rather than to the risk group');
 
+const semanticConsensusRequest = rankEmbeddingCandidates([1, 0], [
+    { id: 'request-semantic-winner', label: 'REQUEST_ACTION', vector: [1, 0],
+        labels: actionFrame },
+    { id: 'threat-semantic-runner-up', label: 'THREATEN', vector: [0.8, 0.2],
+        labels: actionFrame },
+    { id: 'unknown-safe-fallback', label: 'UNKNOWN', vector: [0.5, 0.5],
+        labels: greetingFrame }
+], null, { aggregation: 'centroid', queryFrame: {
+    ...actionFrame, speechAct: 'REQUEST_ACTION', surfaceForm: 'IMPERATIVE',
+    continuity: 'NEW_OR_UNMARKED', secondarySpeechActs: []
+}, authoritativeSpeechActCandidates: ['REQUEST_ACTION', 'THREATEN'],
+highRiskFrameContract: true, highRiskEmbeddingConsensus: true });
+assert.equal(semanticConsensusRequest[0].label, 'REQUEST_ACTION',
+    'high-risk output requires the embedding winner and deterministic frame to agree');
+assert.equal(semanticConsensusRequest[0].deterministicContractCandidate, true);
+assert.equal(semanticConsensusRequest.find(row => row.label === 'THREATEN').score,
+    -Infinity, 'a non-winning high-risk semantic candidate must remain vetoed');
+
+const semanticConsensusDisagreement = rankEmbeddingCandidates([1, 0], [
+    { id: 'commercial-semantic-winner', label: 'PROPOSE_COMMERCIAL_DEAL',
+        vector: [1, 0], labels: commercialFrame },
+    { id: 'request-parser-winner', label: 'REQUEST_ACTION', vector: [0.8, 0.2],
+        labels: actionFrame },
+    { id: 'unknown-disagreement-fallback', label: 'UNKNOWN', vector: [0.5, 0.5],
+        labels: greetingFrame }
+], null, { aggregation: 'centroid', queryFrame: {
+    ...actionFrame, speechAct: 'REQUEST_ACTION', surfaceForm: 'IMPERATIVE',
+    continuity: 'NEW_OR_UNMARKED', secondarySpeechActs: []
+}, authoritativeSpeechActCandidates: ['REQUEST_ACTION', 'PROPOSE_COMMERCIAL_DEAL'],
+highRiskFrameContract: true, highRiskEmbeddingConsensus: true });
+assert.equal(semanticConsensusDisagreement[0].label, 'UNKNOWN',
+    'parser and embedding disagreement must abstain instead of choosing either risk act');
+assert.ok(semanticConsensusDisagreement.filter(row => [
+    'THREATEN', 'REQUEST_ACTION', 'PROPOSE_COMMERCIAL_DEAL', 'SHARE_SECRET',
+    'BLUFF_CANDIDATE'
+].includes(row.label))
+    .every(row => row.score === -Infinity));
+
 const balanced = rankEmbeddingCandidates([1, 0], [
     { id: 'g1', label: 'GREETING', vector: [1, 0] },
     { id: 'g2', label: 'GREETING', vector: [0, 1] },

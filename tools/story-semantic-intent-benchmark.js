@@ -114,6 +114,12 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
         highRiskSpeechActConsensus: true,
         highRiskFrameContract: true, boundedDomainFrameContract: true,
         anchorCountIndependent: true }),
+    Object.freeze({ id: 'bounded-domain-semantic-consensus-high-risk-centroid-guard',
+        aggregation: 'centroid', topCount: 1, frameCompatibilityWeight: 0,
+        authoritativeSpeechActCandidates: Object.freeze(HIGH_RISK_ACTS),
+        highRiskEmbeddingConsensus: true,
+        highRiskFrameContract: true, boundedDomainFrameContract: true,
+        anchorCountIndependent: true }),
     Object.freeze({ id: 'contract-bluff-candidate-centroid-ood-max-guard',
         aggregation: 'centroid', oodAggregation: 'max', topCount: 1,
         frameCompatibilityWeight: 0,
@@ -517,7 +523,7 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
         if (!grouped.has(anchor.label)) grouped.set(anchor.label, []);
         grouped.get(anchor.label).push(anchor);
     }
-    return [...grouped.entries()].map(([label, rows]) => {
+    const candidates = [...grouped.entries()].map(([label, rows]) => {
         const scored = rows.map(row => {
             const semanticScore = cosineSimilarity(queryVector, row.vector);
             const compatibility = aggregation === 'centroid'
@@ -540,6 +546,7 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
                 && ((deterministicContractCandidates.has(row.label)
                     && matchesHighRiskFrameContract(row.label, options.queryFrame))
                 || (authoritativeSpeechActCandidates.has(row.label)
+                    && !options.highRiskEmbeddingConsensus
                     && matchesAuthoritativeSpeechActContract(row.label,
                         options.queryFrame)));
             return { row, semanticScore, compatibility, deterministicContractCandidate,
@@ -552,12 +559,30 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
         const score = aggregation === 'top_mean'
             ? selected.reduce((sum, item) => sum + item.score, 0) / selected.length
             : scored[0].score;
-        return { label, score, anchorId: scored[0].row.id,
+        const semanticScore = aggregation === 'top_mean'
+            ? selected.reduce((sum, item) => sum + item.semanticScore, 0)
+                / selected.length
+            : scored[0].semanticScore;
+        return { label, score, semanticScore, anchorId: scored[0].row.id,
             deterministicContractCandidate: scored[0].deterministicContractCandidate,
             anchorIds: aggregation === 'centroid'
                 ? scored[0].row.sourceAnchorIds || [scored[0].row.id]
                 : selected.map(item => item.row.id) };
-    }).sort((left, right) => Number(right.deterministicContractCandidate)
+    });
+    if (options.highRiskEmbeddingConsensus) {
+        const semanticWinner = candidates.slice().sort((left, right) =>
+            right.semanticScore - left.semanticScore
+                || left.label.localeCompare(right.label))[0];
+        for (const candidate of candidates) {
+            if (!HIGH_RISK_ACTS.includes(candidate.label)) continue;
+            const agreed = candidate === semanticWinner
+                && matchesAuthoritativeSpeechActContract(candidate.label,
+                    options.queryFrame);
+            candidate.deterministicContractCandidate = agreed;
+            if (!agreed) candidate.score = -Infinity;
+        }
+    }
+    return candidates.sort((left, right) => Number(right.deterministicContractCandidate)
         - Number(left.deterministicContractCandidate) || right.score - left.score
         || left.label.localeCompare(right.label));
 }
