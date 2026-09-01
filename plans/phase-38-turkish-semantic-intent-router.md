@@ -959,3 +959,32 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true`. Bu yalnız seçilen
   kompozisyon hipotezinden sonra hazırlanacak aile-sızıntısız V5 blind iznidir.
   V4 spent kalır; runtime/Electron/IPC, `%90+` ve B1 kabulü hâlâ kapalıdır.
+
+### 1 Eylül 2026 — V5 OOD ve recall kapılarını geçti, kalite ve güvenliği reddetti
+
+- V5 kohortu `51/51` gold, `51` benzersiz aile ve `17 × 3` sınıf dengesiyle
+  tek tek incelendi (`623f546`, `fa5eda9`, `32b706a`, `6895a60`, `c393e26`,
+  `c6c7eac`). Kör içerik
+  `550c0a8aebdca292b8871f9909c971407ddf3c1afab00627341ae61e06c48ee2`
+  checksum'ıyla koşudan önce mühürlendi (`9ff5366`).
+- Tek koşu yalnız SHA-256'sı `aa473d51…4047a173` olan `bge-m3-q8_0`,
+  `bge-m3-plain` profil ve önceden seçilmiş
+  `bounded-domain-authoritative-high-risk-centroid-guard` temsilini kullandı.
+  Ham makbuz yerel geçici çalışma alanındaki
+  `representation-stability-v5-result.json` dosyasındadır.
+- Deterministik blind tabanı macro-F1 `0,441414`, OOD yanlış kabul `3/3` ve
+  yüksek-risk yanlış pozitif `5` verdi. BGE macro-F1 `0,569901`, tabana fark
+  `+0,128487`, OOD yanlış kabul `0/3` ve yüksek-risk yanlış pozitif `3` verdi.
+  Kalite için gereken fark `+0,15`; güvenlik için gereken yanlış pozitif `0`dır.
+  Hata kimlikleri `blindv50011`, `blindv50014`, `blindv50043`tür.
+- Yüksek-risk recall değerleri `THREATEN=2/3`, `REQUEST_ACTION=3/3`,
+  `PROPOSE_COMMERCIAL_DEAL=2/3`, `SHARE_SECRET=1/3` ve
+  `BLUFF_CANDIDATE=1/3` ile recall kapılarını geçti. Bu başarı, kalite ve
+  sıfır-yanlış-pozitif kapılarının başarısızlığını geçersiz kılmaz;
+  `acceptedModelIds=[]` kaldı. Sıcak CPU p50/p95 `852,86/1198,24 ms`, vektör
+  boyutu `1024`tür.
+- Epoch `SPENT_AFTER_2026_09_01_V5_ONE_SHOT` olarak kilitlendi (`034edd2`).
+  V5 içerikleri threshold, parser, temsil veya yeni aday üretimi için tekrar
+  kullanılamaz. Sonraki hipotez yalnız prototip+kalibrasyon verisinden kurulmalı
+  ve V5'e cümle/kimlik özel düzeltme yazılmamalıdır. Runtime/Electron/IPC,
+  `%90+` karakter anlama ve B1 günlük Türkçe kabulü hâlâ kapalıdır.
