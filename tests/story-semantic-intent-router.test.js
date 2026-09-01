@@ -23,8 +23,8 @@ assert.equal(new Set(blindV6CandidateRows.map(row => row.text)).size, 51);
 assert.ok(blindV6CandidateRows.every(row => row.split === 'blind_test'
     && row.sourceType === 'MODEL_GENERATED_CANDIDATE'
     && row.labelStatus === 'CANDIDATE_UNREVIEWED'));
-assert.equal(blindV6CandidateRows.filter(row => row.adjudication).length, 45);
-assert.equal(blindV6CandidateRows.filter(row => !row.adjudication).length, 6);
+assert.equal(blindV6CandidateRows.filter(row => row.adjudication).length, 51);
+assert.equal(blindV6CandidateRows.filter(row => !row.adjudication).length, 0);
 assert.ok(blindV6CandidateRows.filter(row => row.adjudication).every(row =>
     row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW'
     && row.adjudication.labels.speechAct === row.proposalSpeechAct),
@@ -185,11 +185,11 @@ assert.ok(oodTaxonomyRows.filter(row => row.split === 'calibration').every(row =
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 584);
+assert.equal(report.gold.total, 590);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 111,
     calibration: 128,
-    blind_test: 345
+    blind_test: 351
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
@@ -300,12 +300,12 @@ assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 15 },
     calibration: { inDomain: 110, outOfDomain: 18 },
-    blind_test: { inDomain: 327, outOfDomain: 18 }
+    blind_test: { inDomain: 330, outOfDomain: 21 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,
     calibration: 7,
-    blind_test: 18
+    blind_test: 21
 });
 assert.deepEqual(report.highRiskCoverage.SHARE_SECRET, {
     prototype: 3,
