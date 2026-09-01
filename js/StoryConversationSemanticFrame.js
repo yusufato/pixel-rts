@@ -622,9 +622,15 @@ function storyConversationSemanticFrameFuse(legacy, frame) {
     scores[frame.suggestedSpeechAct] = Math.max(scores[frame.suggestedSpeechAct] || 0,
         Math.round(frame.confidenceBps / 500));
     const primary = frame.suggestedSpeechAct;
+    const incompatibleSecondaryActs = new Set();
+    if (frame.communicativeFunction === 'REQUEST'
+        && frame.surfaceForm === 'IMPERATIVE') {
+        incompatibleSecondaryActs.add('ASK_INFORMATION');
+    }
     return {
         primary,
-        secondary: Object.keys(scores).filter(key => key !== primary && scores[key] >= 5)
+        secondary: Object.keys(scores).filter(key => key !== primary && scores[key] >= 5
+            && !incompatibleSecondaryActs.has(key))
             .sort((a, b) => scores[b] - scores[a] || a.localeCompare(b, 'en')).slice(0, 3),
         scores,
         source: 'COMPOSITIONAL_FRAME_FUSED'

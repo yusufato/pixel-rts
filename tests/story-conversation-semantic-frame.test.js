@@ -116,6 +116,10 @@ try {
         const result = analyze(text);
         assert.equal(result.semanticFrame.suggestedSpeechAct, speechAct, text);
         assert.equal(result.speechAct, speechAct, text);
+        if (result.semanticFrame.communicativeFunction === 'REQUEST'
+            && result.semanticFrame.surfaceForm === 'IMPERATIVE') {
+            assert.ok(!result.secondaryActs.includes('ASK_INFORMATION'), text);
+        }
     }
     const nonBluffEvidenceFamilies = [
         'Bu dosyanın içeriğini dışarıya sızdırmayacağıma söz veriyorum.',
