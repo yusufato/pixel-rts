@@ -1407,3 +1407,9 @@ parametrik ele alınır.
   kapısını geçmedi. Yeni blind açılmaz. Sonraki deney eşik veya hareket fiili
   genişletmesi değil, kalan `UNKNOWN → ASK_INFORMATION/SMALL_TALK` sızıntısı
   için açık oyun-alanı kapsam kanıtıdır.
+- OOD tanı makbuzu (`47dd784`) kesin kaçakları gösterdi: seçilen kolda gerçek
+  basketbol skoru isteği `SMALL_TALK`; kaliteli kolda anlamsız sözcük dizisi
+  `ASK_INFORMATION` ve Kapadokya gezi planı `SMALL_TALK` oldu. Salt
+  `predicate != UNSPECIFIED` kapısı uygulanmadı; çünkü geçerli Cermen
+  Federasyonu haber/yönetim soruları mevcut parser'da aynı belirsiz predicate'i
+  taşır. Çözüm sözlük yasağı değil, çözülebilir oyun varlığı/alanı kanıtıdır.

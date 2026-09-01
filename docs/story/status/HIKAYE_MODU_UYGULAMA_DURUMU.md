@@ -1777,5 +1777,8 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
   geçen bütün yüksek-risk recall kapıları verdi; fakat OOD `0,133333/0,2`
   kaldı. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
 - Faz 38 `In Progress`; runtime/EXE bağlantısı ve `%90+`/B1 kabulü kapalıdır.
-  Sıradaki hedef kalan OOD'nin bilgi/sohbet sınıflarına sızmasını açık oyun
-  alanı kapsam kanıtıyla durdurmaktır.
+  Yeni OOD makbuzu (`47dd784`) seçilen koldaki tek kaçağı gerçek basketbol
+  skoru isteği → `SMALL_TALK` olarak belirledi; diğer kaliteli kolda anlamsız
+  parça → `ASK_INFORMATION` ve gezi planı → `SMALL_TALK` sızıntıları vardır.
+  Sıradaki hedef bunları geçerli belirsiz-konulu oyun sorularını kesmeden açık
+  oyun alanı/varlık kapsam kanıtıyla durdurmaktır.

@@ -785,7 +785,11 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   `0,639216`, taban farkı `+0,285819`, risk `0/0` ve bütün yüksek-risk recall
   kapılarını geçti; `REQUEST_ACTION=0,666667` oldu. Buna rağmen OOD yanlış
   kabul `0,133333/0,2` kaldı.
-- `eligibleModelIds=[]`, `createNewBlindEpoch=false`. Eylem kapsamı ve hareket
-  ailesi hataları çözülmüştür; sıradaki kök, kalan OOD'nin oyun içi
-  `ASK_INFORMATION/SMALL_TALK` sınıflarına sızmasını açık alan-kapsamıyla
-  durdurmaktır. Runtime, Electron/IPC ve `%90+`/B1 iddiası kapalı kalır.
+- `eligibleModelIds=[]`, `createNewBlindEpoch=false`. OOD makbuzu artık oranla
+  birlikte satır kimliği ve zorlanan sınıfı verir (`47dd784`). Seçilen koldaki
+  tek kaçak gerçek basketbol skoru isteğinin `SMALL_TALK` olmasıdır; kaliteli
+  kolda anlamsız parça `ASK_INFORMATION`, gezi planı `SMALL_TALK` olur.
+- Eylem kapsamı ve hareket ailesi hataları çözülmüştür. Yalnız predicate
+  zorunluluğu geçerli fakat parser'ın konusu belirsiz Cermen Federasyonu
+  sorularını da keseceği için reddedildi. Sıradaki kök açık oyun-alanı/varlık
+  kanıtıdır. Runtime, Electron/IPC ve `%90+`/B1 iddiası kapalı kalır.
