@@ -64,7 +64,28 @@
   "candidates": [
     {
       "id": "semantic-intent:consstress0001",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0001",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "THREATEN",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "MILITARY",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Ablukayı kaldırma talebini dinleyicinin liman depolarının yanması biçimindeki koşullu gelecek zararına bağlar; askerî konu yakınlığı tek başına değil bu davranış-sonuç bağı tehdidi kurar.",
+        "reviewedAt": "2026-09-01T21:31:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bu ablukayı kaldırmadığınız takdirde liman depolarınız sabaha kadar yanar.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0001",
@@ -77,7 +98,28 @@
     },
     {
       "id": "semantic-intent:consstress0002",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0002",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "THREATEN",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "MILITARY",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Elçiyi geri gönderme davranışı gerçekleşmezse sınır karakollarına saldırı yapılacağını bildirir; zarar dinleyicinin seçimine koşullandığı için askerî rapor değil tehdittir.",
+        "reviewedAt": "2026-09-01T21:32:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Elçimizi geri göndermezseniz sınır karakollarınızı topa tutacağız.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0002",
@@ -90,7 +132,28 @@
     },
     {
       "id": "semantic-intent:consstress0003",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0003",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "THREATEN",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "SECRET",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Sözleşmeden çekilmeme talebini gizli ödemeleri meclise açıklama zararına bağlar; ödemelerin içeriği henüz açıklanmadığı için sır paylaşımı değildir.",
+        "reviewedAt": "2026-09-01T21:33:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Sözleşmeden çekilirsen bütün gizli ödemelerini meclise açıklarım.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0003",
@@ -103,7 +166,28 @@
     },
     {
       "id": "semantic-intent:consstress0004",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0004",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "IMPERATIVE",
+          "predicate": "MILITARY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyiciye üçüncü taburu belirli bir geçide sevk etme görevini doğrudan yükleyen askerî emirdir; rapor, soru veya konuşanın kendi vaadi değildir.",
+        "reviewedAt": "2026-09-01T21:34:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Üçüncü taburu kuzey geçidine sevk et.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0004",
@@ -116,7 +200,28 @@
     },
     {
       "id": "semantic-intent:consstress0005",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0005",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "WORK",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "İstek bildiren çekimli yapı, dosyayı maliye müsteşarına ulaştırma işini dinleyiciye yükler; yüzeyi bildirme olsa da iletişim işlevi eylem talebidir.",
+        "reviewedAt": "2026-09-01T21:35:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Şu dosyayı maliye müsteşarına ulaştırmanızı istiyorum.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0005",
@@ -129,7 +234,28 @@
     },
     {
       "id": "semantic-intent:consstress0006",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0006",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REQUEST_ACTION",
+          "communicativeFunction": "REQUEST",
+          "surfaceForm": "IMPERATIVE",
+          "predicate": "ECONOMY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "UNMARKED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Konvoyun varışından sonra yakıt kayıtlarını iletme eylemini dinleyiciye emreder; zaman yan tümcesi talebin yönünü veya icra niteliğini değiştirmez.",
+        "reviewedAt": "2026-09-01T21:36:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Konvoy varınca yakıt kayıtlarını bana iletin.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0006",
@@ -142,7 +268,30 @@
     },
     {
       "id": "semantic-intent:consstress0007",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0007",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+          "communicativeFunction": "OFFER",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER_AND_LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "REQUEST_ACTION"
+          ]
+        },
+        "notes": "Sekiz yüz birim ödeme koşulunu altı aylık sevkiyat garantisi karşılığına bağlayan iki taraflı ekonomik değişimdir; salt fiyat raporu veya bedelsiz destek değildir.",
+        "reviewedAt": "2026-09-01T21:37:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bakırın tonu için sekiz yüz verirseniz altı aylık sevkiyat garantisi sunarız.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0007",
@@ -155,7 +304,30 @@
     },
     {
       "id": "semantic-intent:consstress0008",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0008",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+          "communicativeFunction": "OFFER",
+          "surfaceForm": "IMPERATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER_AND_LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "REQUEST_ACTION"
+          ]
+        },
+        "notes": "Liman erişimi talebini gümrük payı artışı karşılığıyla birleştiren açık ticari tekliftir; ilk buyruğun yüzeyi ikincil eylem talebi olarak korunur.",
+        "reviewedAt": "2026-09-01T21:38:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Liman kullanımını bize açın, karşılığında gümrük payını yüzde iki artırayım.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0008",
@@ -168,7 +340,30 @@
     },
     {
       "id": "semantic-intent:consstress0009",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0009",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+          "communicativeFunction": "OFFER",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER_AND_LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "REQUEST_ACTION"
+          ]
+        },
+        "notes": "On kamyon tahıl ile iki jeneratörü açıkça karşılıklı değişim konusu yapan takas teklifidir; konuşanın verebilirlik kipi teklifin koşullu niteliğini taşır.",
+        "reviewedAt": "2026-09-01T21:39:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "On kamyon tahıl karşılığında iki jeneratörü devredebiliriz.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0009",
@@ -181,7 +376,28 @@
     },
     {
       "id": "semantic-intent:consstress0010",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0010",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SHARE_SECRET",
+          "communicativeFunction": "CONFIDE",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "SECRET",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "CONFIDENTIAL_HANDLING",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Aramızda kalsın sınırıyla birlikte kabinenin valiyi görevden alacağı olgusunu gerçekten açıklar; yalnız gizlilik isteyen boş bir talep değildir.",
+        "reviewedAt": "2026-09-01T21:40:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Aramızda kalsın, kabine yarın valiyi görevden alacak.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0010",
