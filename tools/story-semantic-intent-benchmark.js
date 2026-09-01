@@ -103,7 +103,9 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
         anchorCountIndependent: true }),
     Object.freeze({ id: 'bounded-domain-authoritative-high-risk-centroid-guard',
         aggregation: 'centroid', topCount: 1, frameCompatibilityWeight: 0,
-        authoritativeSpeechActCandidates: HIGH_RISK_ACTS,
+        deterministicContractCandidates: Object.freeze(['BLUFF_CANDIDATE']),
+        authoritativeSpeechActCandidates: Object.freeze(HIGH_RISK_ACTS.filter(label =>
+            label !== 'BLUFF_CANDIDATE')),
         highRiskFrameContract: true, boundedDomainFrameContract: true,
         anchorCountIndependent: true }),
     Object.freeze({ id: 'contract-bluff-candidate-centroid-ood-max-guard',
@@ -391,6 +393,15 @@ function matchesHighRiskFrameContract(label, frame) {
         ? value.includes(frame[axis]) : frame[axis] === value);
 }
 
+function matchesAuthoritativeSpeechActContract(label, frame) {
+    if (!frame || frame.speechAct !== label
+        || !matchesHighRiskFrameContract(label, frame)) return false;
+    if (label !== 'REQUEST_ACTION') return true;
+    return frame.surfaceForm !== 'INTERROGATIVE'
+        && !['CORRECTION', 'REPAIR', 'ANSWER'].includes(frame.continuity)
+        && !(frame.secondarySpeechActs || []).includes('ASK_INFORMATION');
+}
+
 function hasBoundedDomainGrounding(frame, grounding) {
     if (!frame) return false;
     if (frame.predicate && frame.predicate !== 'UNSPECIFIED') return true;
@@ -520,8 +531,8 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
                 && ((deterministicContractCandidates.has(row.label)
                     && matchesHighRiskFrameContract(row.label, options.queryFrame))
                 || (authoritativeSpeechActCandidates.has(row.label)
-                    && options.queryFrame && options.queryFrame.speechAct === row.label
-                    && matchesHighRiskFrameContract(row.label, options.queryFrame)));
+                    && matchesAuthoritativeSpeechActContract(row.label,
+                        options.queryFrame)));
             return { row, semanticScore, compatibility, deterministicContractCandidate,
                 score: blocked ? -Infinity
                     : semanticScore * (1 - frameWeight) + compatibility * frameWeight };
@@ -1440,7 +1451,8 @@ module.exports = {
     normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
     labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight,
     l2Normalize, dotProduct, cosineSimilarity, frameCompatibility,
-    matchesHighRiskFrameContract, hasBoundedDomainGrounding,
+    matchesHighRiskFrameContract, matchesAuthoritativeSpeechActContract,
+    hasBoundedDomainGrounding,
     matchesBoundedDomainFrameContract,
     selectEmbeddingRepresentations,
     selectPrototypeAnchors, buildPrototypeClassCentroids, rankEmbeddingCandidates,

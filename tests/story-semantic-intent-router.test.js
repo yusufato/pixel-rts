@@ -3,7 +3,8 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
-    frameCompatibility, matchesHighRiskFrameContract, hasBoundedDomainGrounding,
+    frameCompatibility, matchesHighRiskFrameContract,
+    matchesAuthoritativeSpeechActContract, hasBoundedDomainGrounding,
     matchesBoundedDomainFrameContract, selectEmbeddingRepresentations,
     selectPrototypeAnchors,
     buildPrototypeClassCentroids, rankEmbeddingCandidates, fitEmbeddingCalibration,
@@ -399,11 +400,20 @@ const authoritativeRequest = rankEmbeddingCandidates([1, 0], [
     { id: 'request-direction', label: 'REQUEST_ACTION', vector: [0.72, 0.28],
         labels: actionFrame }
 ], null, { aggregation: 'centroid', queryFrame: {
-    ...actionFrame, speechAct: 'REQUEST_ACTION'
+    ...actionFrame, speechAct: 'REQUEST_ACTION', surfaceForm: 'IMPERATIVE',
+    continuity: 'NEW_OR_UNMARKED', secondarySpeechActs: []
 }, authoritativeSpeechActCandidates: ['REQUEST_ACTION', 'THREATEN'],
 highRiskFrameContract: true });
 assert.equal(authoritativeRequest[0].label, 'REQUEST_ACTION',
     'a strict request direction must outrank the semantically nearer threat topic');
+assert.equal(matchesAuthoritativeSpeechActContract('REQUEST_ACTION', {
+    ...actionFrame, speechAct: 'REQUEST_ACTION', surfaceForm: 'INTERROGATIVE',
+    continuity: 'NEW_OR_UNMARKED', secondarySpeechActs: ['ASK_INFORMATION']
+}), false, 'an information question misparsed as a request must not gain authority');
+assert.equal(matchesAuthoritativeSpeechActContract('REQUEST_ACTION', {
+    ...actionFrame, speechAct: 'REQUEST_ACTION', surfaceForm: 'IMPERATIVE',
+    continuity: 'CORRECTION', secondarySpeechActs: []
+}), false, 'a correction misparsed as an imperative must not gain request authority');
 
 const inconsistentCommercial = rankEmbeddingCandidates([1, 0], [
     { id: 'request-consistent', label: 'REQUEST_ACTION', vector: [1, 0],
