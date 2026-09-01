@@ -907,3 +907,30 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   Electron/IPC, `%90+` ve B1 günlük Türkçe kabulü kapalı kalır. Sonraki hipotez
   v4 hatalarına cümle bazlı kural yazmadan, yalnız prototip+kalibrasyon
   verisinde sır/blöf yönü ve yüksek-risk yanlış pozitiflerini birlikte çözmelidir.
+
+### 1 Eylül 2026 — Yönsel sır/blöf kalibrasyonu otorite kolunu reddetti
+
+- V4 satırları, tahminleri ve skorları ayar girdisi yapılmadan; yalnız mevcut
+  prototip/v1 kalibrasyon kapsamındaki açık kalıp boşluğundan 20 bağımsız
+  yönsel-risk kalibrasyon ailesi üretildi (`e4e0abb`, `273d62f`). Her cümle
+  ayrı SemanticFrameV2 eksenleri ve gerekçesiyle gold yapıldı (`dde6a25`,
+  `453b8fd`). Kohort 3 gerçek sır, 3 gerçek blöf ve 14 komşu eylem içerir.
+- Yeni kohortta deterministik taban yalnız `3/20` doğru verdi ve `4` yüksek-risk
+  yanlış pozitif üretti. Üç gerçek sırın hiçbiri `SHARE_SECRET`, üç gerçek
+  blöfün hiçbiri `BLUFF_CANDIDATE` çerçevesine ulaşmadı. Bu, otorite kapısının
+  açık “gizli/yalnız sana” ve “kanıt yok/gösteremem” kalıplarına aşırı bağlı
+  olduğunu bağımsız kalibrasyonda gösterdi.
+- İlk model denemesi `ACCUSE=1/3` dış-kat desteğinde model puanlamasından önce
+  durdu; iki ayrı suçlama ailesi eklenip tek tek incelenerek destek `3/3`
+  tamamlandı. Bu başarısız deneme blind erişmedi ve model sonucu üretmedi.
+- Seçilmiş tek BGE kolunun nihai sınırı `111/83/0`, `blindTestAccessed=false`dır.
+  Ortalama/minimum macro-F1 `0,619753/0,527778`, tabana fark `+0,255950`, OOD
+  yanlış kabul `0/0` oldu. Ancak yüksek-risk yanlış pozitif toplam/en-kötü kat
+  `1/1`; recall değerleri tehdit `1`, eylem talebi `0,166667`, ticari teklif
+  `1`, sır `0,5`, blöf `0,5`tir. Eylem talebi gereken `0,75` değerini geçmedi;
+  `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+- Yeni blind açılmaz. Sonraki hipotez, sır/blöf sözcüklerine özel liste yerine
+  konuşanın kendi kesin iddiası, kanıt erişilebilirliği ve eylemi kimin yapacağı
+  yönlerini kompozisyon halinde çözmeli; aynı 83 satırlı dış kalibrasyonda
+  kalite, sıfır risk, sıfır OOD ve bütün yüksek-risk recall kapıları birlikte
+  geçmeden v5 hazırlanamaz.
