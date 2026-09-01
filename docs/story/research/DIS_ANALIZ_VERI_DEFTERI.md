@@ -1387,3 +1387,23 @@ parametrik ele alınır.
   REQUEST_ACTION gibi etkili adayların yalnız iletişim işleviyle değil,
   kanonik oyun eylemi ve çözülebilir dünya varlığıyla doğrulanmasını mevcut
   kalibrasyonda ölçmelidir.
+
+### 1 Eylül yöntem deneyi — kanonik eylem kapsamı ve hareket fiili ailesi
+
+- `REQUEST_ACTION` için çözülebilir oyun predicate'i zorunlu yapıldı
+  (`aac006e`). Bu sözleşme Kapadokya gezi planı gibi `REQUEST + ACTION` görünen
+  fakat oyun eylemi olmayan girdinin yüksek-risk adaylığını kaldırdı.
+- İlk tekrar ölçümü, `stability0103` elçi emrinin parser'da istek ve konum
+  kanıtı alamadığını açığa çıkardı. Düzeltme tek cümleye değil Türkçe hareket
+  fiili ailesine uygulandı: getirme, götürme, taşıma, sevk, yönlendirme ve
+  gönderme konum eylemi; ilgili emir biçimleri istek olarak derlenir
+  (`67b89dc`). Dört görülmemiş varyant nihai `REQUEST_ACTION` sonucunu doğrular.
+- `111/63/0`, kör erişim `false` dış kalibrasyonda contract-frame kolu
+  macro-F1 `0,567021`, fark `+0,128875`, risk `0/0`, eylem recall `1` ve OOD
+  `0,066667/0,2` verdi. Contract+bluff kolu `0,723965`, fark `+0,285819`,
+  minimum `0,639216`, risk `0/0`, eylem recall `0,666667`; OOD
+  `0,133333/0,2` verdi.
+- Eylem yönündeki iki ayrı hata giderildi, ancak hiçbir kol sıfır OOD dış-kat
+  kapısını geçmedi. Yeni blind açılmaz. Sonraki deney eşik veya hareket fiili
+  genişletmesi değil, kalan `UNKNOWN → ASK_INFORMATION/SMALL_TALK` sızıntısı
+  için açık oyun-alanı kapsam kanıtıdır.

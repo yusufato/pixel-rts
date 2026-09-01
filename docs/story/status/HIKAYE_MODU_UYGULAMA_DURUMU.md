@@ -1763,3 +1763,19 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Sıradaki iş, oyun dışı bir planın etkili `REQUEST_ACTION` sayılmasını önleyen
   kanonik eylem+varlık kapsam kapısını blind kullanmadan kalibrasyonda
   sınamaktır. `%90+`/B1 iddiası hâlâ açık değildir.
+
+## 2026-09-01 — Faz 38 eylem kapsamı ve hareket emirleri (`implemented / measured-not-accepted`)
+
+- `REQUEST_ACTION`, çözülebilir kanonik predicate olmadan yüksek-risk aday
+  olamaz (`aac006e`). Türkçe getirme/götürme/taşıma/sevk/yönlendirme/gönderme
+  emirleri de ortak konum-eylemi ailesi olarak nihai router'a bağlandı
+  (`67b89dc`); dört aile varyantı ile üç hedefli test grubu geçti.
+- BGE dış kalibrasyon sınırı `111/63/0`, kör erişim `false`tır. Seçilen
+  güvenlik kolu `0,567021` macro-F1, `+0,128875` fark, risk `0/0`, eylem recall
+  `1` ve OOD `0,066667/0,2` verdi; kalite ve sıfır-OOD kapısını geçmedi.
+- Contract+bluff kolu `0,723965` macro-F1, `+0,285819` fark, risk `0/0` ve
+  geçen bütün yüksek-risk recall kapıları verdi; fakat OOD `0,133333/0,2`
+  kaldı. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
+- Faz 38 `In Progress`; runtime/EXE bağlantısı ve `%90+`/B1 kabulü kapalıdır.
+  Sıradaki hedef kalan OOD'nin bilgi/sohbet sınıflarına sızmasını açık oyun
+  alanı kapsam kanıtıyla durdurmaktır.

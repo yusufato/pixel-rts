@@ -761,3 +761,31 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   iyileşme üretti fakat tek başına kabul değildir. Sonraki kök, oyun dışı gezi
   planının `REQUEST_ACTION` sayılması örneğinde görülen kanonik eylem/varlık
   kapsam kapısıdır; blind kullanılmadan kalibrasyonda sınanmalıdır.
+
+### 1 Eylül 2026 — Eylem kapsamı ve hareket-emri ailesi birlikte doğrulandı
+
+- Yüksek-risk `REQUEST_ACTION` sözleşmesi artık yalnız `REQUEST + ACTION`
+  biçimine güvenmez; kanonik oyun predicate'i de ister (`aac006e`). Böylece
+  predicate'i `UNSPECIFIED` olan gerçek dünya gezi planı etkili oyun emri
+  sayılamaz.
+- İlk ölçüm bu kapsam düzeltmesinin OOD yüksek-risk yanlış pozitifini `1 → 0`
+  indirdiğini, fakat gerçek “Elçiyi ... getirin” kalibrasyon emrinin nihai
+  yönlendiricide `UNKNOWN` kaldığını gösterdi. Kök neden cümle değil;
+  `getir/götür/taşı/sevk et/yönlendir/gönder` hareket ailesinin konum
+  predicate'i, emir yüzeyi ve istek işlevi kanıtlarının eksik olmasıydı.
+- Hareket ailesi tek bir ortak semantik kuralla kapatıldı ve dört yeni varyant
+  tam yönlendirici sonucuna kadar doğrulandı (`67b89dc`). Semantic-frame,
+  router ve review-server testleri geçti.
+- Kör erişimsiz BGE sınırı yine `111/63/0` ve `blindTestAccessed=false`tır.
+  Güvenlik öncelikli seçilen contract-frame kolu ortalama macro-F1 `0,567021`,
+  minimum kat `0,426759`, taban farkı `+0,128875`, risk `0/0`, OOD yanlış
+  kabul `0,066667/0,2` ve `REQUEST_ACTION` recall `1` verdi. Kalite ve sıfır
+  OOD kapıları geçmedi.
+- Daha kaliteli contract+bluff kolu ortalama macro-F1 `0,723965`, minimum kat
+  `0,639216`, taban farkı `+0,285819`, risk `0/0` ve bütün yüksek-risk recall
+  kapılarını geçti; `REQUEST_ACTION=0,666667` oldu. Buna rağmen OOD yanlış
+  kabul `0,133333/0,2` kaldı.
+- `eligibleModelIds=[]`, `createNewBlindEpoch=false`. Eylem kapsamı ve hareket
+  ailesi hataları çözülmüştür; sıradaki kök, kalan OOD'nin oyun içi
+  `ASK_INFORMATION/SMALL_TALK` sınıflarına sızmasını açık alan-kapsamıyla
+  durdurmaktır. Runtime, Electron/IPC ve `%90+`/B1 iddiası kapalı kalır.
