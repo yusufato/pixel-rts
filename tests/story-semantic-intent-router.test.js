@@ -300,6 +300,25 @@ const calibrated = summarizeEmbeddingRows(calibrationRows, fitted.calibration);
 assert.equal(calibrated.highRiskFalsePositiveCount, 0);
 assert.equal(calibrated.count, 4);
 
+const oodCompetingRows = [
+    { id: 'safe-high', actual: 'GREETING', outOfDomain: false,
+        rawPrediction: 'GREETING', score: 0.7, margin: 0.2 },
+    { id: 'safe-mid', actual: 'GREETING', outOfDomain: false,
+        rawPrediction: 'GREETING', score: 0.6, margin: 0.2 },
+    { id: 'safe-low', actual: 'GREETING', outOfDomain: false,
+        rawPrediction: 'GREETING', score: 0.5, margin: 0.2 },
+    { id: 'ood-high', actual: 'UNKNOWN', outOfDomain: true,
+        rawPrediction: 'GREETING', score: 0.65, margin: 0.2 }
+];
+const oodGuardedFit = fitEmbeddingCalibration(oodCompetingRows);
+const oodGuarded = summarizeEmbeddingRows(oodCompetingRows,
+    oodGuardedFit.calibration);
+assert.equal(oodGuarded.oodFalseAcceptanceRate, 0,
+    'class thresholds must reject OOD even when accepting it would improve class F1');
+assert.equal(oodGuarded.confusion['UNKNOWN=>UNKNOWN'], 1);
+assert.equal(oodGuarded.confusion['GREETING=>GREETING'], 1,
+    'OOD safety must retain any cleanly separated in-domain example');
+
 const nestedRows = [
     ['g1', 'GREETING', 'family-g1'], ['g2', 'GREETING', 'family-g2'],
     ['g3', 'GREETING', 'family-g3'], ['t1', 'THREATEN', 'family-t1'],

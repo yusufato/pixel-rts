@@ -559,15 +559,17 @@ function fitEmbeddingCalibration(rows) {
             let selected = thresholds[0];
             let selectedF1 = -1;
             for (const threshold of thresholds) {
-                let tp = 0; let fp = 0; let fn = 0;
+                let tp = 0; let fp = 0; let fn = 0; let oodFalseAcceptances = 0;
                 for (const row of rows) {
                     const accepted = row.rawPrediction === label
                         && row.margin >= minimumMargin && row.score >= threshold;
                     if (accepted && row.actual === label) tp += 1;
                     else if (accepted) fp += 1;
                     else if (row.actual === label) fn += 1;
+                    if (accepted && row.outOfDomain) oodFalseAcceptances += 1;
                 }
                 if (HIGH_RISK_ACTS.includes(label) && fp) continue;
+                if (oodFalseAcceptances) continue;
                 const f1 = (2 * tp) / Math.max(1, 2 * tp + fp + fn);
                 if (f1 > selectedF1 || (f1 === selectedF1 && threshold < selected)) {
                     selected = threshold; selectedF1 = f1;
@@ -582,8 +584,12 @@ function fitEmbeddingCalibration(rows) {
         if (!best || metrics.highRiskFalsePositiveCount
                 < best.metrics.highRiskFalsePositiveCount
             || (metrics.highRiskFalsePositiveCount === best.metrics.highRiskFalsePositiveCount
+                && metrics.oodFalseAcceptanceRate < best.metrics.oodFalseAcceptanceRate)
+            || (metrics.highRiskFalsePositiveCount === best.metrics.highRiskFalsePositiveCount
+                && metrics.oodFalseAcceptanceRate === best.metrics.oodFalseAcceptanceRate
                 && metrics.speechActMacroF1 > best.metrics.speechActMacroF1)
             || (metrics.highRiskFalsePositiveCount === best.metrics.highRiskFalsePositiveCount
+                && metrics.oodFalseAcceptanceRate === best.metrics.oodFalseAcceptanceRate
                 && metrics.speechActMacroF1 === best.metrics.speechActMacroF1
                 && minimumMargin < best.calibration.minimumMargin)) best = candidate;
     }
