@@ -862,3 +862,21 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true`. Bu yalnız
   aile-sızıntısız ve önceden mühürlü v4 blind hazırlama iznidir. V3 spent
   kalır; runtime/Electron/IPC ve `%90+`/B1 kabulü hâlâ kapalıdır.
+
+### 1 Eylül 2026 — V4 blind gold kohortu tek tek tamamlandı
+
+- Önceden seçilmiş `bounded-domain-authoritative-high-risk-centroid-guard`
+  kolundan sonra `51` yeni Türkçe aday, `51` benzersiz aile ve `17 × 3` sınıf
+  dengesiyle üretildi (`39bf443`). Üretim aşamasında hiçbir aday gold değildi.
+- Kayıtların tamamı model tahminine bakılmadan tek tek incelendi. Her kayda
+  `SemanticFrameV2` eksenleri, ayrım gerekçesi ve
+  `CODEX_INDIVIDUAL_REVIEW` provenansı eklendi (`1c9c6ef`, `d7d6818`,
+  `4e09c26`, `31a2e5f`, `1afc683`, `11c8b90`). V4 sayaç `51/51`, her sınıf
+  `3/3`; corpus toplamı `468` gold oldu.
+- Ret/vaat, rapor/emir, sır/gizlilik talebi, koşullu tehdit/gerçekleşmiş sonuç
+  ve oyun-dışı soru/oyun içi niyet ayrımları cümle notlarında açıkça korundu.
+  Semantik niyet benchmark testi bütün ara birimlerde geçti.
+- V4 henüz ölçülmedi ve spent değildir. Sonraki adım, seçilmiş tek model ve
+  temsil politikasını değiştirmeden v4 kanonik gold içeriğini checksum ile
+  mühürlemek; ardından önceden tanımlı kabul kapılarıyla yalnız bir kez
+  değerlendirmektir. Bu kayıtlar runtime/EXE/IPC veya `%90+`/B1 kabulü değildir.
