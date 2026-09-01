@@ -1730,3 +1730,10 @@
 - **What happened:** Embedding'in etkili bir niyet üretmesi, aynı sınıfta deterministik speech-act kararı ve katı SemanticFrame sözleşmesiyle uzlaşmaya bağlandı; önceki authoritative kol değiştirilmeden yeni deney temsili olarak ölçüldü.
 - **Evidence:** BGE sınırı `111/83/0`, `blindTestAccessed=false`; dış-kat ortalama/minimum macro-F1 `0,714630/0,643098`, tabana fark `+0,169859`, yüksek-risk yanlış pozitif `0/0`, OOD yanlış kabul `0/0`. Recall tehdit/eylem/ticaret/sır `1`, blöf `0,833333`; `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true`.
 - **Implication for future audits:** Sınıf-özel uzlaşmayı salt konu benzerliğine geri gevşetme ve sonucu runtime veya `%90+`/B1 kabulü sayma. V5 spent kalır; seçilmiş bu hipotez yalnız sonradan üretilecek aile-sızıntısız, önceden mühürlü bağımsız V6 blind epoch'unda bir kez sınanabilir.
+
+## 2026-09-01 — V6 blind sınıf-özel uzlaşma hipotezini reddetti
+- **Type:** Refuted
+- **Source:** `phase-38-turkish-semantic-intent-router` consensus high-risk v6 one-shot / `e285c1b`
+- **What happened:** Checksum ile önceden mühürlenmiş 51 aileli V6 epoch, yalnız doğrulanmış BGE-M3 modeli, düz profil ve önceden seçilmiş sınıf-özel yüksek-risk uzlaşma temsiliyle bir kez ölçüldü. Sonuçtan bağımsız olarak epoch yeniden kullanıma kapatıldı.
+- **Evidence:** Deterministik blind macro-F1 `0,333333`; BGE `0,310714`, fark `-0,022619 < +0,15`. OOD yanlış kabul `0/3`, fakat yüksek-risk yanlış pozitif `2`; ticari teklif recall `0/3 < 1/3`; `acceptedModelIds=[]`. Model SHA-256 `aa473d51…4047a173`, blind checksum `6a7bdf8a…68a47057`; sıcak CPU p50/p95 `866,09/1455,12 ms`.
+- **Implication for future audits:** V6 satırlarını threshold, parser, temsil, aday üretimi veya uzlaşma kuralı ayarı için yeniden kullanma. OOD başarısını genel kabul sayma; sınıf-özel uzlaşma hipotezi bağımsız V6'da kaliteyi ve güvenliği genellemedi. Runtime/Electron/IPC ile `%90+`/B1 oyuncu dili iddiası kapalıdır; sonraki hipotez yalnız prototip+kalibrasyon verisinden kurulmalıdır.

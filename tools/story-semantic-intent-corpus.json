@@ -14,13 +14,17 @@
     "blindSourceIdPrefix": "representation-stability-v6:",
     "sealedAt": "2026-09-01T21:06:16+03:00",
     "priorBlindStatus": "SPENT_AFTER_2026_09_01_V5_ONE_SHOT",
-    "blindStatus": "SEALED_UNTOUCHED",
-    "evaluatedAt": null,
-    "evaluatedModelIds": [],
-    "evaluatedModelSha256": null,
-    "evaluatedRepresentationIds": [],
+    "blindStatus": "SPENT_AFTER_2026_09_01_V6_ONE_SHOT",
+    "evaluatedAt": "2026-09-01T18:17:26.700Z",
+    "evaluatedModelIds": [
+      "bge-m3-q8_0"
+    ],
+    "evaluatedModelSha256": "aa473d51f451a22f0fcf39ba3330c14bed38a385712b1113440f69df4047a173",
+    "evaluatedRepresentationIds": [
+      "bounded-domain-consensus-high-risk-centroid-guard"
+    ],
     "evaluationAcceptedModelIds": [],
-    "evaluationPass": null,
+    "evaluationPass": false,
     "blindChecksumContract": "SHA256_JSON_SORTED_ID_SOURCE_FAMILY_TEXT_LABELS_V1",
     "blindChecksumSha256": "6a7bdf8a3c04773b3009767c88de3d5581c8228224e08deda95a7e4c68a47057",
     "blindCount": 51,
