@@ -21,7 +21,7 @@ const blindV4Gold = blindV4Rows.filter(row => row.adjudication);
 assert.equal(blindV4Rows.length, 51);
 assert.equal(new Set(blindV4Rows.map(row => row.familyId)).size, 51);
 assert.equal(new Set(blindV4Rows.map(row => row.text)).size, 51);
-assert.equal(blindV4Gold.length, 9);
+assert.equal(blindV4Gold.length, 18);
 assert.ok(blindV4Gold.every(row =>
     row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW'));
 assert.deepEqual(Object.fromEntries([...new Set(blindV4Gold.map(row =>
@@ -29,7 +29,10 @@ assert.deepEqual(Object.fromEntries([...new Set(blindV4Gold.map(row =>
     blindV4Gold.filter(row => row.adjudication.labels.speechAct === label).length])), {
     ASK_INFORMATION: 3,
     ASK_PERSONAL_OPINION: 3,
-    BLUFF_CANDIDATE: 3
+    BLUFF_CANDIDATE: 3,
+    CHALLENGE: 3,
+    CORRECT_STATEMENT: 3,
+    GREETING: 3
 });
 
 assert.deepEqual(selectEmbeddingRepresentations([
@@ -61,11 +64,11 @@ assert.ok(oodTaxonomyRows.filter(row => row.split === 'calibration').every(row =
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 426);
+assert.equal(report.gold.total, 435);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 111,
     calibration: 108,
-    blind_test: 207
+    blind_test: 216
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
@@ -174,7 +177,7 @@ assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 15 },
     calibration: { inDomain: 90, outOfDomain: 18 },
-    blind_test: { inDomain: 195, outOfDomain: 12 }
+    blind_test: { inDomain: 204, outOfDomain: 12 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,
