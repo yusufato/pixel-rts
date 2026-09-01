@@ -15,6 +15,16 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
 
+const directionalRiskCalibrationRows = corpus.candidates.filter(row =>
+    String(row.sourceId || '').startsWith(
+        'representation-stability-v1:directional-risk-v2:'));
+assert.equal(directionalRiskCalibrationRows.length, 18);
+assert.ok(directionalRiskCalibrationRows.every(row => row.split === 'calibration'));
+assert.equal(new Set(directionalRiskCalibrationRows.map(row => row.familyId)).size, 18);
+assert.equal(new Set(directionalRiskCalibrationRows.map(row => row.text)).size, 18);
+assert.ok(directionalRiskCalibrationRows.every(row => !row.adjudication),
+    'fresh directional-risk candidates must not become gold before individual review');
+
 const blindV4Rows = corpus.candidates.filter(row => String(row.sourceId || '')
     .startsWith('representation-stability-v4:'));
 const blindV4Gold = blindV4Rows.filter(row => row.adjudication);

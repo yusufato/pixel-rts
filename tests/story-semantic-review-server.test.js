@@ -18,8 +18,8 @@ assert.equal(review.validateReview({ id: 'semantic-teacher:0001', verdict: 'EDIT
 
 const corpusValidation = benchmark.validateCorpus(corpus);
 assert.equal(corpusValidation.ok, true, corpusValidation.issues.join(', '));
-assert.equal(corpusValidation.count, 568);
-assert.equal(corpusValidation.uniqueTexts, 568);
+assert.equal(corpusValidation.count, 586);
+assert.equal(corpusValidation.uniqueTexts, 586);
 const v3Candidates = corpus.candidates.filter(row =>
     String(row.sourceId || '').startsWith('representation-stability-v3:'));
 assert.equal(v3Candidates.length, 51);
@@ -105,7 +105,7 @@ const inventory = benchmark.buildBenchmark({
     corpus: unreviewedCorpus, reviews: { reviews: [] }, includePredictions: false
 });
 assert.equal(inventory.ok, true);
-assert.equal(inventory.inventory.candidates, 568);
+assert.equal(inventory.inventory.candidates, 586);
 assert.equal(inventory.inventory.humanGold, 0);
 assert.equal(inventory.inventory.codexGold, 0);
 assert.equal(inventory.inventory.gold, 0);
