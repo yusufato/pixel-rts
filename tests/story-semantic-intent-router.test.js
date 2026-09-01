@@ -12,13 +12,29 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
 const corpus = require('../tools/story-semantic-intent-corpus.json');
 
 const report = buildEmbeddingSpikePreflight();
+const oodTaxonomyRows = corpus.candidates.filter(row =>
+    String(row.id).startsWith('semantic-intent:oodtax'));
+assert.equal(oodTaxonomyRows.length, 24);
+assert.deepEqual(Object.fromEntries(['prototype', 'calibration', 'blind_test']
+    .map(split => [split, oodTaxonomyRows.filter(row => row.split === split).length])),
+{ prototype: 12, calibration: 12, blind_test: 0 });
+assert.equal(new Set(oodTaxonomyRows.map(row => row.familyId)).size, 24,
+    'OOD taxonomy rows must remain independent families');
+assert.ok(oodTaxonomyRows.every(row => row.adjudication
+    && row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW'
+    && row.adjudication.labels.speechAct === 'UNKNOWN'
+    && row.adjudication.labels.outOfDomain === true),
+'every OOD taxonomy row must remain individually reviewed UNKNOWN gold');
+assert.ok(oodTaxonomyRows.filter(row => row.split === 'calibration').every(row =>
+    row.sourceId.startsWith('representation-stability-v1:ood-taxonomy:')),
+'OOD calibration taxonomy must remain inside calibration and outside blind v2');
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 342);
+assert.equal(report.gold.total, 366);
 assert.deepEqual(report.gold.bySplit, {
-    prototype: 99,
-    calibration: 96,
+    prototype: 111,
+    calibration: 108,
     blind_test: 147
 });
 assert.equal(report.modelSelectionPass, true);
@@ -27,8 +43,8 @@ assert.equal(report.untouchedEvaluationPass, false);
 assert.equal(report.representationSupport.minimumPerClassPerSplit, 3);
 assert.deepEqual(report.representationSupport.issues, []);
 assert.deepEqual(report.untouchedEvaluation.gold, {
-    total: 112,
-    bySplit: { prototype: 10, calibration: 51, blind_test: 51 }
+    total: 124,
+    bySplit: { prototype: 10, calibration: 63, blind_test: 51 }
 });
 assert.equal(report.untouchedEvaluation.minimumPerClassPerEvaluationSplit, 3);
 assert.equal(report.untouchedEvaluation.blindStatus,
@@ -63,8 +79,8 @@ const evaluationSplits = embeddingEvaluationSplits(corpus,
     report.untouchedEvaluation);
 assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
     .map(([split, rows]) => [split, rows.length])), {
-    prototype: 99,
-    calibration: 51,
+    prototype: 111,
+    calibration: 63,
     blind_test: 51
 });
 assert.ok(evaluationSplits.calibration.every(row =>
@@ -75,8 +91,8 @@ const calibrationStudySplits = embeddingCalibrationStudySplits(corpus,
     report.untouchedEvaluation);
 assert.deepEqual(Object.fromEntries(Object.entries(calibrationStudySplits)
     .map(([split, rows]) => [split, rows.length])), {
-    prototype: 99,
-    calibration: 51,
+    prototype: 111,
+    calibration: 63,
     blind_test: 0
 });
 assert.throws(() => embeddingEvaluationSplits(corpus, ''),
@@ -85,7 +101,7 @@ const splitSourceEvaluation = embeddingEvaluationSplits(corpus, {
     calibrationSourceIdPrefix: 'representation-stability-v1:',
     blindSourceIdPrefix: 'sha256:'
 });
-assert.equal(splitSourceEvaluation.calibration.length, 51);
+assert.equal(splitSourceEvaluation.calibration.length, 63);
 assert.ok(splitSourceEvaluation.blind_test.length > 0);
 assert.ok(splitSourceEvaluation.calibration.every(row =>
     row.sourceId.startsWith('representation-stability-v1:')));
@@ -95,13 +111,13 @@ const splitSourceCalibration = embeddingCalibrationStudySplits(corpus, {
     calibrationSourceIdPrefix: 'representation-stability-v1:',
     blindSourceIdPrefix: 'future-sealed-blind-v2:'
 });
-assert.equal(splitSourceCalibration.calibration.length, 51);
+assert.equal(splitSourceCalibration.calibration.length, 63);
 assert.equal(splitSourceCalibration.blind_test.length, 0);
 assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
-    prototype: { inDomain: 96, outOfDomain: 3 },
-    calibration: { inDomain: 90, outOfDomain: 6 },
+    prototype: { inDomain: 96, outOfDomain: 15 },
+    calibration: { inDomain: 90, outOfDomain: 18 },
     blind_test: { inDomain: 138, outOfDomain: 9 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
