@@ -23,8 +23,8 @@ assert.equal(new Set(blindV5CandidateRows.map(row => row.text)).size, 51);
 assert.ok(blindV5CandidateRows.every(row => row.split === 'blind_test'
     && row.sourceType === 'MODEL_GENERATED_CANDIDATE'
     && row.labelStatus === 'CANDIDATE_UNREVIEWED'));
-assert.equal(blindV5CandidateRows.filter(row => row.adjudication).length, 9);
-assert.equal(blindV5CandidateRows.filter(row => !row.adjudication).length, 42);
+assert.equal(blindV5CandidateRows.filter(row => row.adjudication).length, 18);
+assert.equal(blindV5CandidateRows.filter(row => !row.adjudication).length, 33);
 assert.ok(blindV5CandidateRows.filter(row => row.adjudication).every(row =>
     row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW'),
     'Only individually reviewed V5 candidates may become gold');
@@ -145,11 +145,11 @@ assert.ok(oodTaxonomyRows.filter(row => row.split === 'calibration').every(row =
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 497);
+assert.equal(report.gold.total, 506);
 assert.deepEqual(report.gold.bySplit, {
     prototype: 111,
     calibration: 128,
-    blind_test: 258
+    blind_test: 267
 });
 assert.equal(report.modelSelectionPass, true);
 assert.equal(report.representationSelectionPass, true);
@@ -258,7 +258,7 @@ assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
     prototype: { inDomain: 96, outOfDomain: 15 },
     calibration: { inDomain: 110, outOfDomain: 18 },
-    blind_test: { inDomain: 243, outOfDomain: 15 }
+    blind_test: { inDomain: 252, outOfDomain: 15 }
 });
 assert.deepEqual(report.highRiskCoverage.THREATEN, {
     prototype: 3,
