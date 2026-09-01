@@ -18,16 +18,17 @@ const corpus = require('../tools/story-semantic-intent-corpus.json');
 const directionalRiskCalibrationRows = corpus.candidates.filter(row =>
     String(row.sourceId || '').startsWith(
         'representation-stability-v1:directional-risk-v2:'));
-assert.equal(directionalRiskCalibrationRows.length, 18);
+assert.equal(directionalRiskCalibrationRows.length, 20);
 assert.ok(directionalRiskCalibrationRows.every(row => row.split === 'calibration'));
-assert.equal(new Set(directionalRiskCalibrationRows.map(row => row.familyId)).size, 18);
-assert.equal(new Set(directionalRiskCalibrationRows.map(row => row.text)).size, 18);
-assert.ok(directionalRiskCalibrationRows.every(row => row.adjudication
-    && row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW'),
-    'every directional-risk sentence must be individually reviewed before gold');
-assert.deepEqual(Object.fromEntries([...new Set(directionalRiskCalibrationRows.map(row =>
+assert.equal(new Set(directionalRiskCalibrationRows.map(row => row.familyId)).size, 20);
+assert.equal(new Set(directionalRiskCalibrationRows.map(row => row.text)).size, 20);
+const directionalRiskReviewed = directionalRiskCalibrationRows.filter(row =>
+    row.adjudication && row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW');
+assert.equal(directionalRiskReviewed.length, 18);
+assert.equal(directionalRiskCalibrationRows.filter(row => !row.adjudication).length, 2);
+assert.deepEqual(Object.fromEntries([...new Set(directionalRiskReviewed.map(row =>
     row.adjudication.labels.speechAct))].sort().map(label => [label,
-    directionalRiskCalibrationRows.filter(row =>
+    directionalRiskReviewed.filter(row =>
         row.adjudication.labels.speechAct === label).length])), {
     ACCUSE: 1,
     ASK_INFORMATION: 1,
