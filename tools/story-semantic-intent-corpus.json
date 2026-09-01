@@ -410,7 +410,28 @@
     },
     {
       "id": "semantic-intent:consstress0011",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0011",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SHARE_SECRET",
+          "communicativeFunction": "CONFIDE",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "SECRET",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "CONFIDENTIAL_HANDLING",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Yalnız dinleyicinin bilmesi sınırıyla birlikte kasadaki altınların yarısının sahte olduğu olgusunu açıklar; gizlilik talebi boş bırakılmamıştır.",
+        "reviewedAt": "2026-09-01T21:51:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bunu yalnız sen bil: doğu kasasındaki altınların yarısı sahte.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0011",
@@ -423,7 +444,28 @@
     },
     {
       "id": "semantic-intent:consstress0012",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0012",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SHARE_SECRET",
+          "communicativeFunction": "CONFIDE",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "SECRET",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "CONFIDENTIAL_HANDLING",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Kimse duymasın sınırı altında generalin emir kaynağı hakkında belirli bir olguyu aktarır; askerî konu taşısa da iletişim işlevi gizli paylaşımıdır.",
+        "reviewedAt": "2026-09-01T21:52:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Kimse duymasın, generalin emirleri aslında başkentten gelmiyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0012",
@@ -436,7 +478,28 @@
     },
     {
       "id": "semantic-intent:consstress0013",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0013",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "BLUFF_CANDIDATE",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "MILITARY",
+          "target": "LISTENER",
+          "polarity": "MIXED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Konuşan kendi füzelerinin kilitlendiğini kesin olarak ileri sürerken doğrulayıcı kanıtı göstermeyi reddeder; dinleyici davranışına bağlı gelecek zarar olmadığı için tehdit değildir.",
+        "reviewedAt": "2026-09-01T21:53:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Füzelerimiz hedefinize kilitli, kanıtını şimdi göstermeyeceğim.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0013",
@@ -449,7 +512,28 @@
     },
     {
       "id": "semantic-intent:consstress0014",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0014",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "BLUFF_CANDIDATE",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "WORK",
+          "target": "PLAYER",
+          "polarity": "MIXED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Konuşan kendi grubunun bütün oyları kontrol ettiğini kesin iddia eder, fakat doğrulayıcı tutanakları olay sonrasına erteler; soru, vaat veya suçlama değildir.",
+        "reviewedAt": "2026-09-01T21:54:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bütün oylar bizde, tutanakları ancak seçimden sonra açarım.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0014",
@@ -462,7 +546,28 @@
     },
     {
       "id": "semantic-intent:consstress0015",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0015",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "BLUFF_CANDIDATE",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER",
+          "polarity": "MIXED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Konuşan kendi rezervinin üç katına çıktığını kesin iddia ederken bunu doğrulayacak banka kayıtlarını paylaşmayacağını söyler; kanıt erişimi bilerek kapatılmıştır.",
+        "reviewedAt": "2026-09-01T21:55:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Rezervimiz üç katına çıktı; banka kayıtlarını paylaşmayacağım.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0015",
@@ -475,7 +580,28 @@
     },
     {
       "id": "semantic-intent:consstress0016",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0016",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_MILITARY",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "MILITARY",
+          "target": "ORGANIZATION",
+          "polarity": "NEGATIVE",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HEARSAY",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Komşu devlet saldırısının olası zararını konuşanın iradesi değil üçüncü taraf istihbarat raporu bildirir; dinleyiciye davranış koşulu yüklenmediği için tehdit değildir.",
+        "reviewedAt": "2026-09-01T21:56:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Komşu devlet saldırırsa depoların yanacağını istihbarat raporu söylüyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0016",
@@ -488,7 +614,28 @@
     },
     {
       "id": "semantic-intent:consstress0017",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0017",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "MAKE_PROMISE",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "MILITARY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Ablukanın kaldırılması halinde konuşanın kendi birliklerini geri çekme taahhüdüdür; zarar tehdidi veya iki taraflı bedel değişimi yerine konuşanı bağlayan koşullu sözdür.",
+        "reviewedAt": "2026-09-01T21:57:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Ablukayı kaldırırsanız birliklerimizi geri çekeceğiz.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0017",
@@ -501,7 +648,28 @@
     },
     {
       "id": "semantic-intent:consstress0018",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0018",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REJECT",
+          "communicativeFunction": "REJECT",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "LISTENER",
+          "polarity": "NEGATIVE",
+          "temporality": "FUTURE",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "ACKNOWLEDGEMENT",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Tehdit sözcüğünü konu olarak anmasına rağmen ana eylem limanı açmayı kesin biçimde reddetmektir; dinleyiciye zarar koşulu veya teklif sunmaz.",
+        "reviewedAt": "2026-09-01T21:58:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Bizi tehdit etseniz de limanı açmayacağız.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0018",
@@ -514,7 +682,28 @@
     },
     {
       "id": "semantic-intent:consstress0019",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0019",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "ASK_INFORMATION",
+          "communicativeFunction": "ASK",
+          "surfaceForm": "INTERROGATIVE",
+          "predicate": "MILITARY",
+          "target": "LISTENER",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "FUTURE",
+          "epistemicStatus": "QUESTIONED",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "INFORMATION",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Dinleyicinin taburu sevk etmeyi düşünüp düşünmediğini sorar; eylemin gerçekleştirilmesini istemediği için askerî emir değil bilgi sorusudur.",
+        "reviewedAt": "2026-09-01T21:59:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Üçüncü taburu kuzeye sevk etmeyi düşünüyor musunuz?",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0019",
@@ -527,7 +716,28 @@
     },
     {
       "id": "semantic-intent:consstress0020",
-      "adjudication": null,
+      "adjudication": {
+        "id": "semantic-intent:consstress0020",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "ORGANIZATION",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "PAST",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Konvoyun yakıt kayıtlarını geçmişte maliyeye ilettiğini bildirir; dinleyiciye iletim görevi yüklemez ve karşılıklı ekonomik teklif kurmaz.",
+        "reviewedAt": "2026-09-01T22:00:00+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Konvoy yakıt kayıtlarını dün maliyeye iletti.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "representation-stability-v1:consensus-stress-v2:0020",
