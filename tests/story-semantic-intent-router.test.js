@@ -2,7 +2,8 @@
 
 const assert = require('node:assert/strict');
 const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
-    frameCompatibility, matchesHighRiskFrameContract, selectPrototypeAnchors,
+    frameCompatibility, matchesHighRiskFrameContract, hasBoundedDomainGrounding,
+    matchesBoundedDomainFrameContract, selectPrototypeAnchors,
     buildPrototypeClassCentroids, rankEmbeddingCandidates, fitEmbeddingCalibration,
     buildStratifiedCalibrationFolds, crossValidateEmbeddingCalibration,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
@@ -257,6 +258,44 @@ assert.equal(matchesHighRiskFrameContract('BLUFF_CANDIDATE', {
     epistemicStatus: 'UNMARKED', requestedOutcome: 'NONE' }), false);
 assert.equal(matchesHighRiskFrameContract('GREETING', null), true,
     'safe classes must not be blocked by high-risk contracts');
+const unknownCandidate = { id: 'unknown-domain', label: 'UNKNOWN', vector: [0.7, 0.3],
+    labels: { communicativeFunction: 'UNRESOLVED', requestedOutcome: 'NONE' } };
+const domainAskFrame = { speechAct: 'ASK_INFORMATION', communicativeFunction: 'ASK',
+    predicate: 'UNSPECIFIED', target: 'UNSPECIFIED', continuity: 'NEW_OR_UNMARKED',
+    requestedOutcome: 'INFORMATION' };
+assert.equal(hasBoundedDomainGrounding(domainAskFrame,
+    { exactResolvedEntityCount: 1 }), true);
+assert.equal(matchesBoundedDomainFrameContract('ASK_INFORMATION', domainAskFrame,
+    { exactResolvedEntityCount: 0 }), false,
+    'question shape alone must not make lexical nonsense an in-game information request');
+assert.equal(matchesBoundedDomainFrameContract('ASK_INFORMATION', domainAskFrame,
+    { exactResolvedEntityCount: 1 }), true,
+    'an exact canonical entity must ground an otherwise unspecified game question');
+assert.equal(matchesBoundedDomainFrameContract('ASK_INFORMATION', {
+    ...domainAskFrame, continuity: 'REPAIR', communicativeFunction: 'TELL',
+    requestedOutcome: 'NONE' }, { exactResolvedEntityCount: 0 }), true,
+    'repair turns must remain valid without repeating their prior game topic');
+const travelRequestFrame = { speechAct: 'REQUEST_ACTION', communicativeFunction: 'REQUEST',
+    predicate: 'UNSPECIFIED', target: 'UNSPECIFIED', continuity: 'NEW_OR_UNMARKED',
+    requestedOutcome: 'ACTION' };
+assert.equal(matchesBoundedDomainFrameContract('SMALL_TALK', travelRequestFrame,
+    { exactResolvedEntityCount: 0 }), false,
+    'an ungrounded real-world request must not escape into small talk');
+const basketballTellFrame = { speechAct: 'UNKNOWN', communicativeFunction: 'TELL',
+    predicate: 'UNSPECIFIED', target: 'UNSPECIFIED', continuity: 'NEW_OR_UNMARKED',
+    requestedOutcome: 'NONE' };
+assert.equal(matchesBoundedDomainFrameContract('SMALL_TALK', basketballTellFrame,
+    { exactResolvedEntityCount: 0 }), false,
+    'a typo-tolerant entity resemblance must not ground an unrelated report request');
+const boundedDomainRanking = rankEmbeddingCandidates([1, 0], [
+    { id: 'small-talk-domain', label: 'SMALL_TALK', vector: [1, 0],
+        labels: { communicativeFunction: 'TELL', requestedOutcome: 'NONE' } },
+    unknownCandidate
+], null, { aggregation: 'centroid', queryFrame: basketballTellFrame,
+    queryGrounding: { exactResolvedEntityCount: 0 }, boundedDomainFrameContract: true });
+assert.equal(boundedDomainRanking[0].label, 'UNKNOWN');
+assert.equal(boundedDomainRanking.find(row => row.label === 'SMALL_TALK').score,
+    -Infinity);
 const contractGuardedCentroid = rankEmbeddingCandidates([1, 0], [
     { id: 'action-contract', label: 'REQUEST_ACTION', vector: [1, 0],
         labels: actionFrame },

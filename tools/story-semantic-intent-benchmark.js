@@ -96,6 +96,11 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
         deterministicContractCandidates: Object.freeze(['BLUFF_CANDIDATE']),
         highRiskFrameContract: true,
         anchorCountIndependent: true }),
+    Object.freeze({ id: 'bounded-domain-contract-bluff-centroid-guard',
+        aggregation: 'centroid', topCount: 1, frameCompatibilityWeight: 0,
+        deterministicContractCandidates: Object.freeze(['BLUFF_CANDIDATE']),
+        highRiskFrameContract: true, boundedDomainFrameContract: true,
+        anchorCountIndependent: true }),
     Object.freeze({ id: 'contract-bluff-candidate-centroid-ood-max-guard',
         aggregation: 'centroid', oodAggregation: 'max', topCount: 1,
         frameCompatibilityWeight: 0,
@@ -289,8 +294,12 @@ function buildBaselineProposals(candidates) {
             const analysis = runtime.api.conversationAnalyze(row.text, {
                 listenerActorId: listener.id
             });
+            const exactResolvedEntityCount = (analysis && analysis.entities || [])
+                .filter(entity => entity && entity.status === 'RESOLVED_PUBLIC'
+                    && (entity.evidence || []).includes('EXACT_NORMALIZED_ALIAS')).length;
             return [row.id, {
                 labels: labelsFromAnalysis(analysis),
+                domainGrounding: { exactResolvedEntityCount },
                 confidenceBps: Number(analysis && analysis.confidenceBps
                     || analysis && analysis.semanticFrame && analysis.semanticFrame.confidenceBps) || 0,
                 source: analysis && analysis.source || null
@@ -375,6 +384,29 @@ function matchesHighRiskFrameContract(label, frame) {
     if (!frame) return false;
     return Object.entries(contract).every(([axis, value]) => Array.isArray(value)
         ? value.includes(frame[axis]) : frame[axis] === value);
+}
+
+function hasBoundedDomainGrounding(frame, grounding) {
+    if (!frame) return false;
+    if (frame.predicate && frame.predicate !== 'UNSPECIFIED') return true;
+    if (frame.target && frame.target !== 'UNSPECIFIED') return true;
+    if (['CONTINUATION', 'CORRECTION', 'REPAIR', 'ANSWER'].includes(frame.continuity)) {
+        return true;
+    }
+    return Number(grounding && grounding.exactResolvedEntityCount) > 0;
+}
+
+function matchesBoundedDomainFrameContract(label, frame, grounding) {
+    if (!['ASK_INFORMATION', 'SMALL_TALK'].includes(label)) return true;
+    if (!frame) return false;
+    const grounded = hasBoundedDomainGrounding(frame, grounding);
+    if (label === 'ASK_INFORMATION') {
+        if (frame.continuity === 'REPAIR') return true;
+        return frame.communicativeFunction === 'ASK'
+            && frame.requestedOutcome === 'INFORMATION' && grounded;
+    }
+    return frame.communicativeFunction === 'TELL' && frame.requestedOutcome === 'NONE'
+        && (frame.speechAct === 'SMALL_TALK' || grounded);
 }
 
 function selectPrototypeAnchors(anchors, perClassLimit) {
@@ -472,11 +504,15 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
                     && compatibility < options.highRiskMinimumFrameCompatibility)
                 || (options.highRiskFrameContract
                     && !matchesHighRiskFrameContract(row.label, options.queryFrame)));
-            const deterministicContractCandidate = !blockedByFrameGuard
+            const blockedByDomainGuard = options.boundedDomainFrameContract
+                && !matchesBoundedDomainFrameContract(row.label, options.queryFrame,
+                    options.queryGrounding);
+            const blocked = blockedByFrameGuard || blockedByDomainGuard;
+            const deterministicContractCandidate = !blocked
                 && deterministicContractCandidates.has(row.label)
                 && matchesHighRiskFrameContract(row.label, options.queryFrame);
             return { row, semanticScore, compatibility, deterministicContractCandidate,
-                score: blockedByFrameGuard ? -Infinity
+                score: blocked ? -Infinity
                     : semanticScore * (1 - frameWeight) + compatibility * frameWeight };
         })
             .sort((left, right) => right.score - left.score
@@ -501,7 +537,8 @@ function rawEmbeddingRows(rows, vectors, anchors, perClassLimit, representation,
         const proposal = proposalById && proposalById.get(row.id);
         const ranked = rankEmbeddingCandidates(vectors.get(row.id), anchors,
             perClassLimit, Object.assign({}, representation, {
-                queryFrame: proposal && proposal.labels
+                queryFrame: proposal && proposal.labels,
+                queryGrounding: proposal && proposal.domainGrounding
             }));
         const first = ranked[0] || { label: 'UNKNOWN', score: 0, anchorId: null };
         const second = ranked[1] || { score: 0 };
@@ -745,6 +782,8 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
                     : representation.id
                         === 'contract-bluff-candidate-centroid-ood-max-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_BLUFF_CANDIDATE_OOD_MAX_V1'
+                    : representation.id === 'bounded-domain-contract-bluff-centroid-guard'
+                    ? 'PROTOTYPE_CLASS_CENTROID_BOUNDED_DOMAIN_CONTRACT_BLUFF_V1'
                     : representation.id === 'contract-bluff-candidate-centroid-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_BLUFF_CANDIDATE_V1'
                     : representation.id === 'frame-centroid-guard'
@@ -1370,7 +1409,8 @@ module.exports = {
     normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
     labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight,
     l2Normalize, dotProduct, cosineSimilarity, frameCompatibility,
-    matchesHighRiskFrameContract,
+    matchesHighRiskFrameContract, hasBoundedDomainGrounding,
+    matchesBoundedDomainFrameContract,
     selectPrototypeAnchors, buildPrototypeClassCentroids, rankEmbeddingCandidates,
     fitEmbeddingCalibration, buildStratifiedCalibrationFolds,
     crossValidateEmbeddingCalibration, compareSelectionEvidence,
