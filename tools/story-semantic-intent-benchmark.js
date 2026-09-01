@@ -91,6 +91,12 @@ const EMBEDDING_REPRESENTATIONS = Object.freeze([
         topCount: 1, frameCompatibilityWeight: 0,
         deterministicContractCandidates: Object.freeze(['BLUFF_CANDIDATE']),
         highRiskFrameContract: true,
+        anchorCountIndependent: true }),
+    Object.freeze({ id: 'contract-bluff-candidate-centroid-ood-max-guard',
+        aggregation: 'centroid', oodAggregation: 'max', topCount: 1,
+        frameCompatibilityWeight: 0,
+        deterministicContractCandidates: Object.freeze(['BLUFF_CANDIDATE']),
+        highRiskFrameContract: true,
         anchorCountIndependent: true })
 ]);
 const FRAME_COMPATIBILITY_AXES = Object.freeze([
@@ -437,9 +443,15 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
         Array.isArray(options.deterministicContractCandidates)
             ? options.deterministicContractCandidates : []);
     const grouped = new Map();
-    const selectedAnchors = aggregation === 'centroid'
+    let selectedAnchors = aggregation === 'centroid'
         ? buildPrototypeClassCentroids(anchors)
         : selectPrototypeAnchors(anchors, perClassLimit);
+    if (aggregation === 'centroid' && options.oodAggregation === 'max') {
+        selectedAnchors = selectedAnchors.filter(anchor => anchor.label !== 'UNKNOWN')
+            .concat((anchors || []).filter(anchor => anchor.label === 'UNKNOWN')
+                .slice().sort((left, right) => String(left.id)
+                    .localeCompare(String(right.id))));
+    }
     for (const anchor of selectedAnchors) {
         if (!grouped.has(anchor.label)) grouped.set(anchor.label, []);
         grouped.get(anchor.label).push(anchor);
@@ -472,7 +484,8 @@ function rankEmbeddingCandidates(queryVector, anchors, perClassLimit, options) {
         return { label, score, anchorId: scored[0].row.id,
             deterministicContractCandidate: scored[0].deterministicContractCandidate,
             anchorIds: aggregation === 'centroid'
-                ? scored[0].row.sourceAnchorIds : selected.map(item => item.row.id) };
+                ? scored[0].row.sourceAnchorIds || [scored[0].row.id]
+                : selected.map(item => item.row.id) };
     }).sort((left, right) => Number(right.deterministicContractCandidate)
         - Number(left.deterministicContractCandidate) || right.score - left.score
         || left.label.localeCompare(right.label));
@@ -722,6 +735,9 @@ function evaluateEmbeddingVectors(rowsBySplit, vectors, anchors) {
                     ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_V1'
                     : representation.id === 'contract-frame-centroid-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_FRAME_V1'
+                    : representation.id
+                        === 'contract-bluff-candidate-centroid-ood-max-guard'
+                    ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_BLUFF_CANDIDATE_OOD_MAX_V1'
                     : representation.id === 'contract-bluff-candidate-centroid-guard'
                     ? 'PROTOTYPE_CLASS_CENTROID_INTENT_CONTRACT_BLUFF_CANDIDATE_V1'
                     : representation.id === 'frame-centroid-guard'

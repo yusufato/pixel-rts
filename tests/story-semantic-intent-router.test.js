@@ -176,6 +176,22 @@ assert.deepEqual(buildPrototypeClassCentroids(coverageAnchors.slice().reverse())
     'class centroid must be input-order invariant');
 assert.equal(rankEmbeddingCandidates([1, 0], coverageAnchors, null,
     { aggregation: 'centroid' })[0].label, 'GREETING');
+const multimodalOodAnchors = [
+    { id: 'domain-centroid', label: 'GREETING', vector: [0.8, 0.6] },
+    { id: 'ood-east', label: 'UNKNOWN', vector: [1, 0] },
+    { id: 'ood-north', label: 'UNKNOWN', vector: [0, 1] }
+];
+assert.equal(rankEmbeddingCandidates([1, 0], multimodalOodAnchors, null,
+    { aggregation: 'centroid' })[0].label, 'GREETING',
+    'a single OOD centroid can erase a multi-modal OOD family');
+const oodMaxRanked = rankEmbeddingCandidates([1, 0], multimodalOodAnchors, null,
+    { aggregation: 'centroid', oodAggregation: 'max' });
+assert.equal(oodMaxRanked[0].label, 'UNKNOWN',
+    'nearest OOD prototype must remain an explicit abstention candidate');
+assert.deepEqual(oodMaxRanked[0].anchorIds, ['ood-east']);
+assert.deepEqual(rankEmbeddingCandidates([1, 0], multimodalOodAnchors.slice().reverse(),
+    null, { aggregation: 'centroid', oodAggregation: 'max' }), oodMaxRanked,
+    'OOD max competition must be input-order invariant');
 assert.throws(() => buildPrototypeClassCentroids([
     { id: 'short', label: 'GREETING', vector: [1] },
     { id: 'long', label: 'GREETING', vector: [1, 0] }
