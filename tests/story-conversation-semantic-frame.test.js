@@ -51,11 +51,11 @@ try {
         ['Ajanınızı geri çağırın, yoksa belgeleri basına veririm.',
             'TELL', 'ACTION', 'THREATEN'],
         ['Rakibinizin bütün şifreleri elimde, ama şimdi gösteremem.',
-            'TELL', 'NONE', 'UNKNOWN'],
+            'TELL', 'NONE', 'BLUFF_CANDIDATE'],
         ['Sen olsan bu barış teklifini kabul eder miydin?',
             'ASK', 'INFORMATION', 'ASK_INFORMATION'],
         ['İsterseniz tahliye planını birlikte gözden geçirebiliriz.',
-            'OFFER', 'ACTION', 'UNKNOWN']
+            'OFFER', 'ACTION', 'OFFER_SUPPORT']
     ];
     for (const [text, fn, outcome, speechAct] of directionalFamilies) {
         const result = analyze(text);
@@ -90,6 +90,44 @@ try {
         const frame = analyze(text).semanticFrame;
         assert.equal(frame.polarity === 'MIXED', bluff, text);
         assert.equal(frame.epistemicStatus === 'CLAIMED_CERTAIN', bluff, text);
+    }
+
+    const directionalOwnershipFamilies = [
+        ['Sadece ikimizin bilmesi gereken bir şey var: kuzey kapısının yedek anahtarı bende.',
+            'SHARE_SECRET'],
+        ['Bu bilgi masadan dışarı çıkmasın; konvoy şafakta güney tünelinden geçecek.',
+            'SHARE_SECRET'],
+        ['Sana güveniyorum: liman müdürü aslında karşı taraf için çalışıyor.',
+            'SHARE_SECRET'],
+        ['Başkentte üç taburum hazır; keşif kayıtlarını şimdi paylaşmayacağım.',
+            'BLUFF_CANDIDATE'],
+        ['Bütün borcu bugün kapatacak param var; hesap dökümünü sonra getiririm.',
+            'BLUFF_CANDIDATE'],
+        ['Mecliste çoğunluk kesinlikle bende, fakat destekçilerin adlarını açıklamam.',
+            'BLUFF_CANDIDATE'],
+        ['Bu görüşmenin ayrıntılarını kimseye anlatma.', 'REQUEST_ACTION'],
+        ['Gizli toplantının nerede yapılacağını biliyor musun?', 'ASK_INFORMATION'],
+        ['İstersen gizli geçitten çıkmanız için kendi muhafızlarımı gönderebilirim.',
+            'OFFER_SUPPORT'],
+        ['Ajanımı bırakmazsanız gizli yazışmalarınızı gazetelere gönderirim.',
+            'THREATEN']
+    ];
+    for (const [text, speechAct] of directionalOwnershipFamilies) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.suggestedSpeechAct, speechAct, text);
+        assert.equal(result.speechAct, speechAct, text);
+    }
+    const nonBluffEvidenceFamilies = [
+        'Bu dosyanın içeriğini dışarıya sızdırmayacağıma söz veriyorum.',
+        'Sınırdaki birliklerin yer değiştirdiği söyleniyor, doğruluğunu bilmiyorum.',
+        'Rezerv artışı denetim raporuyla doğrulandı; belgenin aslı yarın gelecek.',
+        'Bu kesin iddianızı destekleyen bir kanıtınız var mı?',
+        'Belge göstermeden ordunun desteğini kazandığınızı söyleyip bizi yanıltıyorsunuz.'
+    ];
+    for (const text of nonBluffEvidenceFamilies) {
+        const result = analyze(text);
+        assert.notEqual(result.semanticFrame.suggestedSpeechAct, 'BLUFF_CANDIDATE', text);
+        assert.notEqual(result.speechAct, 'BLUFF_CANDIDATE', text);
     }
 
     const functions = [
