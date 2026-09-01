@@ -1448,3 +1448,23 @@ parametrik ele alınır.
   için reddedildi. `acceptedModelIds=[]`; v3 tek seferden sonra spent'tir ve
   kalibrasyona çevrilemez. Bu sonuç yerel embedding'in mevcut haliyle oyuncu
   dilini `%90+` veya B1 seviyesinde anladığını göstermez.
+
+### 1 Eylül yöntem deneyi — çerçeve yönü embedding konu yakınlığını güvenle sınırladı
+
+- V3'e yeniden bakılmadan, embedding'in yalnız aday ürettiği ve katı
+  deterministik yönün kararı sınırladığı yeni temsil kolu kuruldu. İlk turda
+  parser'ın bilgi sorusu ve düzeltmeyi `REQUEST_ACTION` sayması iki riskli
+  yanlış pozitif üretti; blöf recall da `0` kaldı.
+- Ortak kök, analiz içi çelişkiydi. Interrogative/`ASK_INFORMATION` işaretli
+  veya correction/repair/answer continuity'li eylem talebi otoritesi kapatıldı;
+  blöf için sıkı `MIXED + CLAIMED_CERTAIN + NONE` sözleşmesi korundu. Metin ya
+  da kayıt kimliği ezberleyen istisna eklenmedi.
+- İkinci BGE ölçümü yalnız prototype+kalibrasyon kullandı; blind satırı `0`dır.
+  Dış-kat ortalama/minimum macro-F1 `0,773253/0,731523`, tam kalibrasyon
+  `0,819468`, taban farkı `+0,335107`; risk `0/0`, OOD `0/0` oldu. THREATEN,
+  REQUEST_ACTION, PROPOSE_COMMERCIAL_DEAL, SHARE_SECRET ve BLUFF_CANDIDATE
+  recall değerleri ayrı ayrı `1`dir.
+- Sonuç `eligibleModelIds=[bge-m3-q8_0]` ve `createNewBlindEpoch=true` verir.
+  Ham makbuz yerel geçici alandaki
+  `authoritative-high-risk-calibration-study-v2.json` dosyasındadır. Bu yalnız
+  v4 falsifikasyon kapısıdır; ürün dil kabulü veya runtime entegrasyonu değildir.

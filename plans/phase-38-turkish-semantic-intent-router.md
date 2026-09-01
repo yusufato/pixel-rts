@@ -843,3 +843,22 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   iddiası desteklenmiyor. Sonraki araştırma, v3 hatalarını ezberlemeden yeni
   eylem-gizlilik-blöf yön hipotezini yalnız bağımsız kalibrasyonda kurmalıdır.
   Yeni blind gerekirse seçilmiş yeni hipotezden sonra bağımsız v4 olmalıdır.
+
+### 1 Eylül 2026 — Çerçeve-otoriteli yüksek-risk kolu v4 hazırlama kapısını geçti
+
+- Embedding sınıf skorlarını üretmeye devam eder; deterministik yön yalnız
+  `speechAct` adayla birebir aynıysa ve sınıfın yüksek-risk çerçeve sözleşmesi
+  tutarlıysa öncelik alır (`15ff973`). Önceki temsil kolları değiştirilmedi.
+- İlk dış kalibrasyonda eylem talebi yönü hem bilgi sorusuna hem düzeltmeye
+  yanlış otorite verdi: ortalama macro-F1 `0,673203`, risk `2`, blöf recall
+  `0`; kol reddedildi. Hata cümleye özel değil, yüzey/continuity çelişkisiydi.
+- `REQUEST_ACTION` otoritesi; interrogative yüzey, düzeltme/onarım/yanıt
+  continuity'si veya ikincil `ASK_INFORMATION` işareti varsa kapatıldı.
+  Blöfün bağımsız polarite+epistemik sözleşmesi aynı kolda korundu (`04c5408`).
+- İkinci BGE-M3 dış kalibrasyonu kör erişimsizdir (`111/63/0`, blind count
+  `0`). Ortalama/minimum macro-F1 `0,773253/0,731523`, tam kalibrasyon
+  macro-F1 `0,819468`, taban farkı `+0,335107`dir. Risk `0/0`, OOD `0/0`;
+  beş yüksek-risk recall değerinin tamamı `1`dir.
+- `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true`. Bu yalnız
+  aile-sızıntısız ve önceden mühürlü v4 blind hazırlama iznidir. V3 spent
+  kalır; runtime/Electron/IPC ve `%90+`/B1 kabulü hâlâ kapalıdır.

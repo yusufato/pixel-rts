@@ -1809,3 +1809,19 @@ Headless dünya koşusunda gerçek taktik savaş ekranı açılmaz. Bunun yerine
 - Epoch `SPENT_AFTER_2026_09_01_V3_ONE_SHOT` olarak kilitlendi. Runtime,
   Electron/IPC ve paketleme değişmedi. Faz 38 semantik planı `In Progress`;
   `%90+`/B1 oyuncu dili anlama kabulü yoktur.
+
+## 2026-09-01 — Faz 38 yön-otoritesi kalibrasyonu (`passed / v4-blind-required`)
+
+- Yeni deneysel kolda embedding aday skorlayıcıdır; kesin deterministik
+  `speechAct` yönü ancak sınıf sözleşmesiyle iç tutarlıysa öncelik alır.
+  Eylem talebi için bilgi sorusu ve düzeltme/onarım/yanıt çelişkileri otoriteyi
+  keser; blöf ayrı polarite+epistemik sözleşmesini korur (`15ff973`, `04c5408`).
+- İlk hipotez turu iki yüksek-risk yanlış pozitif ve `BLUFF_CANDIDATE=0`
+  recall nedeniyle reddedildi. Sınıf-genel daraltmadan sonraki kör erişimsiz
+  BGE turu `111/63/0` sınırında ortalama/minimum macro-F1
+  `0,773253/0,731523`, taban farkı `+0,335107`, risk `0/0`, OOD `0/0` verdi.
+  Beş yüksek-risk recall değerinin tamamı `1`dir.
+- `eligibleModelIds=[bge-m3-q8_0]`, `createNewBlindEpoch=true`. Faz 38
+  `In Progress`; v3 spent kalır. Sıradaki adım yeni hipotezden sonra üretilen,
+  aile-sızıntısız v4'ü önceden mühürlemek ve yalnız seçilmiş kolu bir kez
+  ölçmektir. Runtime/EXE/IPC ve `%90+`/B1 iddiası açılmadı.
