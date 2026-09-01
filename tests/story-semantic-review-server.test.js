@@ -18,8 +18,15 @@ assert.equal(review.validateReview({ id: 'semantic-teacher:0001', verdict: 'EDIT
 
 const corpusValidation = benchmark.validateCorpus(corpus);
 assert.equal(corpusValidation.ok, true, corpusValidation.issues.join(', '));
-assert.equal(corpusValidation.count, 466);
-assert.equal(corpusValidation.uniqueTexts, 466);
+assert.equal(corpusValidation.count, 517);
+assert.equal(corpusValidation.uniqueTexts, 517);
+const v3Candidates = corpus.candidates.filter(row =>
+    String(row.sourceId || '').startsWith('representation-stability-v3:'));
+assert.equal(v3Candidates.length, 51);
+assert.equal(new Set(v3Candidates.map(row => row.familyId)).size, 51);
+assert.ok(v3Candidates.every(row => row.split === 'blind_test'
+    && !row.adjudication && row.labelStatus === 'CANDIDATE_UNREVIEWED'),
+'v3 must remain non-gold and unevaluated while its individual review is incomplete');
 
 const candidate = Object.assign({}, corpus.candidates[0]);
 delete candidate.adjudication;
@@ -93,7 +100,7 @@ const inventory = benchmark.buildBenchmark({
     corpus: unreviewedCorpus, reviews: { reviews: [] }, includePredictions: false
 });
 assert.equal(inventory.ok, true);
-assert.equal(inventory.inventory.candidates, 466);
+assert.equal(inventory.inventory.candidates, 517);
 assert.equal(inventory.inventory.humanGold, 0);
 assert.equal(inventory.inventory.codexGold, 0);
 assert.equal(inventory.inventory.gold, 0);
