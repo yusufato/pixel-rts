@@ -1235,3 +1235,10 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   `45 → 34` oldu. Açık olumlu “tehdit ediyorum” biçiminin ekonomik rapora
   düşmesi ayrı yüksek-risk yön ailesi olarak sonraya bırakıldı; bu ölçüm B1 veya
   `%90+` kabulü değildir.
+- Düzeltme hard-negative incelemesinde bulunan açık tehdit performansı kapatıldı.
+  Yalnız bitişik `tehdit + birinci kişi icra fiili` (`ediyorum/ediyoruz/edeceğim/
+  edeceğiz/ederim/ederiz`) `THREATEN` üretir. Olumsuz `tehdit etmiyorum`
+  düzeltme, `düşman tehdidi büyüyor` askerî rapor; edilgen tehdit ve tehdit
+  konusunu konuşma ise tehdit değildir. Dört hedef regresyon paketi geçti.
+  Non-blind toplam `238/272`, OOD `33/33` değişmedi; mevcut corpus bu yeni yüzeyi
+  içermediğinden kazanım oran diye sunulmadı.

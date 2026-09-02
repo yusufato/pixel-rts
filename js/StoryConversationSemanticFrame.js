@@ -318,6 +318,11 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
         /(?:abilirim|ebilirim|abiliriz|ebiliriz)$/.test(token));
     const conditionalThreatEvidence = tokens.filter(token => token === 'yoksa'
         || /(?:mazsan|mezsen|mazsaniz|mezseniz|mazsiniz|mezsiniz)$/.test(token));
+    const explicitThreatPerformanceEvidence = tokens.flatMap((token, index) =>
+        token === 'tehdit'
+            && /^(?:ediyorum|ediyoruz|edecegim|edecegiz|ederim|ederiz)$/.test(
+                tokens[index + 1] || '')
+            ? [token, tokens[index + 1]] : []);
     const counterpartyConditionalActionEvidence = tokens.filter((token, index) =>
         /(?:arsan|ersen|irsan|irsen|ırsan|ursan|ursen|ürsen|arsaniz|erseniz|irsaniz|irseniz|ırsanız|ursaniz|urseniz|ürseniz|saniz|seniz)$/.test(token)
         && !/^(?:isterseniz|dilerseniz)$/.test(token)
@@ -355,6 +360,11 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     if (thanksEvidence.length) return { value: 'THANK', evidence: thanksEvidence, score: 3300 };
     if (apologyPerformanceEvidence.length) {
         return { value: 'APOLOGIZE', evidence: apologyPerformanceEvidence, score: 3300 };
+    }
+    if (explicitThreatPerformanceEvidence.length) {
+        return { value: 'TELL', speechActOverride: 'THREATEN',
+            requestedOutcome: 'ACTION', evidence: explicitThreatPerformanceEvidence,
+            score: 3300 };
     }
     if (correctionEvidence.matched) {
         return { value: 'CORRECT', requestedOutcome: 'ACKNOWLEDGEMENT',

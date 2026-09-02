@@ -1842,3 +1842,10 @@
 - **What happened:** Şemada var olup deterministik üretim yolu bulunmayan `CORRECT`, açık öz-düzeltme, karşıtsal ikame, önceki söze karşı çıkma, bitişik metalinguistik eylem inkârı ve eksik/tekrarlı önceki içerik bileşimleriyle üretildi. `teklif etmiyorum` ile `teklifini kabul etmiyorum` sözcük yakınlığıyla değil yüklem bağıyla ayrıldı.
 - **Evidence:** Spent blind erişilmeden non-blind `CORRECT_STATEMENT` `0/11 → 11/11`, correction yanlış pozitifi `0`, toplam ana niyet doğruluğu `227/272 → 238/272` (`%83,5 → %87,5`) ve hata `45 → 34` oldu. OOD `33/33` kaldı; dört hedef regresyon paketi exit `0` verdi.
 - **Implication for future audits:** `Hayır`, olumsuzluk veya konu içinde geçen `teklif/tehdit` sözcüğünü tek başına düzeltme sayma. Düzeltme yönü açık karşıtlık ya da önceki söz/içerikle kurulan bileşimsel bağ ister. Açık olumlu “tehdit ediyorum” biçimi ayrı yüksek-risk yön açığıdır; bu sonuç B1 veya `%90+` kabulü değildir.
+
+## 2026-09-02 — Açık tehdit performansı konu ve rapordan ayrıldı
+- **Type:** Confirmed
+- **Source:** `phase-38-turkish-semantic-intent-router` explicit threat-performance hard negative
+- **What happened:** Bitişik `tehdit + birinci kişi icra fiili` açık tehdit performansı oldu. Olumsuz, edilgen, üçüncü kişi durum bildirimi ve yalnız konu anımı bu kapıya girmiyor.
+- **Evidence:** Dört olumlu tehdit çekimi `THREATEN`; `tehdit etmiyorum` `CORRECT_STATEMENT`; kanonik düşman tehdidi `REPORT_MILITARY`; edilgen ve konu anımı tehdit değil. Dört hedef regresyon paketi exit `0` verdi. Non-blind toplam `238/272`, OOD `33/33` değişmedi çünkü ölçüm corpusunda bu olumlu yüzey yoktu.
+- **Implication for future audits:** `tehdit` sözcüğünü tek başına yüksek-risk eylem sayma ve olumlu icra fiilini ekonomik konuya kaptırma. Aktör, kip ve olumsuzluk birlikte doğrulanmalı; bu hardening sonucu corpus doğruluk artışı veya B1/%90 kabulü değildir.

@@ -159,6 +159,30 @@ try {
         assert.notEqual(analyze(text).speechAct, 'CORRECT_STATEMENT', text);
         assert.equal(analyze(text).speechAct, excludedSpeechAct, text);
     }
+    const explicitThreatPerformances = [
+        'Limanlarınızı kapatmakla tehdit ediyorum.',
+        'Sınır şehirlerinizi vurmakla tehdit ediyoruz.',
+        'Sizi ekonomik yaptırımlarla tehdit edeceğim.',
+        'Bu anlaşmayı bozmakla tehdit ederim.'
+    ];
+    for (const text of explicitThreatPerformances) {
+        const result = analyze(text);
+        assert.equal(result.speechAct, 'THREATEN', text);
+        assert.equal(result.semanticFrame.requestedOutcome, 'ACTION', text);
+    }
+    const explicitThreatHardNegatives = [
+        ['Limanlarınızı kapatmakla tehdit etmiyorum.', 'CORRECT_STATEMENT'],
+        ['Sınırdaki düşman tehdidi büyüyor.', 'REPORT_MILITARY']
+    ];
+    for (const [text, speechAct] of explicitThreatHardNegatives) {
+        assert.equal(analyze(text).speechAct, speechAct, text);
+    }
+    for (const text of [
+        'Komutan tehdit edildiğini bildirdi.',
+        'Tehdit hakkında konuşuyoruz.'
+    ]) {
+        assert.notEqual(analyze(text).speechAct, 'THREATEN', text);
+    }
     const reciprocalCommercialFamilies = [
         'Bakırın tonu için sekiz yüz verirseniz altı aylık sevkiyat garantisi sunarız.',
         'Liman kullanımını bize açın, karşılığında gümrük payını yüzde iki artırayım.',
