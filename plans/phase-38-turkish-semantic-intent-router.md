@@ -1293,3 +1293,15 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   fakat mevcut motorun bunu `REQUEST_ACTION` yerine `UNKNOWN` bıraktığı görüldü.
   Bu ayrı hareket-talebi açığı ilişki yamasına karıştırılmadı ve sonraki hata
   ailesine ertelendi.
+- Kibar hareket isteği iki gerçek kayıp üzerinden kapatıldı. Ayrı soru parçacığı
+  yalnız `misin/misiniz` değil yuvarlak ünlülü `musun/musunuz` biçimlerini de
+  tanır; `gel/gelin/gelir misiniz` yönlü eylem ailesine katıldı. Üçüncü kişi
+  “birlikler gelir mi?” durum sorusudur, talep değildir.
+- Doğru `REQUEST_ACTION` frame'inin oyun-dışı kapıda ezilmemesi için `karargâh`
+  kanonik oyun-domain temeline eklendi. Askerî bağlam + yardım/destek + yönlü
+  istek ise genel `WORK` yerine `MILITARY` predicate'ini koruyarak
+  `REQUEST_SUPPORT` üretir; bağlamsız yardım isteği `REQUEST_ACTION` kalır.
+- Spent blind açılmadan `REQUEST_SUPPORT` `1/2 → 2/2`, yanlış destek talebi `0`,
+  OOD `33/33`; toplam doğruluk `251/272 → 252/272` (`%92,3 → %92,6`) ve hata
+  `21 → 20` oldu. Başlangıçtaki 143 hatanın `123/143`ü (`%86,0`) kapandı.
+  Dört hedef regresyon paketi geçti; bu B1/ürün kabulü değildir.

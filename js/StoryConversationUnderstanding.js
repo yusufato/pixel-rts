@@ -403,7 +403,7 @@ function storyConversationHasGameDomainLanguage(folded) {
         'enflasyon', 'rezerv', 'fiyat', 'piyasa', 'borc', 'nakit', 'refah',
         'gelir', 'gider', 'issizlik', 'sirket', 'ticaret', 'banka', 'yatirim',
         'ithalat', 'ihracat', 'gumruk', 'liman', 'fabrika', 'dinar', 'sermaye',
-        'sevkiyat', 'konvoy', 'depo', 'tasi', 'tahil', 'yakit', 'kaynak',
+        'sevkiyat', 'konvoy', 'depo', 'karargah', 'tasi', 'tahil', 'yakit', 'kaynak',
         'yonetim', 'hukumet',
         'kabine', 'vali', 'bakan', 'meclis', 'secim', 'kararname', 'anayasa',
         'devlet', 'ulke', 'ittifak', 'anlasma', 'elci', 'mustesar', 'gorev',

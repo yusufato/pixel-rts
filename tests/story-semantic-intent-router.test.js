@@ -482,6 +482,14 @@ assert.deepEqual(nonBlindRelationshipRows.filter(row =>
     nonBlindRelationshipProposals.get(row.id).labels.speechAct !== 'ASK_RELATIONSHIP')
     .map(row => row.id), [],
 'prototype player-recognition questions must remain relationship questions');
+const nonBlindSupportRequestRows = corpus.candidates.filter(row => row.split !== 'blind_test'
+    && row.adjudication && row.adjudication.labels.speechAct === 'REQUEST_SUPPORT');
+const nonBlindSupportRequestProposals = buildBaselineProposals(nonBlindSupportRequestRows);
+assert.equal(nonBlindSupportRequestRows.length, 2);
+assert.deepEqual(nonBlindSupportRequestRows.filter(row =>
+    nonBlindSupportRequestProposals.get(row.id).labels.speechAct !== 'REQUEST_SUPPORT')
+    .map(row => row.id), [],
+'prototype and calibration military support requests must retain support direction');
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));

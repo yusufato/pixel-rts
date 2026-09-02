@@ -271,6 +271,24 @@ try {
         assert.equal(result.speechAct, 'REQUEST_ACTION', text);
         assert.ok(!result.secondaryActs.includes('ASK_INFORMATION'), text);
     }
+    const roundedVowelPoliteRequests = [
+        ['Beni karargâha götürür müsünüz?', 'REQUEST_ACTION'],
+        ['Yardım için gelir misiniz?', 'REQUEST_ACTION'],
+        ['Düşman birlikleri yoğunlaşıyor, yardım için gelir misiniz?',
+            'REQUEST_SUPPORT']
+    ];
+    for (const [text, speechAct] of roundedVowelPoliteRequests) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'REQUEST', text);
+        assert.equal(result.semanticFrame.target, 'LISTENER', text);
+        assert.equal(result.semanticFrame.requestedOutcome, 'ACTION', text);
+        assert.equal(result.speechAct, speechAct, text);
+    }
+    assert.equal(analyze('Düşman birlikleri kuzeyden gelir mi?').speechAct,
+        'ASK_INFORMATION');
+    assert.notEqual(analyze('Konvoy beni karargâha götürür.').speechAct,
+        'REQUEST_ACTION');
+    assert.equal(analyze('Beni tanıyor musunuz?').speechAct, 'ASK_RELATIONSHIP');
 
     const politeRequestHardNegatives = [
         ['Bana güveniyor musun?', 'ASK_RELATIONSHIP'],

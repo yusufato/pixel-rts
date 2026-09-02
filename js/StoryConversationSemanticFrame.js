@@ -44,7 +44,7 @@ const STORY_SEMANTIC_MODEL_OUTCOMES = Object.freeze([
 
 const STORY_SEMANTIC_DIRECTED_ACTION_ROOTS = Object.freeze([
     'ver', 'yap', 'ac', 'gonder', 'yonlendir', 'baslat', 'artir', 'getir',
-    'gotur', 'tasi', 'sevk', 'bosalt', 'ode', 'cagir', 'dondur', 'ilet',
+    'gotur', 'gel', 'tasi', 'sevk', 'bosalt', 'ode', 'cagir', 'dondur', 'ilet',
     'cek', 'hazirla', 'tut', 'koru', 'kapat', 'duzenle', 'incele', 'kontrol',
     'aktar', 'teslim', 'imzala', 'degistir'
 ]);
@@ -145,7 +145,7 @@ function storySemanticFrameDirectedImperativeEvidence(tokens) {
 
 function storySemanticFramePoliteRequestEvidence(tokens) {
     const secondPersonQuestion = tokens.filter(token =>
-        /^(?:mi|mu)(?:sin|siniz)$/.test(token));
+        /^(?:mi(?:sin|siniz)|mu(?:sun|sunuz))$/.test(token));
     if (!secondPersonQuestion.length) return [];
     const action = tokens.filter(token => STORY_SEMANTIC_DIRECTED_ACTION_ROOTS.some(root =>
         new RegExp(`^${root}(?:ar|er|ir|ur)$`).test(token)));
@@ -848,8 +848,12 @@ function storyConversationSemanticFrameCompile(raw, context) {
     const listenerDirectedRequest = communicative.value === 'REQUEST'
         && (surfaceForm.value === 'IMPERATIVE'
             || storySemanticFramePoliteRequestEvidence(tokens).length > 0);
+    const militarySupportRequest = communicative.value === 'REQUEST'
+        && [predicate.primary].concat(predicate.secondary).includes('MILITARY')
+        && storySemanticFrameHas(tokens, ['yardim', 'destek']);
     const resolvedPredicate = communicative.value === 'CONFIDE' ? 'SECRET'
-        : communicative.value === 'REQUEST' && predicate.secondary.includes('WORK')
+        : militarySupportRequest ? 'MILITARY'
+            : communicative.value === 'REQUEST' && predicate.secondary.includes('WORK')
             ? 'WORK' : predicate.primary;
     const frame = {
         schemaVersion: STORY_SEMANTIC_FRAME_SCHEMA_VERSION,

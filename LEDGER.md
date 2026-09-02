@@ -1877,3 +1877,10 @@
 - **What happened:** Soru + `beni/benden` + tanıma yüklemi, dinleyicinin oyuncuyla ilişkisel aşinalığını soran bileşim oldu. Ülkeyi tanıma, üçüncü kişi bildirimi ve oyuncuya yönelen başka eylemler bu sınıfa alınmadı.
 - **Evidence:** Spent blind açılmadan non-blind `ASK_RELATIONSHIP` `0/2 → 2/2`, yanlış ilişki `0`, OOD `33/33`; toplam doğruluk `249/272 → 251/272` (`%91,5 → %92,3`) ve hata `23 → 21` oldu. Başlangıçtaki 143 hatanın `122/143`ü (`%85,3`) kapandı; dört hedef test paketi exit `0` verdi.
 - **Implication for future audits:** `tanı` kökünü tek başına sosyal ilişki sayma; soru yönü ve oyuncu nesnesini birlikte iste. “Beni karargâha götürür müsünüz?” ayrı bir hareket-talebi açığıdır ve bu ilişki sonucuyla kapanmış sayılmamalıdır; `%92,3` non-blind oran B1/ürün kabulü değildir.
+
+## 2026-09-02 — Yuvarlak ünlülü kibar hareket ve askerî destek istekleri kapatıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` polite movement/support request family
+- **What happened:** `musun/musunuz` soru parçacığı ve `gel` eylem ailesi yönlü istek morfolojisine eklendi. `karargâh` oyun-domain temeli oldu; askerî bağlamdaki açık yardım/destek isteği genel iş yerine askerî destek yönünü korudu.
+- **Evidence:** “Beni karargâha götürür müsünüz?” `REQUEST_ACTION`; askerî “yardım için gelir misiniz?” `REQUEST_SUPPORT`; üçüncü kişi “birlikler gelir mi?” `ASK_INFORMATION` oldu. Spent blind açılmadan `REQUEST_SUPPORT` `1/2 → 2/2`, yanlış destek `0`, OOD `33/33`; toplam `251/272 → 252/272` (`%92,3 → %92,6`), hata `21 → 20` ve başlangıç hata kapanışı `123/143` (`%86,0`). Dört hedef test paketi exit `0` verdi.
+- **Implication for future audits:** Kibar soru ekini yalnız düz ünlülü `misiniz` biçimiyle sınırlama ve askerî yardım talebini `yardım=WORK` diye genelleme. Bu non-blind kazanımı B1 veya ürün `%90+` kabulü değildir.
