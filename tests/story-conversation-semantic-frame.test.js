@@ -115,6 +115,23 @@ try {
     for (const [text, speechAct] of boundedDomainGroundedHardNegatives) {
         assert.equal(analyze(text).speechAct, speechAct, text);
     }
+    const daypartGreetings = [
+        'İyi akşamlar sayın başkan.',
+        'İyi günler komutanım.',
+        'İyi sabahlar, sizinle görüşmek güzel.'
+    ];
+    for (const text of daypartGreetings) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'GREET', text);
+        assert.equal(result.speechAct, 'GREETING', text);
+    }
+    for (const text of [
+        'Akşamlar burada iyi geçiyor.',
+        'İyi akşam yemeği hazırladık.',
+        'İyi akşamlar ifadesini İngilizceye çevir.'
+    ]) {
+        assert.notEqual(analyze(text).speechAct, 'GREETING', text);
+    }
     const boundedWorldObservations = [
         'Bu dönemde nüfusun göç yönündeki bir trend olduğunu fark ettim.',
         'Bugün hükümetin yeni bir kararname çıkardı.',

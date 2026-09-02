@@ -1863,3 +1863,10 @@
 - **What happened:** Konu hakkında konuşma tercihi ve açık kişisel doğru bulma soruları, genel bilgi sorusundan bileşimsel dinleyici değerlendirmesine ayrıldı. Bilgi kaynağı/zamanı ve devam eden eylem soruları görüşe çevrilmedi.
 - **Evidence:** Spent blind açılmadan non-blind `ASK_PERSONAL_OPINION` `3/7 → 6/7`, yanlış görüş `0`, OOD `33/33`; toplam doğruluk `244/272 → 247/272` (`%89,7 → %90,8`) ve hata `28 → 25` oldu. Semantic-frame, router, conversation-case ve review-server testleri exit `0` verdi.
 - **Implication for future audits:** `%90,8` non-blind geliştirme doğruluğunu B1 veya ürün `%90+` kabulü sayma. “Sen olsan bu barış teklifini kabul eder miydin?” eski testte `ASK_INFORMATION`, tekil gold’da `ASK_PERSONAL_OPINION`; bu sözleşme çatışmasını kullanıcı kararı olmadan sessizce tersine çevirme.
+
+## 2026-09-02 — Zaman selamları sözcük anımından ayrıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` daypart-greeting family
+- **What happened:** Cümle başındaki `iyi akşamlar/günler/sabahlar` bileşimi selam icrası oldu. Aynı sözcüklerin durum, yemek ve metalinguistik çeviri/anlam bağlamları selam sayılmadı.
+- **Evidence:** Spent blind açılmadan non-blind `GREETING` `8/10 → 10/10`, yanlış selam `0`, OOD `33/33`; toplam doğruluk `247/272 → 249/272` (`%90,8 → %91,5`) ve hata `25 → 23` oldu. Semantic-frame, router, conversation-case ve review-server testleri exit `0` verdi.
+- **Implication for future audits:** `iyi` veya zaman sözcüğünü tek başına selam kanıtı sayma; başlangıç konumu ve kalıp birlikteliğini iste. `%91,5` non-blind geliştirme doğruluğunu B1 veya ürün `%90+` kabulü olarak raporlama.

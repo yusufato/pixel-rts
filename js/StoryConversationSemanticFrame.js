@@ -263,8 +263,14 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     }
     const closeEvidence = storySemanticFrameEvidence(tokens,
         ['gorusuruz', 'hosca', 'gule', 'ayril', 'gidiyor', 'doneceg']);
+    const greetingMentionEvidence = storySemanticFrameEvidence(tokens,
+        ['kelime', 'ifade', 'cevir', 'anlam']);
+    const daypartGreetingEvidence = tokens[0] === 'iyi'
+        && /^(?:aksamlar|gunler|sabahlar)$/.test(tokens[1] || '')
+        && !greetingMentionEvidence.length ? tokens.slice(0, 2) : [];
     const greetingEvidence = storySemanticFrameEvidence(tokens,
-        ['selam', 'merhaba', 'gunaydin']);
+        ['selam', 'merhaba', 'gunaydin']).concat(daypartGreetingEvidence)
+        .filter((value, index, all) => all.indexOf(value) === index);
     const thanksEvidence = storySemanticFrameEvidence(tokens, ['tesekkur', 'sagol', 'minnettar']);
     const apologyEvidence = storySemanticFrameEvidence(tokens, ['affet', 'kusura']);
     const apologyNounEvidence = storySemanticFrameEvidence(tokens, ['ozur']);

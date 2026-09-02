@@ -1273,3 +1273,11 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   kabul eder miydin?” eski semantic-frame testinde `ASK_INFORMATION`, tekil
   gold corpusunda `ASK_PERSONAL_OPINION` sözleşmesine sahip. Tarihsel beklenti
   kullanıcı kararı olmadan tersine çevrilmedi; ayrı karar borcu olarak kaldı.
+- Günün zamanına bağlı selamlar, genel `iyi` veya `akşam` sözcüğüyle değil
+  yalnız cümle başındaki `iyi + akşamlar/günler/sabahlar` bileşimiyle `GREETING`
+  oldu. Kelime/ifade/çeviri/anlam bağlamı selam icrası değildir; akşamın iyi
+  geçmesi ve iyi akşam yemeği de hard-negative olarak korundu.
+- Spent blind açılmadan `GREETING` `8/10 → 10/10`, yanlış selam `0`, OOD
+  `33/33`; toplam doğruluk `247/272 → 249/272` (`%90,8 → %91,5`) ve hata
+  `25 → 23` oldu. Dört hedef regresyon paketi geçti. Bu non-blind geliştirme
+  ölçümü B1 veya ürün `%90+` kabulü değildir.
