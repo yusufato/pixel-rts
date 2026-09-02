@@ -16,6 +16,7 @@ touches:
   - tools/story-semantic-review-server.js
   - tools/story-semantic-review.html
   - tools/story-sim-harness.js
+  - qa-runtime/external-ai-reviews/PROTOCOL.md
   - tests/story-semantic-intent-router.test.js
   - tests/story-semantic-review-server.test.js
   - tests/story-conversation-semantic-frame.test.js

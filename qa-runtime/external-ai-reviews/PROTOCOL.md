@@ -10,20 +10,58 @@ ve merkezi geliştirici tarafından içeri alındıktan sonra mümkündür.
 Bu protokol fail-closed çalışır: eksik dosya, yanlış model kimliği, belirsiz
 yetki veya yasak yola erişim halinde model hiçbir dosya değiştirmeden durur.
 
-## 2. Değişmez roller
+## 2. İzin verilen modeller ve değişmez roller
+
+Bu iş için izin verilen harici model listesi kapalıdır:
+
+| `MODEL_ID` | Normal tur rolü | Bağımsız çıktı |
+| --- | --- | --- |
+| `Sonnet-4.6` | `LABELER` | Evet |
+| `Opus-4.6` | `LABELER` | Evet |
+
+`Gemini-*` dahil tabloda bulunmayan modeller bu corpus için görev alamaz,
+çıktı üretemez ve uzlaşmaya katılamaz. Yeni model ancak kullanıcı kararıyla bu
+tabloya açıkça eklenir. Model kendi rolünü seçmez veya tahmin etmez.
+
+Sonnet ve Opus aynı sağlayıcıdan geldikleri için istatistiksel olarak bağımsız
+model aileleri oldukları iddia edilmez. Buradaki bağımsızlık; ayrı, kör ve
+birbirinin çıktısını görmeyen iki inceleme çalışması anlamındadır.
 
 | Rol | Görev | Oy |
 | --- | --- | --- |
-| `LABELER` | Steril girdiyi tek tek etiketler | Bir bağımsız model ailesi için 1 |
+| `LABELER` | Steril girdiyi tek tek etiketler | Bir izinli model için 1 |
 | `STABILITY_AUDITOR` | Aynı model ailesinin tekrar tutarlılığını ölçer | 0 |
-| `ARBITER_AND_MERGER` | Tamamlanmış çıktıları karşılaştırır ve anlaşmazlıkları inceler | Hakem |
+| `ARBITER_AND_MERGER` | İki kapalı çıktıyı karşılaştırır; harici modellere varsayılan atanmaz | 0 |
 
 Bir model aynı partide birden fazla rol üstlenemez. Aynı sağlayıcı/model
-ailesindeki iki oturum iki bağımsız oy sayılamaz.
+ailesindeki ek oturumlar yeni oy sayılamaz. Normal turda stability auditor
+zorunlu değildir. Sonnet veya Opus kendi çıktısının hakemi olamaz.
 
-## 3. Zorunlu başlangıç zarfı
+## 3. Kendiliğinden başlayan görev zarfı
 
-Her çalıştırmada kullanıcı şu beş değeri açıkça vermelidir:
+Kullanıcı her model için rol, parti ve yol değerlerini tek tek yazmaz. Model bu
+dosyadaki **Aktif görev matrisi** içinde kendi tam `MODEL_ID` satırını bulur ve
+beş zorunlu değeri o satırdan alır. Satır eksiksiz ve dosyalar mevcutsa soru
+sormadan çalışmaya başlar.
+
+### Aktif görev matrisi
+
+```yaml
+ACTIVE_BATCH_ID: external-review-0001
+ASSIGNMENTS:
+  Sonnet-4.6:
+    ROLE: LABELER
+    INPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/input.json
+    OUTPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/sonnet-4-6-r1.json
+    STATUS: READY
+  Opus-4.6:
+    ROLE: LABELER
+    INPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/input.json
+    OUTPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/opus-4-6.json
+    STATUS: READY
+```
+
+Bu matris bir görev zarfıdır ve her satır aşağıdaki beş değeri eksiksiz tanımlar:
 
 ```yaml
 ROLE: LABELER | STABILITY_AUDITOR | ARBITER_AND_MERGER
@@ -33,9 +71,17 @@ INPUT_FILE: qa-runtime/external-ai-reviews/<batch>/input.json
 OUTPUT_FILE: qa-runtime/external-ai-reviews/<batch>/<atanmış-model>.json
 ```
 
-Model kendi kimliğini doğrulayamıyorsa, dosya yollarından biri eksikse veya
-`OUTPUT_FILE` başka modele aitse işlem başlamaz. Model kimliği tahmin edilmez;
+`MODEL_ID` matris anahtarıdır; ayrıca kullanıcıdan istenmez. Model kendi
+kimliğini doğrulayamıyorsa, kendi satırı yoksa, `STATUS` değeri `READY` değilse,
+dosya yollarından biri eksikse veya `OUTPUT_FILE` başka modele aitse işlem
+başlamaz. Model bu durumda soru sormaz, yol üretmez ve dosya oluşturmaz; yalnız
+hangi kapının kapanmış olduğunu konuşmada bildirir. Model kimliği tahmin edilmez;
 `High`, `Flash`, `Sonnet` ve `Opus` birbirinin yerine yazılamaz.
+
+Aktif parti değiştiğinde merkezi geliştirici yalnız bu matrisi günceller. Eski
+parti yolu, sohbet geçmişindeki atama veya modelin önceki görevi yeni atama
+sayılmaz. Matris ile sohbet talimatı çelişirse model hiçbir dosyaya yazmadan
+durur ve çelişkiyi bildirir.
 
 ## 4. Dosya yetkisi
 
@@ -51,6 +97,8 @@ Model kendi kimliğini doğrulayamıyorsa, dosya yollarından biri eksikse veya
   çalıştıramaz.
 - Çıktı önce yeni geçici içerik olarak hazırlanır; hedefte önceden dosya varsa
   üzerine yazılmaz ve işlem durur.
+- Aktif görev matrisinde kendi satırı bulunan model, rol veya yol teyidi istemez.
+  Matris dışındaki olası dosyaları aramak da yetki ihlalidir.
 
 Bu sınırlardan birinin ihlali çıktıyı `DISQUALIFIED_PROTOCOL_VIOLATION` yapar.
 İçerik doğru görünse bile oy hakkı geri verilmez. İhlal edilmiş çıktı yalnız
@@ -108,22 +156,27 @@ Bütün SemanticFrameV2 alanları doldurulur: `speechAct`,
 - `THREATEN`, `REQUEST_ACTION`, `PROPOSE_COMMERCIAL_DEAL`, `SHARE_SECRET`,
   `BLUFF_CANDIDATE` ve OOD kararları yüksek risktir.
 
-Yüksek-risk kararı 3/3 uzlaşsa bile hakem kontrolü olmadan corpus'a alınmaz.
+Yüksek-risk kararı Sonnet ve Opus arasında `2/2` eşleşse bile merkezi/human
+kontrol olmadan corpus'a alınmaz.
 
-## 8. Uzlaşma ve hakemlik
+## 8. İki-model uzlaşması ve hakemlik
 
-Ana oylar farklı model ailelerinden gelir. Notes metinleri değil, on bir etiket
-ekseni karşılaştırılır; `secondarySpeechActs` sırası önemsizdir.
+Ana tur yalnız Sonnet 4.6 ve Opus 4.6'nın birbirinden kör iki çıktısından oluşur.
+Notes metinleri değil, on bir etiket ekseni karşılaştırılır;
+`secondarySpeechActs` sırası önemsizdir.
 
-- `3/3`: `UNANIMOUS_CANDIDATE`; yüksek riskse ayrıca hakem zorunlu.
-- `2/3`: otomatik gold değildir; hakem yeniden inceler.
-- `1/1/1`: `NEEDS_HUMAN_DECISION`.
-- Stability auditor ana modelle ayrışırsa kayıt hakeme gider.
+- `2/2` ve bütün eksenler aynı: `TWO_REVIEWER_AGREEMENT_CANDIDATE`.
+- `1/2`, karar türü ayrışması veya tek eksen farkı: `NEEDS_HUMAN_DECISION`.
+- Tek geçerli çıktı: beklenir; otomatik gold veya uzlaşma üretilmez.
+- Stability auditor ancak merkezi geliştirici ayrıca atarsa çalışır ve oy eklemez.
 - Bir model semantik tekrar bildirirse hakem bütün corpus'u açmadan yalnız steril
   template envanteri üzerinden iddiayı doğrular.
 
-Hakem de corpus'a yazamaz. Yalnız atanmış `consensus.json` dosyasını üretir.
-`GOLD_CANDIDATE` merkezi kabul öncesinde gold sayılmaz.
+Normal turda Opus hakem değildir; kendi oyunu hakemleyemez. Birleştirme,
+iki çıktı kapandıktan sonra merkezi geliştirici tarafından deterministik olarak
+yapılır. Gerekirse kullanıcı anlaşmazlığı karara bağlar. Hakem de corpus'a
+yazamaz; yalnız atanmış `consensus.json` dosyasını üretir.
+`TWO_REVIEWER_AGREEMENT_CANDIDATE` merkezi kabul öncesinde gold sayılmaz.
 
 ## 9. Zorunlu çıktı makbuzu
 
@@ -139,6 +192,25 @@ kararları, template kümeleri ve özet sayaçları taşır. Model ayrıca:
 - model kimliği doğrulamasını
 
 makbuzlar. “Sorun yok” gibi kanıtsız toplu ifade doğrulama sayılmaz.
+
+`protocolStatus=COMPLETE` yazılmadan önce şu makine-doğrulanabilir eşitliklerin
+tamamı sağlanmalıdır:
+
+- `records.length == evaluatedIds.length == input.records.length`;
+- input, `evaluatedIds` ve `records` ID kümeleri birebir aynıdır; tekrar yoktur;
+- `reviewed == records.length`;
+- karar sayaçlarının toplamı `reviewed` değeridir ve her sayaç kayıt gövdesinden
+  yeniden hesaplanan değerle aynıdır;
+- `highConfidence + mediumConfidence + lowConfidence == reviewed`;
+- template kümesi üye ve karar sayaçları kayıt gövdesiyle aynıdır;
+- her `ACCEPT` tam etiket çerçevesi taşır; `NEEDS_REVIEW` ve
+  `SEMANTIC_NEAR_DUPLICATE` zorla gold etiketi taşımaz.
+
+Bu eşitliklerden biri bozuksa dosya protokol ihlali nedeniyle kalıcı diskalifiye
+olmaz; fakat `INVALID_RECEIPT` sayılır, uzlaşmaya giremez ve `COMPLETE` kabul
+edilmez. Düzeltme gerekiyorsa mevcut dosya üzerine yazılmaz; aktif görev
+matrisinde yeni bir output yolu atanır ve model yalnız steril inputtan yeniden
+çalışır.
 
 ## 10. İhlal sonrası işlem
 
