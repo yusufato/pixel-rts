@@ -17,6 +17,7 @@ touches:
   - tools/story-semantic-review.html
   - tools/story-sim-harness.js
   - qa-runtime/external-ai-reviews/PROTOCOL.md
+  - qa-runtime/external-ai-reviews/external-review-0001/consensus.json
   - tests/story-semantic-intent-router.test.js
   - tests/story-semantic-review-server.test.js
   - tests/story-conversation-semantic-frame.test.js
@@ -1098,5 +1099,24 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   sözleşmesidir. Corpus model için yasaktır; eksik inputta durmak zorunludur;
   yalnız atanmış output yazılabilir. Yasak yola tek yazım bile çıktıyı kalıcı
   olarak oy dışına çıkarır. Metinsel tekillik yerine semantik şablon tekilliği,
-  farklı model ailelerinden 3/3 uzlaşma ve yüksek-risk için ayrıca hakem denetimi
-  gerekir.
+  Sonnet/Opus kör turunda 2/2 aday uzlaşması ve yüksek-risk için ayrıca merkezi
+  hakem denetimi gerekir.
+
+### 2 Eylül 2026 — Sonnet/Opus bağımsız turu merkezi hakemlikle kapatıldı
+
+- Sonnet 4.6 ve Opus 4.6 aynı `20` steril prototype/calibration kaydını ayrı
+  `LABELER` oturumlarında tamamladı. İki makbuzun ID kümeleri, karar ve güven
+  sayaçları doğrulandı; blind kayıt sayısı `0`dır. Karar türü `17/20` eşleşti,
+  fakat kabul edilen çerçevelerden yalnız `1` tanesi bütün eksenlerde birebirdi.
+- Merkezi inceleme yalnız parti içi tekrara bakmadı; mevcut non-blind gold
+  envanterini de denetledi. Tam eşleşen deklaratif eylem talebi dahil `16` kayıt
+  mevcut şablonların alan/sözcük varyantı olarak gold dışında bırakıldı.
+- Üç bağımsız değer corpus'a `CODEX_INDIVIDUAL_REVIEW` ile alındı: bileşik
+  `REJECT + REQUEST_ACTION`, geleceğe dönük ekonomik beklenti + duygu ve
+  “gizli operasyon” konusunu gerçek sır paylaşımından ayıran `SMALL_TALK`
+  hard-negative. Belirsiz bilgi-vaadi/anlaşma kaydı yüksek-risk nedeniyle
+  `NEEDS_HUMAN_DECISION` kaldı.
+- Gold toplamı `620 → 623`, prototype gold `111 → 114` oldu. Calibration ve
+  spent blind içerikleri değişmedi. Aktif Sonnet/Opus görevleri `CLOSED` yapıldı;
+  birleştirme makbuzu `external-review-0001/consensus.json` içindedir. Router
+  testi `ok=true`, `issues=0` ile geçti.

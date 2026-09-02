@@ -53,12 +53,12 @@ ASSIGNMENTS:
     ROLE: LABELER
     INPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/input.json
     OUTPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/sonnet-4-6-r1.json
-    STATUS: READY
+    STATUS: CLOSED
   Opus-4.6:
     ROLE: LABELER
     INPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/input.json
     OUTPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/opus-4-6.json
-    STATUS: READY
+    STATUS: CLOSED
 ```
 
 Bu matris bir görev zarfıdır ve her satır aşağıdaki beş değeri eksiksiz tanımlar:

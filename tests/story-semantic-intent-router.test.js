@@ -224,9 +224,9 @@ assert.ok(oodTaxonomyRows.filter(row => row.split === 'calibration').every(row =
 
 assert.equal(report.ok, true);
 assert.equal(report.experimentGatePass, true);
-assert.equal(report.gold.total, 620);
+assert.equal(report.gold.total, 623);
 assert.deepEqual(report.gold.bySplit, {
-    prototype: 111,
+    prototype: 114,
     calibration: 158,
     blind_test: 351
 });
@@ -286,7 +286,7 @@ assert.deepEqual(corpus.representationEvaluationPolicy.evaluationAcceptedModelId
 assert.equal(corpus.representationEvaluationPolicy.evaluationPass, false);
 assert.deepEqual(Object.fromEntries(Object.entries(evaluationSplits)
     .map(([split, rows]) => [split, rows.length])), {
-    prototype: 111,
+    prototype: 114,
     calibration: 113,
     blind_test: 51
 });
@@ -312,7 +312,7 @@ const calibrationStudySplits = embeddingCalibrationStudySplits(corpus,
     report.untouchedEvaluation);
 assert.deepEqual(Object.fromEntries(Object.entries(calibrationStudySplits)
     .map(([split, rows]) => [split, rows.length])), {
-    prototype: 111,
+    prototype: 114,
     calibration: 113,
     blind_test: 0
 });
@@ -337,7 +337,7 @@ assert.equal(splitSourceCalibration.blind_test.length, 0);
 assert.deepEqual(report.classCoverage.missingBlindAnchors, []);
 assert.deepEqual(report.classCoverage.missingBlindCalibration, []);
 assert.deepEqual(report.oodBySplit, {
-    prototype: { inDomain: 96, outOfDomain: 15 },
+    prototype: { inDomain: 99, outOfDomain: 15 },
     calibration: { inDomain: 140, outOfDomain: 18 },
     blind_test: { inDomain: 330, outOfDomain: 21 }
 });

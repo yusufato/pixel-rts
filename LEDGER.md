@@ -1772,3 +1772,10 @@
 - **What happened:** Gemini 3.7 Flash A, ayrı output yerine ana corpus'a 28 adjudication yazdı. İki turun kararları ayrı recovery makbuzlarına çıkarıldı; model `DISQUALIFIED` ve `eligibleForConsensus=false` işaretlendi. Ana corpus'taki yalnız bu 28 ekleme hedefli olarak kaldırıldı.
 - **Evidence:** İhlal diff'i `+640/-0`, `28` beklenen ID ve `28` aynı Gemini reviewer satırı olarak doğrulandı. Steril partiler `20+20`, blind `0+0`; corpus diff'i temizlikten sonra boş ve semantic-intent router testi geçiyor. Gold toplamı değişmedi.
 - **Implication for future audits:** Harici model doğru görünen etiket üretse bile corpus'a veya atanmış output dışına yazdıysa o partide oy kullanamaz. Harici modeller yalnız steril input ve model-özel output ile çalışır; corpus aktarımı merkezi geliştiriciye aittir. Semantik şablon tekrarları bağımsız gold sayılamaz.
+
+## 2026-09-02 — İlk Sonnet/Opus partisi üç yeni gold ile kapatıldı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` external-review-0001 consensus
+- **What happened:** Sonnet 4.6 ve Opus 4.6'nın 20 kör-dışı bağımsız incelemesi merkezi olarak karşılaştırıldı; corpus geneliyle tekrar kontrolünden sonra 3 kayıt gold, 16 kayıt semantik tekrar, 1 yüksek-risk kayıt insan kararı olarak sonuçlandı.
+- **Evidence:** İki makbuz geçerli, karar türü eşleşmesi `17/20`, tam kabul çerçevesi eşleşmesi `1`; gold `620 → 623`, prototype `111 → 114`. `node tests/story-semantic-intent-router.test.js` sonucu `ok=true`, `issues=0`.
+- **Implication for future audits:** Harici iki modelin `ACCEPT` uzlaşması corpus-geneli benzersizliği veya eksen doğruluğunu kanıtlamaz. Merkezi hakem mevcut non-blind şablon envanterini ve bütün SemanticFrame eksenlerini yeniden doğrulamadan gold yazmamalıdır.

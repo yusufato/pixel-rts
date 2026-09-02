@@ -4952,6 +4952,30 @@
     },
     {
       "id": "semantic-intent:5c78af007640f71f",
+      "adjudication": {
+        "id": "semantic-intent:5c78af007640f71f",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REJECT",
+          "communicativeFunction": "REJECT",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "TECHNOLOGY",
+          "target": "PLAYER_AND_LISTENER",
+          "polarity": "MIXED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "CORRECTION",
+          "requestedOutcome": "ACTION",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "REQUEST_ACTION"
+          ]
+        },
+        "notes": "Açık ret ile konuşanın kendi ihtiyacını belirten dolaylı eylem beklentisini birlikte taşır; saf ret değildir. Sonnet ve Opus kabulde birleşti, merkezi inceleme hedef, kutup, zaman ve bileşik eylem eksenlerini corpus sözleşmesine göre düzeltti.",
+        "reviewedAt": "2026-09-02T12:04:32+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Hayır, kimlik konusunda sana katılmıyorum. Benim için daha güvenilir ve etkili bir kimlik doğrulama sistemi gerekiyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0875",
@@ -5168,6 +5192,30 @@
     },
     {
       "id": "semantic-intent:0df6615e92303041",
+      "adjudication": {
+        "id": "semantic-intent:0df6615e92303041",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "REPORT_ECONOMIC",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "ECONOMY",
+          "target": "PLAYER",
+          "polarity": "NEGATIVE",
+          "temporality": "FUTURE",
+          "epistemicStatus": "HYPOTHETICAL",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": [
+            "SMALL_TALK"
+          ]
+        },
+        "notes": "Geleceğe dönük enflasyon beklentisini konuşanın grubundaki olumsuz duyguyla birleştirir; salt duygu veya kesin gerçekleşmiş ekonomik rapor değildir. Dış incelemelerdeki hedef, epistemik ve ikincil eylem ayrışması merkezi olarak çözüldü.",
+        "reviewedAt": "2026-09-02T12:04:32+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Enflasyonun yükselişini bekliyoruz, bu bize büyük bir endişe veriyor.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0774",
@@ -5180,6 +5228,28 @@
     },
     {
       "id": "semantic-intent:f3d0e86a7e1e0420",
+      "adjudication": {
+        "id": "semantic-intent:f3d0e86a7e1e0420",
+        "verdict": "ACCEPT",
+        "annotationContractVersion": 1,
+        "labels": {
+          "speechAct": "SMALL_TALK",
+          "communicativeFunction": "TELL",
+          "surfaceForm": "DECLARATIVE",
+          "predicate": "EMOTION",
+          "target": "WORLD",
+          "polarity": "POSITIVE_OR_UNMARKED",
+          "temporality": "CURRENT_OR_UNMARKED",
+          "epistemicStatus": "CLAIMED_CERTAIN",
+          "continuity": "NEW_OR_UNMARKED",
+          "requestedOutcome": "NONE",
+          "outOfDomain": false,
+          "secondarySpeechActs": []
+        },
+        "notes": "Gizli operasyon yalnız duygu tetikleyicisidir; hiçbir gizli olgu aktarılmaz. Konu benzerliğinin SHARE_SECRET sayılmasını engelleyen cümleye özgü yüksek-risk hard-negative olarak ayrı değer taşır.",
+        "reviewedAt": "2026-09-02T12:04:32+03:00",
+        "reviewer": "CODEX_INDIVIDUAL_REVIEW"
+      },
       "text": "Gizli operasyon hakkında konuşmak çok heyecan verici.",
       "sourceType": "MODEL_GENERATED_CANDIDATE",
       "sourceId": "adversarial-player:0374",

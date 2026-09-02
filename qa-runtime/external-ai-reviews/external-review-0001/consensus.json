@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "kind": "EXTERNAL_SEMANTIC_CONSENSUS_V1",
+  "batchId": "external-review-0001",
+  "generatedAt": "2026-09-02T12:04:32+03:00",
+  "sources": [
+    {
+      "reviewer": "Sonnet-4.6",
+      "path": "qa-runtime/external-ai-reviews/external-review-0001/sonnet-4-6-r1.json",
+      "receiptStatus": "VALID"
+    },
+    {
+      "reviewer": "Opus-4.6",
+      "path": "qa-runtime/external-ai-reviews/external-review-0001/opus-4-6.json",
+      "receiptStatus": "VALID"
+    }
+  ],
+  "boundary": {
+    "inputRecords": 20,
+    "blindRecords": 0,
+    "decisionMatches": 17,
+    "exactAcceptedFrameMatches": 1,
+    "corpusWrittenByExternalModels": false,
+    "centralReviewCompleted": true
+  },
+  "records": [
+    {
+      "id": "semantic-intent:5c78af007640f71f",
+      "decision": "GOLD_ACCEPT",
+      "labels": {
+        "speechAct": "REJECT",
+        "communicativeFunction": "REJECT",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "TECHNOLOGY",
+        "target": "PLAYER_AND_LISTENER",
+        "polarity": "MIXED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "CORRECTION",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false,
+        "secondarySpeechActs": ["REQUEST_ACTION"]
+      },
+      "reason": "Açık ret ile konuşanın kendi ihtiyacını belirten dolaylı eylem beklentisini birlikte taşır. Mevcut saf ret örneklerinden bileşik ikincil eylem ve iki yönlü hedef bakımından ayrılır."
+    },
+    {
+      "id": "semantic-intent:85d8b925446a1396",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:26cd495e2aad4261",
+      "reason": "Mevcut gold kayıttaki ret ve koşullu sorumluluk gösterme talebini alan sözcükleri değiştirilmiş biçimde tekrarlar; ayrıca özne zinciri dilbilgisel olarak sorunludur."
+    },
+    {
+      "id": "semantic-intent:1dd4627c6e315e90",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:5c78af007640f71f",
+      "reason": "Aynı ret ve self-directed ihtiyaç iskeletinin yalnız konu alanı değiştirilmiş örneğidir."
+    },
+    {
+      "id": "semantic-intent:72f8f715c0dc6b27",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:consstress0005",
+      "reason": "İki modelin çerçevesi tam eşleşse de mevcut gold corpus aynı deklaratif istiyorum eylem-talebi şablonunu zaten taşır."
+    },
+    {
+      "id": "semantic-intent:d0f54babc9bcbaf2",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:d3d89bdf9d19a5c5",
+      "reason": "Mevcut gözden geçirmenizi istiyorum eylem-talebi yalnız nesne değiştirilerek yinelenmiştir."
+    },
+    {
+      "id": "semantic-intent:22798f038f5fb668",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:consstress0005",
+      "reason": "Deklaratif istiyorum kalıbıyla dinleyiciye görev verme ailesinin alan değişimidir."
+    },
+    {
+      "id": "semantic-intent:95cd60d5e2eaf555",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:consstress0005",
+      "reason": "Bilgi sözcüğüne rağmen biçim ve sonuç dinleyiciye görev veren mevcut deklaratif eylem-talebi ailesidir."
+    },
+    {
+      "id": "semantic-intent:b348f0c2b98cb50f",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:d3d89bdf9d19a5c5",
+      "reason": "Bütçe yerine şirket mali durumu nesnesini koyan aynı gözden geçirme talebidir."
+    },
+    {
+      "id": "semantic-intent:ac988f68e5b22fcb",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:consstress0005",
+      "reason": "İki fiil taşısa da bağımsız iletişim sonucu üretmeyen deklaratif görev talebi varyantıdır."
+    },
+    {
+      "id": "semantic-intent:7912848fd04442d9",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:consstress0005",
+      "reason": "Yalnız görev nesnesi ve fiili değiştirilmiş deklaratif istiyorum kalıbıdır."
+    },
+    {
+      "id": "semantic-intent:a6235778afa12ba6",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:666c18dad3752fed",
+      "reason": "Mevcut olumlu beni heyecanlandırıyor duygu gold'unun yalnız konu değişimidir."
+    },
+    {
+      "id": "semantic-intent:3c66daed3403b8e5",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:666c18dad3752fed",
+      "reason": "Aynı olumlu duygu iskeletinde yalnız tetikleyici konu değişmiştir."
+    },
+    {
+      "id": "semantic-intent:6cb42be13ab19410",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:666c18dad3752fed",
+      "reason": "Geçmiş zaman yüzey farkı dışında aynı olumlu duygu bildirimi ailesidir."
+    },
+    {
+      "id": "semantic-intent:3fc533ce4c65afc6",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:666c18dad3752fed",
+      "reason": "Mevcut yatırım fırsatı heyecan kaydının yakın eşanlamlı geçmiş zaman varyantıdır."
+    },
+    {
+      "id": "semantic-intent:0df6615e92303041",
+      "decision": "GOLD_ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_ECONOMIC",
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "PLAYER",
+        "polarity": "NEGATIVE",
+        "temporality": "FUTURE",
+        "epistemicStatus": "HYPOTHETICAL",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "NONE",
+        "outOfDomain": false,
+        "secondarySpeechActs": ["SMALL_TALK"]
+      },
+      "reason": "Geleceğe dönük ekonomik beklentiyi konuşanın grubundaki olumsuz duyguyla birleştirir; salt duygu veya kesin gerçekleşmiş ekonomik rapor değildir."
+    },
+    {
+      "id": "semantic-intent:f3d0e86a7e1e0420",
+      "decision": "GOLD_ACCEPT",
+      "labels": {
+        "speechAct": "SMALL_TALK",
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "EMOTION",
+        "target": "WORLD",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "NONE",
+        "outOfDomain": false,
+        "secondarySpeechActs": []
+      },
+      "reason": "Gizli operasyon yalnız duygu tetikleyicisidir; hiçbir gizli olgu aktarılmaz. SHARE_SECRET konu-benzerliği yanlış pozitifini engelleyen ayrı bir hard-negative'tir."
+    },
+    {
+      "id": "semantic-intent:91b25f10d98e40db",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:666c18dad3752fed",
+      "reason": "Aynı olumlu kişisel duygu iskeletinde yalnız tetikleyici isim öbeği değişmiştir."
+    },
+    {
+      "id": "semantic-intent:6884f586a44e57ef",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:5777a4cfa9e826fe",
+      "reason": "Teknoloji/araştırma tetikleyicili mevcut olumlu duygu gold'unu tekrarlar."
+    },
+    {
+      "id": "semantic-intent:43c74599bf963f97",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "nearDuplicateOf": "semantic-intent:dcd6832f18ceb51b",
+      "reason": "Mevcut ekonomik konu beni endişeliyor gold'unun lojistik alanına taşınmış biçimidir."
+    },
+    {
+      "id": "semantic-intent:4460f5196cb04048",
+      "decision": "NEEDS_HUMAN_DECISION",
+      "reason": "Bilgi paylaşma vaadi, anlaşma sözü ve soyut güven amacı var; karşı tarafın açık edimi yok. Yüksek-risk ticaret, sır ve vaat sınırı zorla seçilmedi."
+    }
+  ],
+  "summary": {
+    "reviewed": 20,
+    "goldAccepted": 3,
+    "semanticNearDuplicates": 16,
+    "needsHumanDecision": 1,
+    "goldAfterMerge": 623
+  }
+}
