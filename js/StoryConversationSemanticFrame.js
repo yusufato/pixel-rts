@@ -42,13 +42,21 @@ const STORY_SEMANTIC_MODEL_OUTCOMES = Object.freeze([
     'ACKNOWLEDGEMENT', 'NONE'
 ]);
 
+const STORY_SEMANTIC_DIRECTED_ACTION_ROOTS = Object.freeze([
+    'ver', 'yap', 'ac', 'gonder', 'yonlendir', 'baslat', 'artir', 'getir',
+    'gotur', 'tasi', 'sevk', 'bosalt', 'ode', 'cagir', 'dondur', 'ilet',
+    'cek', 'hazirla', 'tut', 'koru', 'kapat', 'duzenle', 'incele', 'kontrol',
+    'aktar', 'teslim', 'imzala', 'degistir'
+]);
+
 const STORY_SEMANTIC_PREDICATES = Object.freeze({
     IDENTITY: ['kim', 'ad', 'isim', 'kimlik', 'unvan', 'rol'],
     HEALTH: ['saglik', 'sagli', 'hasta', 'rahatsiz', 'hisset'],
     EMOTION: ['sinir', 'kizgin', 'uzul', 'kiril', 'mutlu', 'kork', 'endise',
         'heyecan', 'kaygi', 'gergin'],
     RELATIONSHIP: ['guven', 'ilisk', 'sadakat', 'dost', 'husumet', 'itibar'],
-    WORK: ['gorev', 'is', 'calis', 'ihtiyac', 'yardim', 'destek', 'gelistir'],
+    WORK: ['gorev', 'is', 'calis', 'ihtiyac', 'yardim', 'destek', 'gelistir',
+        'rapor'],
     SECRET: ['sir', 'gizli', 'mahrem', 'aramiz', 'sifre', 'anahtar', 'kimsenin', 'sakli', 'muhbir'],
     TECHNOLOGY: ['teknoloji', 'arastir', 'yapayzeka', 'otomasyon', 'bilim'],
     MILITARY: ['ordu', 'asker', 'birlik', 'tabur', 'garnizon', 'dusman', 'cephe',
@@ -56,6 +64,7 @@ const STORY_SEMANTIC_PREDICATES = Object.freeze({
     ECONOMY: ['ekonomi', 'hazine', 'butce', 'enflasyon', 'fiyat', 'piyasa', 'borc', 'ticaret',
         'issizlik', 'bugday', 'liman', 'bakim', 'sozlesme', 'gelir', 'dinar', 'gumruk',
         'fabrika', 'vardiya', 'bakir', 'ton', 'garanti', 'pay', 'ucret', 'bedel',
+        'yakit',
         'karsilik', 'karsilig'],
     LOCATION: ['nerede', 'konum', 'sehir', 'bolge', 'bulun', 'getir', 'gotur',
         'tasi', 'sevk', 'yonlendir', 'gonder'],
@@ -124,9 +133,30 @@ function storySemanticFrameQuestionEvidence(tokens) {
         .filter((value, index, all) => all.indexOf(value) === index);
 }
 
+function storySemanticFrameDirectedImperativeEvidence(tokens) {
+    const suffix = '(?:in|iniz|un|unuz|yin|yiniz|yun|yunuz)';
+    const negativeSuffix = '(?:ma|me)(?:yin|yiniz|in|iniz)?';
+    return tokens.filter(token => STORY_SEMANTIC_DIRECTED_ACTION_ROOTS.some(root =>
+        token === root
+        || new RegExp(`^${root}${suffix}$`).test(token)
+        || new RegExp(`^${root}${negativeSuffix}$`).test(token)));
+}
+
+function storySemanticFramePoliteRequestEvidence(tokens) {
+    const secondPersonQuestion = tokens.filter(token =>
+        /^(?:mi|mu)(?:sin|siniz)$/.test(token));
+    if (!secondPersonQuestion.length) return [];
+    const action = tokens.filter(token => STORY_SEMANTIC_DIRECTED_ACTION_ROOTS.some(root =>
+        new RegExp(`^${root}(?:ar|er|ir|ur)$`).test(token)));
+    if (!action.length) return [];
+    return action.concat(secondPersonQuestion)
+        .filter((value, index, all) => all.indexOf(value) === index);
+}
+
 function storySemanticFramePredicate(tokens) {
     const candidates = Object.entries(STORY_SEMANTIC_PREDICATES).map(([id, roots]) => {
-        const evidence = storySemanticFrameEvidence(tokens, roots);
+        const evidence = storySemanticFrameEvidence(tokens, roots).filter(token =>
+            id !== 'EMOTION' || !/^sinir(?:da|de|dan|den|daki|deki)/.test(token));
         return { id, evidence, score: evidence.length * 2600 };
     }).filter(row => row.score > 0)
         .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id, 'en'));
@@ -143,6 +173,8 @@ function storySemanticFrameTarget(tokens) {
         ['ben', 'bana', 'beni', 'benim', 'benden', 'biz', 'bize', 'bizim']);
     const listenerEvidence = storySemanticFrameEvidence(tokens,
         ['sen', 'sana', 'seni', 'senin', 'senden', 'siz', 'size', 'sizi', 'sizin', 'sizden']);
+    listenerEvidence.push(...tokens.filter(token => /^(?:mi|mu)(?:sin|siniz)$/.test(token))
+        .filter(token => !listenerEvidence.includes(token)));
     const firstPersonPossessionEvidence = tokens.filter(token =>
         /^(?:plan|para|tabur|ordu|birlik|destek|cogunluk|hesap|kayit|belge|kanit|sifre|anahtar).*(?:m|im|um)(?:i|e|de|den)?$/.test(token));
     playerEvidence.push(...firstPersonPossessionEvidence.filter(token =>
@@ -167,11 +199,16 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
         ['selam', 'merhaba', 'gunaydin']);
     const thanksEvidence = storySemanticFrameEvidence(tokens, ['tesekkur', 'sagol', 'minnettar']);
     const apologyEvidence = storySemanticFrameEvidence(tokens, ['ozur', 'affet', 'kusura']);
-    const requestEvidence = storySemanticFrameEvidence(tokens,
-        ['ver', 'yap', 'ac', 'gonder', 'yonlendir', 'baslat', 'artir', 'getir', 'gotur',
-            'tasi', 'sevk', 'bosalt',
-            'ode', 'cagir', 'dondur', 'istiyorum', 'istiyoruz', 'isterim', 'isteriz',
-            'rica', 'lazim', 'gerekiyor']);
+    const imperativeRequestEvidence = storySemanticFrameDirectedImperativeEvidence(tokens);
+    const politeRequestEvidence = storySemanticFramePoliteRequestEvidence(tokens);
+    const deonticRequestEvidence = tokens.filter(token =>
+        /(?:mali|meli|maliyiz|meliyiz)$/.test(token));
+    const requestEvidence = imperativeRequestEvidence.concat(politeRequestEvidence,
+        deonticRequestEvidence,
+        storySemanticFrameEvidence(tokens,
+            ['istiyorum', 'istiyoruz', 'isterim', 'isteriz', 'rica', 'lazim',
+                'gerekiyor']))
+        .filter((value, index, all) => all.indexOf(value) === index);
     const firstPersonActionEvidence = requestEvidence.filter(token =>
         /(?:arim|erim|irim|urim|ariz|eriz|iriz|uriz|ayim|eyim|alim|elim|acagim|ecegim|acagiz|ecegiz)(?:i|e)?$/.test(token));
     const directedRequestEvidence = requestEvidence.filter(token =>
@@ -276,6 +313,9 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
         && hasActionPredicate) {
         return { value: 'REQUEST', evidence: modalAbilityEvidence.concat(questionEvidence), score: 3200 };
     }
+    if (politeRequestEvidence.length) {
+        return { value: 'REQUEST', evidence: politeRequestEvidence, score: 3200 };
+    }
     if (preferenceConditionalEvidence.length
         && (firstPersonAbilityEvidence.length || speakerCommitmentEvidence.length)) {
         return { value: 'OFFER', evidence: preferenceConditionalEvidence
@@ -303,10 +343,7 @@ function storySemanticFrameSurfaceForm(raw, tokens) {
     const questionEvidence = storySemanticFrameQuestionEvidence(tokens);
     if (text.includes('?') || questionEvidence.length) return { value: 'INTERROGATIVE', evidence: questionEvidence };
     if (text.endsWith('!')) return { value: 'EXCLAMATORY', evidence: ['!'] };
-    const imperativeEvidence = storySemanticFrameEvidence(tokens,
-            ['yap', 'ver', 'git', 'gel', 'gonder', 'bekle', 'dur', 'getir', 'gotur',
-                'tasi', 'sevk', 'yonlendir']).filter(token =>
-        !/(?:arim|erim|irim|urim|ariz|eriz|iriz|uriz|acagim|ecegim|acagiz|ecegiz)(?:i|e)?$/.test(token));
+    const imperativeEvidence = storySemanticFrameDirectedImperativeEvidence(tokens);
     const negativeImperativeEvidence = tokens.filter(token =>
         /^(?:anlat|soyle|paylas|ver|goster|emanet|sizdir)(?:ma|me)$/.test(token));
     if (imperativeEvidence.length || negativeImperativeEvidence.length) {
@@ -350,19 +387,26 @@ function storySemanticFramePolarity(tokens) {
     return { value: evidence.length ? 'NEGATIVE' : 'POSITIVE_OR_UNMARKED', evidence };
 }
 
-function storySemanticFrameTime(tokens) {
+function storySemanticFrameTime(tokens, communicative) {
     const past = storySemanticFrameEvidence(tokens, ['dun', 'once', 'gecmis', 'yapti', 'oldu', 'gordum', 'duydum']);
-    const future = storySemanticFrameEvidence(tokens, ['yarin', 'sonra', 'gelecek', 'yapacag', 'edeceg', 'doneceg']);
+    const future = storySemanticFrameEvidence(tokens,
+        ['yarin', 'sonra', 'gelecek', 'yapacag', 'edeceg', 'doneceg'])
+        .concat(tokens.filter(token => /(?:inca|ince|unca|unce)$/.test(token)));
     const habitual = storySemanticFrameEvidence(tokens, ['genelde', 'surekli', 'herzaman', 'bazen']);
     if (past.length) return { value: 'PAST', evidence: past };
     if (future.length) return { value: 'FUTURE', evidence: future };
     if (habitual.length) return { value: 'HABITUAL', evidence: habitual };
+    if (communicative && communicative.value === 'REQUEST') {
+        return { value: 'FUTURE', evidence: [] };
+    }
     return { value: 'CURRENT_OR_UNMARKED', evidence: [] };
 }
 
 function storySemanticFrameEpistemic(tokens) {
     const bluff = storySemanticFrameBluffEvidence(tokens);
     if (bluff.matched) return { value: 'CLAIMED_CERTAIN', evidence: bluff.evidence };
+    const question = storySemanticFrameQuestionEvidence(tokens);
+    if (question.length) return { value: 'QUESTIONED', evidence: question };
     const rumor = storySemanticFrameEvidence(tokens, ['duydum', 'soylenti', 'deniyor', 'galiba', 'sanirim']);
     const hypothetical = storySemanticFrameEvidence(tokens, ['eger', 'varsay', 'olursa', 'belki']);
     const certainty = storySemanticFrameEvidence(tokens, ['biliyorum', 'eminim', 'kesin']);
@@ -406,6 +450,7 @@ function storySemanticFrameSpeechAct(frame) {
     if (fn === 'OFFER' && predicate === 'ECONOMY') return 'PROPOSE_COMMERCIAL_DEAL';
     if (fn === 'OFFER' && frame.requestedOutcome === 'ACTION') return 'OFFER_SUPPORT';
     if (fn === 'TELL' && frame.requestedOutcome === 'ACTION') return 'THREATEN';
+    if (fn === 'REQUEST' && frame.surfaceForm === 'IMPERATIVE') return 'REQUEST_ACTION';
     if (fn === 'REQUEST' && predicate === 'WORK') return 'REQUEST_ACTION';
     if (fn === 'REQUEST' && predicate === 'MILITARY') return 'REQUEST_SUPPORT';
     if (fn === 'REQUEST' && ['ECONOMY', 'TECHNOLOGY'].includes(predicate)) return 'REQUEST_ACTION';
@@ -586,20 +631,31 @@ function storyConversationSemanticFrameCompile(raw, context) {
     const communicative = storySemanticFrameFunction(raw, tokens, predicate);
     const surfaceForm = storySemanticFrameSurfaceForm(raw, tokens);
     const polarity = storySemanticFramePolarity(tokens);
-    const temporality = storySemanticFrameTime(tokens);
+    const temporality = storySemanticFrameTime(tokens, communicative);
     const epistemic = storySemanticFrameEpistemic(tokens);
     const continuity = storySemanticFrameContinuity(tokens);
+    const listenerDirectedRequest = communicative.value === 'REQUEST'
+        && (surfaceForm.value === 'IMPERATIVE'
+            || storySemanticFramePoliteRequestEvidence(tokens).length > 0);
+    const resolvedPredicate = communicative.value === 'CONFIDE' ? 'SECRET'
+        : communicative.value === 'REQUEST' && predicate.secondary.includes('WORK')
+            ? 'WORK' : predicate.primary;
     const frame = {
         schemaVersion: STORY_SEMANTIC_FRAME_SCHEMA_VERSION,
         source: STORY_SEMANTIC_FRAME_SOURCE,
         communicativeFunction: communicative.value,
         surfaceForm: surfaceForm.value,
-        predicate: communicative.value === 'CONFIDE' ? 'SECRET' : predicate.primary,
+        predicate: resolvedPredicate,
         secondaryPredicates: communicative.value === 'CONFIDE'
             && predicate.primary !== 'SECRET'
             ? [predicate.primary].concat(predicate.secondary).filter(id =>
-                id && id !== 'UNSPECIFIED').slice(0, 3) : predicate.secondary,
-        target: target.value,
+                id && id !== 'UNSPECIFIED').slice(0, 3)
+            : [predicate.primary].concat(predicate.secondary).filter((id, index, all) =>
+                id && id !== 'UNSPECIFIED' && id !== resolvedPredicate
+                && all.indexOf(id) === index).slice(0, 3),
+        target: listenerDirectedRequest ? 'LISTENER'
+            : target.value !== 'UNSPECIFIED' ? target.value
+                : communicative.value === 'REQUEST' ? 'LISTENER' : target.value,
         polarity: polarity.value,
         temporality: temporality.value,
         epistemicStatus: epistemic.value,
@@ -643,7 +699,7 @@ function storyConversationSemanticFrameFuse(legacy, frame) {
         && ((frame.communicativeFunction === 'ASK'
             && frame.surfaceForm === 'INTERROGATIVE')
         || (frame.communicativeFunction === 'REQUEST'
-            && frame.surfaceForm === 'IMPERATIVE'
+            && ['IMPERATIVE', 'INTERROGATIVE'].includes(frame.surfaceForm)
             && frame.requestedOutcome === 'ACTION')
         || (frame.communicativeFunction === 'OFFER'
             && frame.requestedOutcome === 'ACTION')
@@ -660,7 +716,7 @@ function storyConversationSemanticFrameFuse(legacy, frame) {
     const primary = frame.suggestedSpeechAct;
     const incompatibleSecondaryActs = new Set();
     if (frame.communicativeFunction === 'REQUEST'
-        && frame.surfaceForm === 'IMPERATIVE') {
+        && frame.requestedOutcome === 'ACTION') {
         incompatibleSecondaryActs.add('ASK_INFORMATION');
     }
     return {

@@ -115,6 +115,37 @@ try {
         assert.equal(result.speechAct, 'REQUEST_ACTION', text);
     }
 
+    const directedActionMorphology = [
+        ['Konvoy varınca yakıt kayıtlarını bana iletin.', 'ECONOMY', 'IMPERATIVE'],
+        ['Sınırdaki birlikleri geri çekin.', 'MILITARY', 'IMPERATIVE'],
+        ['Bütçe raporunu yarına kadar hazırlayın.', 'WORK', 'IMPERATIVE'],
+        ['Sevkiyat rotasını hemen değiştirin.', 'LOCATION', 'IMPERATIVE'],
+        ['Bu konuyu aramızda tutar mısın?', 'SECRET', 'INTERROGATIVE']
+    ];
+    for (const [text, predicate, surfaceForm] of directedActionMorphology) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'REQUEST', text);
+        assert.equal(result.semanticFrame.predicate, predicate, text);
+        assert.equal(result.semanticFrame.target, 'LISTENER', text);
+        assert.equal(result.semanticFrame.surfaceForm, surfaceForm, text);
+        assert.equal(result.semanticFrame.temporality, 'FUTURE', text);
+        assert.equal(result.semanticFrame.requestedOutcome, 'ACTION', text);
+        assert.equal(result.semanticFrame.suggestedSpeechAct, 'REQUEST_ACTION', text);
+        assert.equal(result.speechAct, 'REQUEST_ACTION', text);
+        assert.ok(!result.secondaryActs.includes('ASK_INFORMATION'), text);
+    }
+
+    const politeRequestHardNegatives = [
+        ['Bana güveniyor musun?', 'ASK_RELATIONSHIP'],
+        ['Şirket bütçe raporunu her ay hazırlar.', 'UNKNOWN'],
+        ['Bütçe raporunu hazırlıyor musunuz?', 'ASK_INFORMATION'],
+        ['Bütçe raporunu hazırlamamı ister misin?', 'ASK_INFORMATION']
+    ];
+    for (const [text, speechAct] of politeRequestHardNegatives) {
+        const result = analyze(text);
+        assert.equal(result.speechAct, speechAct, text);
+    }
+
     const epistemicBluffFamilies = [
         ['Üç ülke de planımı destekliyor; isimlerini vermem.', true],
         ['Rakibinizin bütün şifreleri elimde, ama şimdi gösteremem.', true],

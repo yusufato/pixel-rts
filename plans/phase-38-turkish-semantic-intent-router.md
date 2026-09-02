@@ -1139,3 +1139,24 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - Bundan sonraki pahalı tam inceleme kuyruğu, önce doğal dil kalitesi ve semantik
   yenilik kapısını geçen adaylara ayrılır. Bu yöntem daha az kayıt üretmeyi değil,
   aynı bütçeyle daha yüksek bilgi değerine sahip gold üretmeyi hedefler.
+
+### 2 Eylül 2026 — Eylem talebi yönü morfolojik aile düzeyinde düzeltildi
+
+- Geniş calibration'daki 11 gerçek `REQUEST_ACTION` kaydı üzerinde deterministik
+  ön-kabul yeniden çıkarıldı. Başlangıçta 4 kayıt yanlış sınıftaydı: çoğul/kibar
+  emir `iletin / çekin / hazırlayın`, soru biçimli rica `tutar mısın` ve bunların
+  yakın ailesi yön kanıtı üretemiyordu.
+- Tek cümle istisnası yerine kanonik eylem kökü + Türkçe emir eki, eylem kökü +
+  geniş zaman + ikinci kişi soru parçacığı ve gereklilik kipi ayrı kompozisyon
+  kanıtları oldu. Soru biçimi pragmatik eylem isteğini silmez; ama `güveniyor
+  musun`, `hazırlıyor musunuz` ve `hazırlamamı ister misin` bilgi sorusu olarak
+  kaldı.
+- `sınırdaki` artık duygu kökü `sinir` sayılmıyor. Doğrudan emirde icracı
+  dinleyici, eylemin zamanı gelecek; soru biçimli isteklerde epistemik durum
+  `QUESTIONED` olarak çıkarılıyor. Ekonomik yakıt kaydı ve rapor hazırlama
+  konuları da eylem yönünden bağımsız predicate kanıtıyla ayrıldı.
+- Blind açılmadan deterministik calibration sonucu `7/11 → 11/11` oldu. Hedef
+  semantic-frame, conversation-case, router ve review-server testleri geçti.
+  Doğrulanmış hash'e sahip BGE-M3 dosyası mevcut çalışma alanında bulunmadığı
+  için fit-anchor dış-kat ölçümü bu turda yeniden çalıştırılmadı; bu sonuç yeni
+  blind, runtime/Electron/IPC veya `%90+`/B1 kabulü açmaz.

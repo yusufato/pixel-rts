@@ -1786,3 +1786,10 @@
 - **What happened:** Gold standardı korunurken düşük değerli adaylara tam on bir eksenli açıklama yazma zorunluluğu kaldırıldı. Otomasyon yalnız tam tekrarları işaretleyebilir; şablon gruplarında ortak kural bir kez, her kaydın farkı ise ayrı delta kontrolüyle okunur. Gold ancak bireysel tam incelemeyle oluşur.
 - **Evidence:** İkinci partinin `20/20` kaydı delta kontrolünden geçti; 3 semantik tekrar, 5 yönsel olarak çözülemez bileşik teklif ve 12 eksik sözce gold dışı kaldı. Harici oy kullanılmadı, blind kayıt açılmadı, corpus değişmedi ve gold `623` kaldı.
 - **Implication for future audits:** Gold sayısını büyütmek için eksik sentetik parçaları zorla etiketleme veya her tekrar için uzun gerekçe üretme. Önce doğal dil kalitesi ve semantik yenilik kapısını uygula; pahalı tam incelemeyi yalnız yeni ayrım taşıyan adaylara harca. Grup kuralı tek başına bireysel gold kanıtı değildir.
+
+## 2026-09-02 — Türkçe eylem talebi morfolojisi calibration'da 11/11 oldu
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` REQUEST_ACTION yön ayrımı
+- **What happened:** Çoğul/kibar emir, soru biçimli rica ve gereklilik kipi tek cümle listeleri yerine kanonik eylem kökü ile morfolojik ek bileşimi olarak çözüldü. Sınır/sinir eşseslisi, dinleyici icracı, gelecek eylem zamanı ve soru epistemik durumu aynı kompozisyon içinde ayrıldı.
+- **Evidence:** Kör erişimsiz calibration `REQUEST_ACTION` deterministik doğruluğu `7/11 → 11/11` oldu. `iletin`, `çekin`, `hazırlayın`, `değiştirin` ve `tutar mısın` aileleri eylem talebine ulaştı; güven sorusu, şimdiki-zaman bilgi sorusu ve konuşanın kendi eylemini soran biçim yüksek-risk talebe dönmedi. Dört hedef test komutu exit `0` verdi.
+- **Implication for future audits:** Aynı fiiller için cümle bazlı dal ekleme veya bütün soru parçacıklarını bilgi isteği sayma. BGE fit-anchor kalibrasyonu doğrulanmış model dosyasıyla yeniden ölçülmeden bu deterministik sonucu model kabulü, yeni blind izni, runtime entegrasyonu ya da `%90+`/B1 kanıtı sayma.

@@ -13,7 +13,8 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     crossValidateLearnedAnchorRepresentation,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
     embeddingCalibrationStudySplits, evaluateHighRiskRecall,
-    buildBlindEvaluationAcceptance, buildCalibrationStudyRecommendation } =
+    buildBlindEvaluationAcceptance, buildCalibrationStudyRecommendation,
+    buildBaselineProposals } =
     require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
 
@@ -366,6 +367,15 @@ assert.deepEqual(report.highRiskCoverage.REQUEST_ACTION, {
     calibration: 11,
     blind_test: 23
 });
+const calibrationRequestRows = corpus.candidates.filter(row =>
+    row.split === 'calibration' && row.adjudication
+    && row.adjudication.labels.speechAct === 'REQUEST_ACTION');
+const calibrationRequestProposals = buildBaselineProposals(calibrationRequestRows);
+assert.equal(calibrationRequestRows.length, 11);
+assert.deepEqual(calibrationRequestRows.filter(row =>
+    calibrationRequestProposals.get(row.id).labels.speechAct !== 'REQUEST_ACTION')
+    .map(row => row.id), [],
+'calibration action requests must remain directionally understood before embedding');
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));
