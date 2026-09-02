@@ -63,6 +63,33 @@ try {
         assert.equal(result.semanticFrame.requestedOutcome, outcome, text);
         assert.equal(result.semanticFrame.suggestedSpeechAct, speechAct, text);
     }
+    const commitmentAndCoercionFamilies = [
+        ['Sözleşmeden çekilirsen gizli ödemelerini basına açıklarım.',
+            'THREATEN'],
+        ['Bu kapıyı açarsanız rehineleri bırakacağız.', 'MAKE_PROMISE'],
+        ['Size bir daha saldırmayacağız.', 'MAKE_PROMISE'],
+        ['Baskı yapsanız da bu bilgiyi açıklamayacağım.', 'REJECT'],
+        ['Bu koşullarda anlaşmayı imzalamayı reddediyorum.', 'REJECT'],
+        ['Elimde belge olmadan rakibinizin teslim olduğunu söylüyorum.',
+            'BLUFF_CANDIDATE'],
+        ['Doğrulayamasam da şirketinizin iflas ettiğini öne sürüyorum.',
+            'BLUFF_CANDIDATE']
+    ];
+    for (const [text, speechAct] of commitmentAndCoercionFamilies) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.suggestedSpeechAct, speechAct, text);
+        assert.equal(result.speechAct, speechAct, text);
+    }
+    const commitmentAndCoercionHardNegatives = [
+        ['Düşman birlikleri yarın geri çekilecek.', 'MAKE_PROMISE'],
+        ['Liman depoları sıcaklık yükselirse yanar.', 'THREATEN'],
+        ['Kanıtım yok, bu yüzden karar vermiyorum.', 'BLUFF_CANDIDATE'],
+        ['Kanıt yok ama bu iddiayı reddediyorum.', 'BLUFF_CANDIDATE'],
+        ['Denetim raporu iddiayı kanıtlıyor.', 'BLUFF_CANDIDATE']
+    ];
+    for (const [text, excludedSpeechAct] of commitmentAndCoercionHardNegatives) {
+        assert.notEqual(analyze(text).speechAct, excludedSpeechAct, text);
+    }
     const reciprocalCommercialFamilies = [
         'Bakırın tonu için sekiz yüz verirseniz altı aylık sevkiyat garantisi sunarız.',
         'Liman kullanımını bize açın, karşılığında gümrük payını yüzde iki artırayım.',

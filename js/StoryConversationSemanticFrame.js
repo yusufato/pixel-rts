@@ -247,8 +247,11 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
         }
     });
     const preferenceConditionalEvidence = conditionalOfferEvidence.concat(arzuPreferenceEvidence);
-    const rejectEvidence = storySemanticFrameEvidence(tokens,
-        ['reddet', 'istemiyorum', 'kabul', 'olmaz']);
+    const explicitRejectEvidence = storySemanticFrameEvidence(tokens,
+        ['hayir', 'katilmiyorum', 'istemiyorum', 'olmaz'])
+        .concat(tokens.filter(token =>
+            /^redded(?:iyorum|iyoruz|erim|eriz|ettim|ettik)$/.test(token)))
+        .filter((value, index, all) => all.indexOf(value) === index);
     const predicateIds = new Set([predicate.primary].concat(predicate.secondary || []));
     const secretEvidence = predicateIds.has('SECRET') ? predicate.evidence : [];
     const confideEvidence = storySemanticFrameEvidence(tokens,
@@ -275,11 +278,28 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     const conditionalThreatEvidence = tokens.filter(token => token === 'yoksa'
         || /(?:mazsan|mezsen|mazsaniz|mezseniz|mazsiniz|mezsiniz)$/.test(token));
     const counterpartyConditionalActionEvidence = tokens.filter((token, index) =>
-        /(?:arsan|ersen|irsan|ırsan|ursan|ürsen|arsaniz|erseniz|irsaniz|irseniz|ırsanız|ursaniz|urseniz|ürseniz)$/.test(token)
+        /(?:arsan|ersen|irsan|irsen|ırsan|ursan|ursen|ürsen|arsaniz|erseniz|irsaniz|irseniz|ırsanız|ursaniz|urseniz|ürseniz|saniz|seniz)$/.test(token)
         && !/^(?:isterseniz|dilerseniz)$/.test(token)
         && !(tokens[index - 1] === 'arzu' && /^(?:ederseniz|etseniz)$/.test(token)));
+    const nominalCounterpartyConditionEvidence = tokens.includes('takdirde')
+        && tokens.some(token => /(?:diginiz|dugunuz|madiginiz|mediginiz)$/.test(token))
+        ? tokens.filter(token => token === 'takdirde'
+            || /(?:diginiz|dugunuz|madiginiz|mediginiz)$/.test(token)) : [];
+    const conditionBoundary = Math.max(...counterpartyConditionalActionEvidence
+        .concat(nominalCounterpartyConditionEvidence)
+        .map(token => tokens.indexOf(token)), -1);
+    const adverseConsequenceEvidence = tokens.filter((token, index) =>
+        index > conditionBoundary
+        && /^(?:yan|vur|topa|abluka|bitir|ifsa|yayimla|yayinla|acikla|sizdir|tutukla)/.test(token));
     const speakerCommitmentEvidence = tokens.filter(token =>
         /(?:arim|erim|irim|ırım|urum|ürüm|ariz|eriz|iriz|ırız|uruz|ürüz|ayim|eyim|alim|elim|acagim|ecegim|acagiz|ecegiz)$/.test(token));
+    const speakerFutureCommitmentEvidence = tokens.filter(token =>
+        /(?:acagim|ecegim|acagiz|ecegiz|mayacagim|meyecegim|mayacagiz|meyecegiz)$/.test(token));
+    const negativeRefusalEvidence = tokens.filter(token =>
+        /^(?:ac|paylas|acikla|imzala|gonder|teslim|devret).*(?:mayacagim|meyecegim|mayacagiz|meyecegiz|mam|mem)$/.test(token));
+    const explicitPromiseEvidence = storySemanticFrameEvidence(tokens, ['soz'])
+        .concat(tokens.filter(token => /^ver(?:iyorum|iyoruz|irim|iriz)$/.test(token)))
+        .filter((value, index, all) => all.indexOf(value) === index);
     const reciprocalExchangeEvidence = storySemanticFrameEvidence(tokens,
         ['karsilik', 'karsilig', 'bedel']);
     const inclusiveQuestionEvidence = storySemanticFrameEvidence(tokens,
@@ -287,16 +307,28 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     const hasActionPredicate = ['WORK', 'MILITARY', 'ECONOMY', 'TECHNOLOGY']
         .some(id => predicateIds.has(id));
     const hasEconomicPredicate = predicateIds.has('ECONOMY');
+    const bluffEvidence = storySemanticFrameBluffEvidence(tokens);
     if (closeEvidence.length) return { value: 'CLOSE', evidence: closeEvidence, score: 3300 };
     if (greetingEvidence.length) return { value: 'GREET', evidence: greetingEvidence, score: 3300 };
     if (thanksEvidence.length) return { value: 'THANK', evidence: thanksEvidence, score: 3300 };
     if (apologyEvidence.length) return { value: 'APOLOGIZE', evidence: apologyEvidence, score: 3300 };
-    if (rejectEvidence.length && storySemanticFrameHas(tokens, ['degil', 'hayir', 'reddet', 'istemiyorum'])) {
-        return { value: 'REJECT', evidence: rejectEvidence, score: 3000 };
+    if (bluffEvidence.matched) {
+        return { value: 'TELL', speechActOverride: 'BLUFF_CANDIDATE',
+            evidence: bluffEvidence.evidence, score: 3300 };
     }
-    if (conditionalThreatEvidence.length) {
+    if (explicitRejectEvidence.length || negativeRefusalEvidence.length) {
+        return { value: 'REJECT', speechActOverride: 'REJECT',
+            requestedOutcome: 'ACKNOWLEDGEMENT',
+            evidence: explicitRejectEvidence.concat(negativeRefusalEvidence), score: 3300 };
+    }
+    const consequenceConditionEvidence = counterpartyConditionalActionEvidence
+        .concat(nominalCounterpartyConditionEvidence);
+    if (conditionalThreatEvidence.length
+        || (consequenceConditionEvidence.length && adverseConsequenceEvidence.length)) {
         return { value: 'TELL', requestedOutcome: 'ACTION',
-            evidence: conditionalThreatEvidence, score: 3300 };
+            evidence: conditionalThreatEvidence.concat(consequenceConditionEvidence,
+                adverseConsequenceEvidence)
+                .filter((value, index, all) => all.indexOf(value) === index), score: 3300 };
     }
     if (!questionEvidence.length && (directDeceptionEvidence.length
         || falseClaimEvidence.length >= 2)) {
@@ -308,6 +340,11 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
         return { value: 'ASK', speechActOverride: 'CHALLENGE',
             evidence: challengeEvidence.concat(questionEvidence)
                 .filter((value, index, all) => all.indexOf(value) === index), score: 3300 };
+    }
+    if (explicitPromiseEvidence.length >= 2) {
+        return { value: 'TELL', speechActOverride: 'MAKE_PROMISE',
+            requestedOutcome: 'ACKNOWLEDGEMENT',
+            evidence: explicitPromiseEvidence, score: 3300 };
     }
     if (!questionEvidence.length && !negativeDisclosureImperativeEvidence.length
         && !negatedDisclosureEvidence.length
@@ -349,6 +386,16 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
         return { value: 'OFFER', evidence: preferenceConditionalEvidence
             .concat(firstPersonAbilityEvidence, speakerCommitmentEvidence), score: 3200 };
     }
+    const listenerCommitmentContext = storySemanticFrameHas(tokens,
+        ['sana', 'size', 'sizi']) || counterpartyConditionalActionEvidence.length > 0;
+    if (!questionEvidence.length && listenerCommitmentContext
+        && speakerFutureCommitmentEvidence.length) {
+        return { value: 'TELL', speechActOverride: 'MAKE_PROMISE',
+            requestedOutcome: 'ACKNOWLEDGEMENT',
+            evidence: speakerFutureCommitmentEvidence
+                .concat(counterpartyConditionalActionEvidence)
+                .filter((value, index, all) => all.indexOf(value) === index), score: 3300 };
+    }
     if (negativeDisclosureImperativeEvidence.length) {
         return { value: 'REQUEST', evidence: negativeDisclosureImperativeEvidence,
             score: 3200 };
@@ -384,14 +431,14 @@ function storySemanticFrameSurfaceForm(raw, tokens) {
 
 function storySemanticFrameBluffEvidence(tokens) {
     const ownerEvidence = storySemanticFrameEvidence(tokens,
-        ['elimde', 'bende', 'tarafima']).concat(tokens.filter(token =>
-        /^(?:plan|para|tabur|ordu|asker|kuvvet|birlik|destek|cogunluk|hesap|kayit|belge|kanit|sifre|anahtar|rezerv).*(?:m|im|um|imiz|imizde|imizden|miz|mizde|mizden)(?:i|e|de|den)?$/.test(token)))
+        ['elimde', 'bende', 'bizde', 'tarafima']).concat(tokens.filter(token =>
+        /^(?:plan|para|tabur|ordu|asker|kuvvet|birlik|destek|cogunluk|hesap|kayit|belge|kanit|sifre|anahtar|rezerv|fuze|oy).*(?:m|im|um|imiz|imizde|imizden|miz|mizde|mizden)(?:i|e|de|den)?$/.test(token)))
         .filter((value, index, all) => all.indexOf(value) === index);
     const stateEvidence = storySemanticFrameEvidence(tokens,
         ['destekliyor', 'hazir', 'var', 'kesin', 'coktan', 'gecti',
-            'elimde', 'bende', 'artti', 'cikti']);
+            'elimde', 'bende', 'bizde', 'kilitli', 'artti', 'cikti']);
     const negatedDisclosureEvidence = tokens.filter(token =>
-        /^(?:acikla|anlat|goster|paylas|soyle|ver).*(?:amam|emem|mayac|meyece|mam|mem|maz|mez)/
+        /^(?:acikla|anlat|goster|paylas|soyle|ver).*(?:amam|emem|mayacagim|meyecegim|mayacagiz|meyecegiz|mam|mem|maz|mez)/
             .test(token));
     const deferredEvidence = storySemanticFrameHas(tokens,
         ['belge', 'kanit', 'kayit', 'tutanak', 'dokum', 'rapor'])
@@ -406,10 +453,27 @@ function storySemanticFrameBluffEvidence(tokens) {
         && tokens.some(token => /^(?:gibi|davran|iddia)/.test(token))
         ? tokens.filter(token => /^(?:olmadig|yokken|olmadan|gibi|davran|iddia)/
             .test(token)) : [];
-    return { matched: ownerEvidence.length > 0 && stateEvidence.length > 0
-        && (withholdingEvidence.length > 0 || contradictionEvidence.length > 0),
+    const unsupportedEvidence = tokens.filter(token =>
+        /^(?:yok|olmadan|olmadig|dogrulayamas|bilmiyorum)/.test(token));
+    const explicitClaimEvidence = tokens.filter(token =>
+        /^(?:soyluyorum|soyleyerek|davraniyorum|korkutuyorum)/.test(token));
+    const claimNounEvidence = storySemanticFrameEvidence(tokens, ['iddia']);
+    const firstPersonClaimAuxiliary = tokens.filter(token =>
+        /^(?:ediyorum|ediyoruz)$/.test(token));
+    if (claimNounEvidence.length && firstPersonClaimAuxiliary.length) {
+        explicitClaimEvidence.push(...claimNounEvidence, ...firstPersonClaimAuxiliary);
+    }
+    if (tokens.includes('one') && tokens.some(token => /^suruyorum/.test(token))) {
+        explicitClaimEvidence.push('one', ...tokens.filter(token => /^suruyorum/.test(token)));
+    }
+    const unsupportedClaimEvidence = unsupportedEvidence.length
+        && explicitClaimEvidence.length
+        ? unsupportedEvidence.concat(explicitClaimEvidence) : [];
+    return { matched: (ownerEvidence.length > 0 && stateEvidence.length > 0
+        && (withholdingEvidence.length > 0 || contradictionEvidence.length > 0))
+        || unsupportedClaimEvidence.length > 0,
         evidence: ownerEvidence.concat(stateEvidence, withholdingEvidence,
-            contradictionEvidence)
+            contradictionEvidence, unsupportedClaimEvidence)
             .filter((value, index, all) => all.indexOf(value) === index) };
 }
 
@@ -419,7 +483,7 @@ function storySemanticFramePolarity(tokens) {
     const evidence = storySemanticFrameEvidence(tokens,
         ['degil', 'yok', 'hic', 'istemiyor', 'guvenmiyor', 'bilmiyor'])
         .concat(tokens.filter(token =>
-            /(?:miyor|miyorum|miyoruz|miyorsun|miyorsunuz|mayac|meyece|madim|medim|madi|medi)$/.test(token)))
+            /(?:miyor|miyorum|miyoruz|miyorsun|miyorsunuz|mayacagim|meyecegim|mayacagiz|meyecegiz|madim|medim|madi|medi)$/.test(token)))
         .filter((value, index, all) => all.indexOf(value) === index);
     return { value: evidence.length ? 'NEGATIVE' : 'POSITIVE_OR_UNMARKED', evidence };
 }
@@ -428,7 +492,7 @@ function storySemanticFrameTime(tokens, communicative) {
     const past = storySemanticFrameEvidence(tokens, ['dun', 'once', 'gecmis', 'yapti', 'oldu', 'gordum', 'duydum']);
     const future = storySemanticFrameEvidence(tokens,
         ['yarin', 'sonra', 'gelecek', 'yapacag', 'edeceg', 'doneceg'])
-        .concat(tokens.filter(token => /(?:inca|ince|unca|unce)$/.test(token)));
+        .concat(tokens.filter(token => /(?:acagim|ecegim|acagiz|ecegiz|mayacagim|meyecegim|mayacagiz|meyecegiz|inca|ince|unca|unce)$/.test(token)));
     const habitual = storySemanticFrameEvidence(tokens,
         ['genelde', 'surekli', 'herzaman', 'bazen']);
     if (tokens.includes('her') && tokens.some(token =>
@@ -754,7 +818,8 @@ function storyConversationSemanticFrameFuse(legacy, frame) {
         && frame.temporality !== 'HABITUAL';
     const selfSufficientFunction = frame && (['CLOSE', 'GREET', 'THANK', 'APOLOGIZE']
         .includes(frame.communicativeFunction)
-        || frame.suggestedSpeechAct === 'CHALLENGE'
+        || ['CHALLENGE', 'THREATEN', 'MAKE_PROMISE', 'REJECT', 'BLUFF_CANDIDATE']
+            .includes(frame.suggestedSpeechAct)
         || frame.communicativeFunction === 'CONFIDE'
         || (frame.communicativeFunction === 'TELL'
             && ['HEALTH', 'EMOTION', 'WEATHER'].includes(frame.predicate)));
@@ -773,7 +838,8 @@ function storyConversationSemanticFrameFuse(legacy, frame) {
             && frame.predicate === 'SECRET')
         || (frame.communicativeFunction === 'TELL'
             && frame.requestedOutcome === 'ACTION')
-        || frame.suggestedSpeechAct === 'BLUFF_CANDIDATE');
+        || ['MAKE_PROMISE', 'REJECT', 'BLUFF_CANDIDATE']
+            .includes(frame.suggestedSpeechAct));
     if (!genericLegacy && legacy.primary !== frame.suggestedSpeechAct
         && !directionallySelfSufficient) return legacy;
     const scores = Object.assign({}, legacy && legacy.scores || {});

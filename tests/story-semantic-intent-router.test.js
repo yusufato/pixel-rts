@@ -409,6 +409,19 @@ assert.deepEqual(calibrationReportRows.filter(row =>
     calibrationReportProposals.get(row.id).labels.speechAct
         !== row.adjudication.labels.speechAct).map(row => row.id), [],
 'calibration military and economic reports must retain domain and direction');
+const nonBlindCommitmentAndCoercionActs = new Set([
+    'THREATEN', 'MAKE_PROMISE', 'REJECT', 'BLUFF_CANDIDATE'
+]);
+const nonBlindCommitmentAndCoercionRows = corpus.candidates.filter(row =>
+    row.split !== 'blind_test' && row.adjudication
+    && nonBlindCommitmentAndCoercionActs.has(row.adjudication.labels.speechAct));
+const nonBlindCommitmentAndCoercionProposals = buildBaselineProposals(
+    nonBlindCommitmentAndCoercionRows);
+assert.equal(nonBlindCommitmentAndCoercionRows.length, 49);
+assert.deepEqual(nonBlindCommitmentAndCoercionRows.filter(row =>
+    nonBlindCommitmentAndCoercionProposals.get(row.id).labels.speechAct
+        !== row.adjudication.labels.speechAct).map(row => row.id), [],
+'prototype and calibration commitment/coercion families must remain directionally understood');
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));

@@ -1814,3 +1814,10 @@
 - **What happened:** Kanonik askerî ve ekonomik varlık ontolojisi genişletildi; doğru alanı taşıyan düşük güvenli bildirimler yalnız generic legacy ve yön çatışması yokken rapor olarak birleşti. Sır, blöf, suçlama, duygu, habitual anlatı ve fiil olumsuzluğu aynı rapor kapısında karşı kanıt oldu.
 - **Evidence:** Spent blind erişmeden `272` prototype+calibration gold üzerinde ana eylem hatası `133 → 111` indi. `REPORT_MILITARY=14/14`, `REPORT_ECONOMIC=16/18`; kalibrasyondaki iki rapor sınıfı eksiksiz doğru. Değişiklik öncesindeki beş tehdit/söz/blöf→rapor hatası kaldı fakat yeni rapor yanlış pozitifi oluşmadı.
 - **Implication for future audits:** Her domain sözcüklü bildirimi rapor sayma ve güven eşiğini global düşürme. Rapor kabulü kanonik durum kanıtı ile sır/duygu/düzeltme/habitual çatışmasını birlikte değerlendirmeli; kalan beş yön hatası ayrı tehdit-söz-blöf ailesidir.
+
+## 2026-09-02 — Taahhüt, ret, tehdit ve blöf yönleri bileşimsel olarak kapatıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` non-blind commitment/coercion families
+- **What happened:** Dinleyici koşulu ile sonradan gelen zarar, dinleyiciye yönelmiş birinci kişi gelecek taahhüdü, açık/fiilsel ret ve kanıt yoksunluğuyla birlikte sunulan açık iddia dört ayrı pragmatik bileşim oldu. Konu sözcükleri tek başına yön seçmiyor; koşuldan önceki zarar sözcüğü, üçüncü kişi gelecek raporu, doğal koşullu sonuç ve iddiasız belirsizlik karşı örnek olarak kalıyor.
+- **Evidence:** Spent blind erişilmeden `272` prototype+calibration kaydındaki ana eylem hatası `111 → 87` indi. `THREATEN=13/13`, `MAKE_PROMISE=9/9`, `REJECT=12/12`, `BLUFF_CANDIDATE=15/15`; toplam `49/49` corpus kapısıyla kilitlendi. Semantic-frame, conversation-case, intent-router ve review-server testlerinin tamamı exit `0` verdi.
+- **Implication for future audits:** Askerî/ekonomik konu yakınlığını konuşma yönü sanma; birinci kişi gelecek ekini de bağlamsız biçimde söz sayma. Yeni biçimler aynı koşul–sonuç, aktör–taahhüt, ret-fiili ve kanıt–iddia bileşimlerine eklenmeli. Bu ölçüm embedding/runtime veya `%90+`/B1 kabulü değildir.

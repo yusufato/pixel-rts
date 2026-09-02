@@ -1190,3 +1190,15 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   ana eylem hatası `133 → 111`; askerî rapor `14/14`, ekonomik rapor `16/18`
   oldu. Kalibrasyondaki iki rapor sınıfı eksiksizdir ve yeni rapor yanlış
   pozitifi oluşmadı.
+- Kalan rapor/yön ayrımı tek cümle istisnalarıyla değil dört pragmatik bileşimle
+  kapatıldı: dinleyicinin koşullu davranışı + ardından gelen zarar tehdittir;
+  dinleyici bağlamındaki birinci kişi gelecek taahhüdü sözdür; açık ret veya
+  işbirliği/aktarım fiilinin birinci kişi olumsuzu rettir; kanıt yoksunluğu ile
+  konuşanın açık kesin iddiası blöf adayıdır. Koşuldan önce anılan zarar sözcüğü
+  sonuç sayılmaz; üçüncü kişi gelecek raporu, koşullu doğal sonuç ve iddiasız
+  kanıt yokluğu hard-negative olarak korunur.
+- Spent blind açılmadan aynı `272` prototype+calibration kaydında ana eylem
+  hatası `111 → 87` indi. `THREATEN=13/13`, `MAKE_PROMISE=9/9`, `REJECT=12/12`
+  ve `BLUFF_CANDIDATE=15/15`; toplam `49/49` yön ailesi corpus regresyon kapısına
+  bağlandı. Bu sonuç yeni gold, embedding/model kabulü, runtime/Electron/IPC
+  entegrasyonu veya `%90+`/B1 kabulü değildir.
