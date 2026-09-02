@@ -446,6 +446,14 @@ assert.deepEqual(nonBlindCorrectionRows.filter(row =>
     nonBlindCorrectionProposals.get(row.id).labels.speechAct !== 'CORRECT_STATEMENT')
     .map(row => row.id), [],
 'prototype and calibration correction families must remain corrections');
+const nonBlindOfferSupportRows = corpus.candidates.filter(row => row.split !== 'blind_test'
+    && row.adjudication && row.adjudication.labels.speechAct === 'OFFER_SUPPORT');
+const nonBlindOfferSupportProposals = buildBaselineProposals(nonBlindOfferSupportRows);
+assert.equal(nonBlindOfferSupportRows.length, 10);
+assert.deepEqual(nonBlindOfferSupportRows.filter(row =>
+    nonBlindOfferSupportProposals.get(row.id).labels.speechAct !== 'OFFER_SUPPORT')
+    .map(row => row.id), [],
+'prototype and calibration speaker-action offers must remain support offers');
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));

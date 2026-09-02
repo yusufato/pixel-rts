@@ -1849,3 +1849,10 @@
 - **What happened:** Bitişik `tehdit + birinci kişi icra fiili` açık tehdit performansı oldu. Olumsuz, edilgen, üçüncü kişi durum bildirimi ve yalnız konu anımı bu kapıya girmiyor.
 - **Evidence:** Dört olumlu tehdit çekimi `THREATEN`; `tehdit etmiyorum` `CORRECT_STATEMENT`; kanonik düşman tehdidi `REPORT_MILITARY`; edilgen ve konu anımı tehdit değil. Dört hedef regresyon paketi exit `0` verdi. Non-blind toplam `238/272`, OOD `33/33` değişmedi çünkü ölçüm corpusunda bu olumlu yüzey yoktu.
 - **Implication for future audits:** `tehdit` sözcüğünü tek başına yüksek-risk eylem sayma ve olumlu icra fiilini ekonomik konuya kaptırma. Aktör, kip ve olumsuzluk birlikte doğrulanmalı; bu hardening sonucu corpus doğruluk artışı veya B1/%90 kabulü değildir.
+
+## 2026-09-02 — Öz-eylem tercih sorusu bilgi sorusundan destek teklifine çevrildi
+- **Type:** Reversed
+- **Source:** Kullanıcının 2 Eylül 2026 onayı / `phase-38-turkish-semantic-intent-router` aktör-yönü sözleşmesi
+- **What happened:** Önceki yürütme kaydındaki “`hazırlamamı ister misin` bilgi sorusu olarak kaldı” kararı kullanıcı onayıyla tersine çevrildi. Konuşanın yapacağı `-mamı/-memi ister misiniz?` eylemi `OFFER_SUPPORT`; dinleyicinin yapacağı geniş zaman soru biçimi `REQUEST_ACTION`; sürmekte olan eylem sorusu `ASK_INFORMATION` olarak ayrıldı.
+- **Evidence:** Dört gramer varyantı ve iki aktör-yönü hard-negative regresyonu geçti. Spent blind açılmadan non-blind `OFFER_SUPPORT` `4/10 → 10/10`, yanlış teklif `0`, OOD `33/33`; toplam doğruluk `238/272 → 244/272` (`%87,5 → %89,7`) ve hata `34 → 28` oldu. Dört hedef test paketi exit `0` verdi.
+- **Implication for future audits:** Soru yüzeyini tek başına bilgi sorusu sayma. Eylemi kimin gerçekleştireceğini Türkçe kişi/adlaştırma morfolojisinden çıkar; ekonomik konu sözcüğünü karşılıklı bedel veya değişim kanıtı olmadan ticari teklif sayma. Bu tersine çevirme B1 ya da `%90+` kabulü değildir.

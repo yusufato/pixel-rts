@@ -258,12 +258,32 @@ try {
     const politeRequestHardNegatives = [
         ['Bana güveniyor musun?', 'ASK_RELATIONSHIP'],
         ['Şirket bütçe raporunu her ay hazırlar.', 'UNKNOWN'],
-        ['Bütçe raporunu hazırlıyor musunuz?', 'ASK_INFORMATION'],
-        ['Bütçe raporunu hazırlamamı ister misin?', 'ASK_INFORMATION']
+        ['Bütçe raporunu hazırlıyor musunuz?', 'ASK_INFORMATION']
     ];
     for (const [text, speechAct] of politeRequestHardNegatives) {
         const result = analyze(text);
         assert.equal(result.speechAct, speechAct, text);
+    }
+
+    const selfActionPreferenceOffers = [
+        'Bütçe raporunu hazırlamamı ister misin?',
+        'Araştırma projelerini başlatmamı ister misiniz?',
+        'Görüşmeye bir uzman göndermemi ister misiniz?',
+        'Tahliye planını hazırlamamı ister misiniz?'
+    ];
+    for (const text of selfActionPreferenceOffers) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'OFFER', text);
+        assert.equal(result.semanticFrame.requestedOutcome, 'ACTION', text);
+        assert.equal(result.semanticFrame.suggestedSpeechAct, 'OFFER_SUPPORT', text);
+        assert.equal(result.speechAct, 'OFFER_SUPPORT', text);
+    }
+    const actorDirectionHardNegatives = [
+        ['Araştırma projelerini başlatır mısınız?', 'REQUEST_ACTION'],
+        ['Bütçe raporunu hazırlıyor musunuz?', 'ASK_INFORMATION']
+    ];
+    for (const [text, speechAct] of actorDirectionHardNegatives) {
+        assert.equal(analyze(text).speechAct, speechAct, text);
     }
 
     const epistemicBluffFamilies = [

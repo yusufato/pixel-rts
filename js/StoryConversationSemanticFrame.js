@@ -288,6 +288,12 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
         }
     });
     const preferenceConditionalEvidence = conditionalOfferEvidence.concat(arzuPreferenceEvidence);
+    const selfActionPreferenceEvidence = tokens.filter(token =>
+        /(?:mami|memi)$/.test(token));
+    const preferenceQuestionEvidence = tokens.includes('ister')
+        && questionEvidence.length && selfActionPreferenceEvidence.length
+        ? selfActionPreferenceEvidence.concat('ister', questionEvidence)
+            .filter((value, index, all) => all.indexOf(value) === index) : [];
     const explicitRejectEvidence = storySemanticFrameEvidence(tokens,
         ['hayir', 'katilmiyorum', 'istemiyorum', 'olmaz'])
         .concat(tokens.filter(token =>
@@ -435,6 +441,9 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     if (questionEvidence.length && modalAbilityEvidence.length
         && hasActionPredicate) {
         return { value: 'REQUEST', evidence: modalAbilityEvidence.concat(questionEvidence), score: 3200 };
+    }
+    if (preferenceQuestionEvidence.length) {
+        return { value: 'OFFER', evidence: preferenceQuestionEvidence, score: 3200 };
     }
     if (politeRequestEvidence.length) {
         return { value: 'REQUEST', evidence: politeRequestEvidence, score: 3200 };
@@ -603,6 +612,8 @@ function storySemanticFrameSpeechAct(frame) {
         ? frame.evidence.communicativeFunction : [];
     const preferenceConditionedOffer = functionEvidence.some(token =>
         /^(?:istersen|isterseniz|dilersen|dilerseniz|arzu)$/.test(token));
+    const speakerActionPreferenceOffer = functionEvidence.includes('ister')
+        && functionEvidence.some(token => /(?:mami|memi)$/.test(token));
     if (fn === 'CLOSE') return 'FAREWELL';
     if (fn === 'GREET') return 'GREETING';
     if (fn === 'THANK') return 'THANK';
@@ -615,7 +626,8 @@ function storySemanticFrameSpeechAct(frame) {
         && frame.polarity === 'MIXED'
         && frame.epistemicStatus === 'CLAIMED_CERTAIN') return 'BLUFF_CANDIDATE';
     if (fn === 'OFFER' && predicate === 'WORK') return 'OFFER_SUPPORT';
-    if (fn === 'OFFER' && predicate === 'ECONOMY' && preferenceConditionedOffer) return 'OFFER_SUPPORT';
+    if (fn === 'OFFER' && predicate === 'ECONOMY'
+        && (preferenceConditionedOffer || speakerActionPreferenceOffer)) return 'OFFER_SUPPORT';
     if (fn === 'OFFER' && predicate === 'ECONOMY') return 'PROPOSE_COMMERCIAL_DEAL';
     if (fn === 'OFFER' && frame.requestedOutcome === 'ACTION') return 'OFFER_SUPPORT';
     if (fn === 'TELL' && frame.requestedOutcome === 'ACTION') return 'THREATEN';
@@ -877,12 +889,22 @@ function storyConversationSemanticFrameFuse(legacy, frame) {
         && (frame.polarity === 'POSITIVE_OR_UNMARKED'
             || frame.epistemicStatus === 'HEARSAY')
         && frame.temporality !== 'HABITUAL';
+    const frameFunctionEvidence = frame && frame.evidence
+        && Array.isArray(frame.evidence.communicativeFunction)
+        ? frame.evidence.communicativeFunction : [];
+    const directedSupportOffer = frame && frame.communicativeFunction === 'OFFER'
+        && frame.requestedOutcome === 'ACTION'
+        && (frameFunctionEvidence.some(token =>
+            /^(?:istersen|isterseniz|dilersen|dilerseniz|arzu)$/.test(token))
+            || (frameFunctionEvidence.includes('ister')
+                && frameFunctionEvidence.some(token => /(?:mami|memi)$/.test(token))));
     const selfSufficientFunction = frame && (['CLOSE', 'GREET', 'THANK', 'APOLOGIZE']
         .includes(frame.communicativeFunction)
         || ['CHALLENGE', 'THREATEN', 'MAKE_PROMISE', 'REJECT', 'CORRECT_STATEMENT',
             'BLUFF_CANDIDATE']
             .includes(frame.suggestedSpeechAct)
         || frame.communicativeFunction === 'CONFIDE'
+        || directedSupportOffer
         || (frame.communicativeFunction === 'TELL'
             && ['HEALTH', 'EMOTION', 'WEATHER'].includes(frame.predicate)));
     const minimumConfidence = selfSufficientFunction ? 3000

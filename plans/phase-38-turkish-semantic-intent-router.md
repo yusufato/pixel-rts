@@ -1242,3 +1242,20 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   konusunu konuşma ise tehdit değildir. Dört hedef regresyon paketi geçti.
   Non-blind toplam `238/272`, OOD `33/33` değişmedi; mevcut corpus bu yeni yüzeyi
   içermediğinden kazanım oran diye sunulmadı.
+- Kullanıcı 2 Eylül 2026 tarihinde aktör-yönü sözleşmesini açıkça onayladı:
+  konuşanın yapacağı `hazırlamamı/göndermemi ister misiniz?` öz-eylem tercih
+  sorusu `OFFER_SUPPORT`, dinleyicinin yapacağı `hazırlar/gönderir misiniz?`
+  eylem talebi ve devam eden `hazırlıyor musunuz?` bilgi sorusudur. Bu karar,
+  yukarıdaki 2 Eylül yürütme kaydında `hazırlamamı ister misin` için yazılmış
+  `ASK_INFORMATION` beklentisini tersine çevirir; tarihsel satır silinmedi.
+- Düzeltme tek cümle veya eylem kökü listesi değildir. Türkçe birinci kişi
+  adlaştırılmış eylemin belirtme durumu (`-mamı/-memi`) + `ister` + soru kanıtı
+  konuşanın eylem sahipliğini üretir. Düşük güvenli birleşim yalnız koşullu
+  birinci kişi destek veya bu öz-eylem tercih bileşiminde kabul edilir; genel
+  `OFFER + ACTION` eşiği düşürülmedi. Böylece oyun dışı “müzik listesi öner”
+  isteği `UNKNOWN` kalır ve ekonomik konu tek başına ticari değiş tokuş olmaz.
+- Spent blind açılmadan `OFFER_SUPPORT` `4/10 → 10/10`, yanlış teklif `0` ve
+  OOD `33/33` oldu. Toplam prototype+calibration doğruluğu `238/272 → 244/272`
+  (`%87,5 → %89,7`), hata `34 → 28` indi. Semantic-frame, router,
+  conversation-case ve review-server regresyonları geçti. Bu ölçüm `%90+` veya
+  B1 kabulü değildir; plan `In Progress` kalır.
