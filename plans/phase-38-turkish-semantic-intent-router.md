@@ -1202,3 +1202,15 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   ve `BLUFF_CANDIDATE=15/15`; toplam `49/49` yön ailesi corpus regresyon kapısına
   bağlandı. Bu sonuç yeni gold, embedding/model kabulü, runtime/Electron/IPC
   entegrasyonu veya `%90+`/B1 kabulü değildir.
+- Oyun dışı bilgi ve eylem istekleri için pozitif bounded-domain kapısı eklendi.
+  Kapı telefon, tarif, programlama, sağlık veya gezi gibi açık uçlu dış konuları
+  tek tek kara listelemez; genel `ASK_INFORMATION/REQUEST_ACTION` kararının
+  kanonik oyun alanı dili, açık onarım bağı veya kesin eşleşmiş oyun varlığıyla
+  temellenmesini ister. Fuzzy varlık benzerliği tek başına domain yetkisi vermez.
+  Selamlama ve özür sözcüklerinin çeviri/tavsiye konusu olarak anılması da gerçek
+  selamlama/özür icrasından ayrıldı.
+- Blind açılmadan non-blind OOD doğruluğu `7/33 → 33/33`, toplam ana niyet
+  doğruluğu `185/272 → 211/272` (`%68,0 → %77,6`) oldu; hata `87 → 61` indi.
+  Kanonik ülke sorusu, askerî emir, karakterin işi, gerçek selamlama ve gerçek
+  özür karşı örnekleri kabul edilmeye devam etti. Bu ölçüm B1 veya `%90+`
+  günlük Türkçe kabulü değildir.

@@ -1821,3 +1821,10 @@
 - **What happened:** Dinleyici koşulu ile sonradan gelen zarar, dinleyiciye yönelmiş birinci kişi gelecek taahhüdü, açık/fiilsel ret ve kanıt yoksunluğuyla birlikte sunulan açık iddia dört ayrı pragmatik bileşim oldu. Konu sözcükleri tek başına yön seçmiyor; koşuldan önceki zarar sözcüğü, üçüncü kişi gelecek raporu, doğal koşullu sonuç ve iddiasız belirsizlik karşı örnek olarak kalıyor.
 - **Evidence:** Spent blind erişilmeden `272` prototype+calibration kaydındaki ana eylem hatası `111 → 87` indi. `THREATEN=13/13`, `MAKE_PROMISE=9/9`, `REJECT=12/12`, `BLUFF_CANDIDATE=15/15`; toplam `49/49` corpus kapısıyla kilitlendi. Semantic-frame, conversation-case, intent-router ve review-server testlerinin tamamı exit `0` verdi.
 - **Implication for future audits:** Askerî/ekonomik konu yakınlığını konuşma yönü sanma; birinci kişi gelecek ekini de bağlamsız biçimde söz sayma. Yeni biçimler aynı koşul–sonuç, aktör–taahhüt, ret-fiili ve kanıt–iddia bileşimlerine eklenmeli. Bu ölçüm embedding/runtime veya `%90+`/B1 kabulü değildir.
+
+## 2026-09-02 — Oyun dışı genel istekler bounded-domain kapısında durduruldu
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` non-blind OOD grounding family
+- **What happened:** Genel bilgi ve eylem biçimi artık tek başına oyun içi niyet değildir; kanonik oyun alanı dili, açık onarım bağı veya kesin oyun-varlığı eşleşmesi gerekir. Fuzzy varlık benzerliği domain yetkisi vermez. Selamlama/özür sözcüğünün konu olarak anılması, o sosyal eylemin gerçekten yapılmasından ayrıldı.
+- **Evidence:** Spent blind erişilmeden non-blind OOD `7/33 → 33/33`, toplam ana niyet doğruluğu `185/272 → 211/272` (`%68,0 → %77,6`) ve hata `87 → 61` oldu. Dört hedef regresyon paketi exit `0` verdi.
+- **Implication for future audits:** OOD için telefon/tarif/programlama gibi büyüyen bir negatif kara liste kurma ve fuzzy entity eşleşmesini domain kanıtı sayma. Genel soru/istek pozitif oyun temeline sahip değilse `UNKNOWN` ile durmalı; bu sonucu B1, `%90+`, embedding veya runtime kabulü diye raporlama.

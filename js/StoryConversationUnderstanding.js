@@ -385,6 +385,62 @@ function storyConversationSpeechAct(folded, raw) {
     };
 }
 
+function storyConversationHasExactGroundingEntity(entities) {
+    return (entities || []).some(entity => entity && entity.entityId
+        && entity.entityType !== 'CHARACTER'
+        && Array.isArray(entity.evidence)
+        && entity.evidence.includes('EXACT_NORMALIZED_ALIAS'));
+}
+
+function storyConversationHasGameDomainLanguage(folded) {
+    const roots = [
+        'asker', 'ordu', 'birlik', 'birlig', 'tabur', 'cephe', 'sinir', 'garnizon', 'filo',
+        'abluka', 'komutan', 'savas', 'ateskes', 'ekonomi', 'butce', 'hazine',
+        'enflasyon', 'rezerv', 'fiyat', 'piyasa', 'borc', 'nakit', 'refah',
+        'gelir', 'gider', 'issizlik', 'sirket', 'ticaret', 'banka', 'yatirim',
+        'ithalat', 'ihracat', 'gumruk', 'liman', 'fabrika', 'dinar', 'sermaye',
+        'sevkiyat', 'konvoy', 'depo', 'tasi', 'tahil', 'yakit', 'kaynak',
+        'yonetim', 'hukumet',
+        'kabine', 'vali', 'bakan', 'meclis', 'secim', 'kararname', 'anayasa',
+        'devlet', 'ulke', 'ittifak', 'anlasma', 'elci', 'mustesar', 'gorev',
+        'islerin', 'calis', 'proje', 'toplanti',
+        'muzakere', 'arastirma', 'teknoloji', 'tesis', 'sehir', 'rota', 'guven',
+        'iliski', 'itibar', 'gizli', 'operasyon', 'aramiz', 'kimse',
+        'dezenformasyon', 'etkinlik'
+    ];
+    const tokens = String(folded || '').split(/\s+/).filter(Boolean);
+    const boundedShortForm = tokens.some(token =>
+        /^(?:isi|isin|isiniz|isinizin|yuk|yuku|yukun|yukler|yukleri)$/.test(token));
+    return boundedShortForm
+        || tokens.some(token => roots.some(root => token.startsWith(root)));
+}
+
+function storyConversationBoundedDomainGrounded(folded, frame, entities) {
+    if (storyConversationContains(folded, ['anlamadim', 'tekrar soyle', 'ne demek'])) {
+        return true;
+    }
+    if (storyConversationHasGameDomainLanguage(folded)) return true;
+    if (frame && ['WEATHER', 'HEALTH', 'EMOTION', 'IDENTITY']
+        .includes(frame.predicate)) return false;
+    return storyConversationHasExactGroundingEntity(entities);
+}
+
+function storyConversationBoundedAct(act, folded, frame, entities) {
+    if (!act) return act;
+    const speechActMention = (act.primary === 'GREETING'
+        && storyConversationContains(folded,
+            ['kelime', 'cevir', 'japonca', 'ingilizce', 'turkce']))
+        || (act.primary === 'APOLOGIZE'
+            && !storyConversationContains(folded,
+                ['ozur dilerim', 'ozur diliyorum', 'kusura bakma', 'affedersin']));
+    const genericUngrounded = ['ASK_INFORMATION', 'REQUEST_ACTION'].includes(act.primary)
+        && !storyConversationBoundedDomainGrounded(folded, frame, entities);
+    if (!speechActMention && !genericUngrounded) return act;
+    return Object.assign({}, act, {
+        primary: 'UNKNOWN', secondary: [], source: 'BOUNDED_DOMAIN_ABSTENTION'
+    });
+}
+
 function storyConversationTone(folded, speechAct) {
     if (speechAct === 'THREATEN') return 'HOSTILE';
     if (speechAct === 'ACCUSE') return 'CONFRONTATIONAL';
@@ -420,7 +476,7 @@ function storyConversationAnalyze(raw, context) {
     const semanticFrame = typeof storyConversationSemanticFrameCompile === 'function'
         ? storyConversationSemanticFrameCompile(sourceText, context) : null;
     const legacyAct = storyConversationSpeechAct(folded, sourceText);
-    const act = typeof storyConversationSemanticFrameFuse === 'function'
+    let act = typeof storyConversationSemanticFrameFuse === 'function'
         ? storyConversationSemanticFrameFuse(legacyAct, semanticFrame) : legacyAct;
     const countries = storyConversationResolveCountries(folded);
     const regions = storyConversationResolveRegions(folded);
@@ -435,6 +491,7 @@ function storyConversationAnalyze(raw, context) {
             candidates: [String(context.listenerActorId)], evidence: ['ACTIVE_CONVERSATION_LISTENER']
         }));
     }
+    act = storyConversationBoundedAct(act, folded, semanticFrame, entities);
 
     const commercial = act.primary === 'PROPOSE_COMMERCIAL_DEAL';
     const founding = storyConversationContains(folded, [

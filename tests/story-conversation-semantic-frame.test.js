@@ -90,6 +90,31 @@ try {
     for (const [text, excludedSpeechAct] of commitmentAndCoercionHardNegatives) {
         assert.notEqual(analyze(text).speechAct, excludedSpeechAct, text);
     }
+    const boundedDomainAbstentions = [
+        'Telefonumun ekranı neden titriyor?',
+        'Bu matematik denklemini çözer misin?',
+        'Python\'da JSON dosyasını nasıl okuyabilirim?',
+        'Baş ağrım iki gündür geçmiyor, ne yapmalıyım?',
+        'Kapadokya\'da üç günlük gezi planı yap.',
+        'Günaydın kelimesini Japoncaya çevir.',
+        'Arkadaşımla tartıştım, nasıl özür dilemeliyim?'
+    ];
+    for (const text of boundedDomainAbstentions) {
+        const result = analyze(text);
+        assert.equal(result.speechAct, 'UNKNOWN', text);
+        assert.equal(result.diagnostics.classifierSource,
+            'BOUNDED_DOMAIN_ABSTENTION', text);
+    }
+    const boundedDomainGroundedHardNegatives = [
+        ['Cermen Federasyonu\'nun en son haberleri neler?', 'ASK_INFORMATION'],
+        ['Sınırdaki birlikleri geri çekin.', 'REQUEST_ACTION'],
+        ['Hangi şirkette çalışıyorsunuz?', 'ASK_INFORMATION'],
+        ['Günaydın sayın başkan.', 'GREETING'],
+        ['Özür dilerim, bu benim hatamdı.', 'APOLOGIZE']
+    ];
+    for (const [text, speechAct] of boundedDomainGroundedHardNegatives) {
+        assert.equal(analyze(text).speechAct, speechAct, text);
+    }
     const reciprocalCommercialFamilies = [
         'Bakırın tonu için sekiz yüz verirseniz altı aylık sevkiyat garantisi sunarız.',
         'Liman kullanımını bize açın, karşılığında gümrük payını yüzde iki artırayım.',

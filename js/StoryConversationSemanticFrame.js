@@ -214,7 +214,12 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     const greetingEvidence = storySemanticFrameEvidence(tokens,
         ['selam', 'merhaba', 'gunaydin']);
     const thanksEvidence = storySemanticFrameEvidence(tokens, ['tesekkur', 'sagol', 'minnettar']);
-    const apologyEvidence = storySemanticFrameEvidence(tokens, ['ozur', 'affet', 'kusura']);
+    const apologyEvidence = storySemanticFrameEvidence(tokens, ['affet', 'kusura']);
+    const apologyNounEvidence = storySemanticFrameEvidence(tokens, ['ozur']);
+    const apologyPerformanceEvidence = apologyEvidence.concat(
+        apologyNounEvidence.length ? tokens.filter(token =>
+            /^(?:dilerim|diliyorum|dileriz|diliyoruz)$/.test(token)) : [])
+        .filter((value, index, all) => all.indexOf(value) === index);
     const imperativeRequestEvidence = storySemanticFrameDirectedImperativeEvidence(tokens);
     const politeRequestEvidence = storySemanticFramePoliteRequestEvidence(tokens);
     const deonticRequestEvidence = tokens.filter(token =>
@@ -311,7 +316,9 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     if (closeEvidence.length) return { value: 'CLOSE', evidence: closeEvidence, score: 3300 };
     if (greetingEvidence.length) return { value: 'GREET', evidence: greetingEvidence, score: 3300 };
     if (thanksEvidence.length) return { value: 'THANK', evidence: thanksEvidence, score: 3300 };
-    if (apologyEvidence.length) return { value: 'APOLOGIZE', evidence: apologyEvidence, score: 3300 };
+    if (apologyPerformanceEvidence.length) {
+        return { value: 'APOLOGIZE', evidence: apologyPerformanceEvidence, score: 3300 };
+    }
     if (bluffEvidence.matched) {
         return { value: 'TELL', speechActOverride: 'BLUFF_CANDIDATE',
             evidence: bluffEvidence.evidence, score: 3300 };
