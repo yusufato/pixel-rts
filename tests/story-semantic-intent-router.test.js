@@ -430,6 +430,14 @@ assert.deepEqual(nonBlindOodRows.filter(row =>
     nonBlindOodProposals.get(row.id).labels.speechAct !== 'UNKNOWN')
     .map(row => row.id), [],
 'prototype and calibration OOD turns must abstain before embedding');
+const nonBlindSmallTalkRows = corpus.candidates.filter(row => row.split !== 'blind_test'
+    && row.adjudication && row.adjudication.labels.speechAct === 'SMALL_TALK');
+const nonBlindSmallTalkProposals = buildBaselineProposals(nonBlindSmallTalkRows);
+assert.equal(nonBlindSmallTalkRows.length, 22);
+assert.deepEqual(nonBlindSmallTalkRows.filter(row =>
+    nonBlindSmallTalkProposals.get(row.id).labels.speechAct !== 'SMALL_TALK')
+    .map(row => row.id), [],
+'prototype and calibration bounded world observations must remain small talk');
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));

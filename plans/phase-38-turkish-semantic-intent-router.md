@@ -1214,3 +1214,12 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   Kanonik ülke sorusu, askerî emir, karakterin işi, gerçek selamlama ve gerçek
   özür karşı örnekleri kabul edilmeye devam etti. Bu ölçüm B1 veya `%90+`
   günlük Türkçe kabulü değildir.
+- Pozitif oyun alanına temellenmiş, soru/emir/teklif olmayan deklaratif
+  gözlemler `SMALL_TALK` olarak ayrıldı. Kesin yer adı bu kapıyı tek başına
+  açmıyor; bu nedenle oyun-dışı uçuş/şiir/sistem mesajı komutları `UNKNOWN`
+  kalıyor. Eski alt-dizi puanlayıcısındaki `yap`/`açıkla` emir köklerinin
+  `yapıldı`, `yapılıyor`, `açıklandı` gibi edilgen raporlara taşması da tam
+  token emir biçimleriyle sınırlandı.
+- Blind açılmadan `SMALL_TALK` ana niyeti `8/22 → 22/22`, toplam doğruluk
+  `211/272 → 227/272` (`%77,6 → %83,5`) ve hata `61 → 45` oldu. OOD güvenliği
+  `33/33` kaldı. Bu hâlâ B1 veya `%90+` kabulü değildir.

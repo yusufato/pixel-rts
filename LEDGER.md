@@ -1828,3 +1828,10 @@
 - **What happened:** Genel bilgi ve eylem biçimi artık tek başına oyun içi niyet değildir; kanonik oyun alanı dili, açık onarım bağı veya kesin oyun-varlığı eşleşmesi gerekir. Fuzzy varlık benzerliği domain yetkisi vermez. Selamlama/özür sözcüğünün konu olarak anılması, o sosyal eylemin gerçekten yapılmasından ayrıldı.
 - **Evidence:** Spent blind erişilmeden non-blind OOD `7/33 → 33/33`, toplam ana niyet doğruluğu `185/272 → 211/272` (`%68,0 → %77,6`) ve hata `87 → 61` oldu. Dört hedef regresyon paketi exit `0` verdi.
 - **Implication for future audits:** OOD için telefon/tarif/programlama gibi büyüyen bir negatif kara liste kurma ve fuzzy entity eşleşmesini domain kanıtı sayma. Genel soru/istek pozitif oyun temeline sahip değilse `UNKNOWN` ile durmalı; bu sonucu B1, `%90+`, embedding veya runtime kabulü diye raporlama.
+
+## 2026-09-02 — Oyun-içi deklaratif gözlemler emirlerden ayrıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` bounded world-observation family
+- **What happened:** Pozitif oyun-dünyası dili taşıyan, eylem istemeyen deklaratif anlatımlar `SMALL_TALK` oldu. Kesin yer adı tek başına bu yetkiyi vermiyor. Alt-dizi temelli `yap`/`açıkla` emir eşleşmesi tam token biçimlerine daraltılarak edilgen `yapıldı`, `yapılıyor`, `açıklandı` raporlarının emir sayılması engellendi.
+- **Evidence:** Spent blind erişilmeden non-blind `SMALL_TALK` `8/22 → 22/22`, toplam ana niyet doğruluğu `211/272 → 227/272` (`%77,6 → %83,5`) ve hata `61 → 45` oldu. OOD `33/33` kaldı; dört hedef regresyon paketi exit `0` verdi.
+- **Implication for future audits:** Her deklaratif cümleyi `SMALL_TALK` yapma; pozitif oyun alanı temeli ve eylemsiz TELL bileşimi birlikte aranmalı. Türkçe emir köklerini alt-diziyle arama; edilgen ve çekimli biçimler yön hatası üretir. Bu ölçüm B1 veya `%90+` kabulü değildir.

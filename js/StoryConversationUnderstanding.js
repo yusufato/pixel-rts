@@ -375,8 +375,12 @@ function storyConversationSpeechAct(folded, raw) {
     if (storyConversationContains(folded, ['peki', 'tamam', 'anladim', 'olur'])) add('SMALL_TALK', 8);
     if (String(raw || '').includes('?') || /(?:^|\s)(mi|mı|mu|mü|misin|mısın|musun|müsün|misiniz|mısınız|musunuz|müsünüz)(?:\s|$)/i.test(String(raw || ''))
         || storyConversationContains(folded, ['neden', 'nasil', 'ne zaman', 'nerede', 'kim', 'hangi'])) add('ASK_INFORMATION', 7);
-    if (storyConversationContains(folded, ['istiyorum', 'talep ediyorum', 'yap', 'gonder', 'yonlendir',
-        'is var mi', 'isiniz var mi', 'is verebilir', 'calisabilecegim'])) add('REQUEST_ACTION', 9);
+    const directActionVerb = folded.split(/\s+/).some(token =>
+        /^(?:yap|yapin|gonder|gonderin|yonlendir|yonlendirin)$/.test(token));
+    if (directActionVerb || storyConversationContains(folded, [
+        'istiyorum', 'talep ediyorum', 'is var mi', 'isiniz var mi',
+        'is verebilir', 'calisabilecegim'
+    ])) add('REQUEST_ACTION', 9);
     const ranked = Object.keys(scores).sort((a, b) => scores[b] - scores[a] || a.localeCompare(b, 'en'));
     return {
         primary: ranked[0] || 'UNKNOWN',
@@ -404,7 +408,8 @@ function storyConversationHasGameDomainLanguage(folded) {
         'kabine', 'vali', 'bakan', 'meclis', 'secim', 'kararname', 'anayasa',
         'devlet', 'ulke', 'ittifak', 'anlasma', 'elci', 'mustesar', 'gorev',
         'islerin', 'calis', 'proje', 'toplanti',
-        'muzakere', 'arastirma', 'teknoloji', 'tesis', 'sehir', 'rota', 'guven',
+        'muzakere', 'arastirma', 'teknoloji', 'bilim', 'laboratuvar', 'tesis',
+        'sehir', 'sehr', 'toprak', 'nufus', 'goc', 'halk', 'medya', 'haber', 'rota', 'guven',
         'iliski', 'itibar', 'gizli', 'operasyon', 'aramiz', 'kimse',
         'dezenformasyon', 'etkinlik'
     ];
@@ -427,6 +432,14 @@ function storyConversationBoundedDomainGrounded(folded, frame, entities) {
 
 function storyConversationBoundedAct(act, folded, frame, entities) {
     if (!act) return act;
+    const groundedWorldObservation = act.primary === 'UNKNOWN'
+        && frame && frame.communicativeFunction === 'TELL'
+        && frame.requestedOutcome === 'NONE'
+        && frame.temporality !== 'HABITUAL'
+        && storyConversationHasGameDomainLanguage(folded);
+    if (groundedWorldObservation) return Object.assign({}, act, {
+        primary: 'SMALL_TALK', secondary: [], source: 'BOUNDED_WORLD_OBSERVATION'
+    });
     const speechActMention = (act.primary === 'GREETING'
         && storyConversationContains(folded,
             ['kelime', 'cevir', 'japonca', 'ingilizce', 'turkce']))
