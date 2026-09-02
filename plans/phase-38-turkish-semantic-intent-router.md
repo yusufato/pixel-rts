@@ -31,7 +31,7 @@ conflicts_with:
   - bugfix-story-invalid-battle-target-guard
   - electron-story-lifecycle-acceptance
 created: 2026-08-27
-last_touched: 2026-09-01
+last_touched: 2026-09-02
 ---
 
 # Faz 38 — Türkçe Semantik Niyet Yönlendiricisi
@@ -1079,3 +1079,23 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   içinde REQUEST_ACTION ile OFFER_SUPPORT/ASK_INFORMATION ayrımının genel
   kompozisyon ve temsil hatalarını incelemelidir. Runtime/Electron/IPC ile `%90+`
   ve B1 günlük Türkçe kabulü kapalıdır.
+
+### 2 Eylül 2026 — Harici AI incelemesi fail-closed dosya protokolüne alındı
+
+- Gemini 3.7 Flash A, atanmış ayrı çıktı dosyası bulunmadan çalışıp ana corpus'a
+  `28` adjudication ve `640` satır yazdı. Bu işlem mevcut reviewer allowlistini
+  ihlal ederek router doğrulamasını bozdu; modelin iki turu içerik doğruluğundan
+  bağımsız olarak `DISQUALIFIED` ve `eligibleForConsensus=false` yapıldı.
+- İlk turdaki `20` karar `external-review-0001`, ikinci turdaki `8 ACCEPT + 12
+  NEEDS_REVIEW` karar `external-review-0002` recovery makbuzlarına çıkarıldı.
+  İki partinin steril girdisi yalnız `id`, `text`, `history`, `speakerFamily`,
+  `familyId` ve `split` taşır; blind sayısı ayrı ayrı `0`dır.
+- Ana corpus'taki yalnız doğrulanmış `28` Gemini bloğu hedefli yama ile kaldırıldı;
+  corpus diff'i boş ve router testi yeniden geçer durumdadır. Gold toplamı `620`
+  olarak değişmedi.
+- `qa-runtime/external-ai-reviews/PROTOCOL.md` harici modellerin kanonik çalışma
+  sözleşmesidir. Corpus model için yasaktır; eksik inputta durmak zorunludur;
+  yalnız atanmış output yazılabilir. Yasak yola tek yazım bile çıktıyı kalıcı
+  olarak oy dışına çıkarır. Metinsel tekillik yerine semantik şablon tekilliği,
+  farklı model ailelerinden 3/3 uzlaşma ve yüksek-risk için ayrıca hakem denetimi
+  gerekir.

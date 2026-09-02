@@ -1765,3 +1765,10 @@
 - **What happened:** Calibration gold, her dış doğrulama ailesi kendi çapa ve eşik-fit hesabından çıkarılarak öğrenilmiş centroid çapalarına dönüştürüldü. Ticari karşılıklılık ile tercih-koşullu ücretsiz destek arasındaki genel parser ayrımı düzeltildi; kayan-nokta eşitlikleri recall kapısında `1e-12` toleransla karşılaştırıldı.
 - **Evidence:** BGE sınırı `111/113/0`, bütün dış katlarda aile çakışması `0`, blind erişimi `false`. Seçilen parser-uzlaşmalı fit-anchor ortalama/minimum macro-F1 `0,674948/0,573256`, taban farkı `+0,165118`, yüksek-risk yanlış pozitif `0/0`, OOD yanlış kabul `0/0` verdi. Recall tehdit/ticaret/sır/blöf kapılarını geçti; `REQUEST_ACTION=0,611111 < 0,75` kaldı. `eligibleModelIds=[]`, `createNewBlindEpoch=false`.
 - **Implication for future audits:** Gold'un temsili geliştirdiği artık sızıntısız ölçülmüştür; yine de tek başarılı toplu skor ürün kabulü değildir. Spent V3–V6 verisini öğrenme, ayar veya aday üretiminde kullanma. Sonraki hipotezi yalnız prototype+calibration içindeki eylem talebi–destek/bilgi ayrımında kur; blind/runtime/Electron/IPC ve `%90+`/B1 kapıları kapalıdır.
+
+## 2026-09-02 — Gemini harici-review protokol ihlali oy dışına çıkarıldı
+- **Type:** Rejected
+- **Source:** `phase-38-turkish-semantic-intent-router` external AI review batch 0001/0002
+- **What happened:** Gemini 3.7 Flash A, ayrı output yerine ana corpus'a 28 adjudication yazdı. İki turun kararları ayrı recovery makbuzlarına çıkarıldı; model `DISQUALIFIED` ve `eligibleForConsensus=false` işaretlendi. Ana corpus'taki yalnız bu 28 ekleme hedefli olarak kaldırıldı.
+- **Evidence:** İhlal diff'i `+640/-0`, `28` beklenen ID ve `28` aynı Gemini reviewer satırı olarak doğrulandı. Steril partiler `20+20`, blind `0+0`; corpus diff'i temizlikten sonra boş ve semantic-intent router testi geçiyor. Gold toplamı değişmedi.
+- **Implication for future audits:** Harici model doğru görünen etiket üretse bile corpus'a veya atanmış output dışına yazdıysa o partide oy kullanamaz. Harici modeller yalnız steril input ve model-özel output ile çalışır; corpus aktarımı merkezi geliştiriciye aittir. Semantik şablon tekrarları bağımsız gold sayılamaz.
