@@ -14,9 +14,25 @@ const { buildEmbeddingSpikePreflight, l2Normalize, dotProduct, cosineSimilarity,
     compareSelectionEvidence, summarizeEmbeddingRows, embeddingEvaluationSplits,
     embeddingCalibrationStudySplits, evaluateHighRiskRecall,
     buildBlindEvaluationAcceptance, buildCalibrationStudyRecommendation,
-    buildBaselineProposals } =
+    buildBaselineProposals, EMBEDDING_MODEL_ARTIFACTS,
+    compareEmbeddingModelArtifactReceipt } =
     require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
+
+const bgeArtifact = EMBEDDING_MODEL_ARTIFACTS['bge-m3-q8_0'];
+assert.equal(compareEmbeddingModelArtifactReceipt('bge-m3-q8_0', {
+    basename: bgeArtifact.basename,
+    sizeBytes: bgeArtifact.sizeBytes,
+    sha256: bgeArtifact.sha256
+}).ok, true);
+assert.deepEqual(compareEmbeddingModelArtifactReceipt('bge-m3-q8_0', {
+    basename: bgeArtifact.basename,
+    sizeBytes: bgeArtifact.sizeBytes - 1,
+    sha256: bgeArtifact.sha256
+}).issues, [`EMBEDDING_MODEL_ARTIFACT_SIZE:${bgeArtifact.sizeBytes - 1}`]);
+assert.deepEqual(compareEmbeddingModelArtifactReceipt('unknown-model', {
+    basename: 'unknown.gguf', sizeBytes: 1, sha256: 'unknown'
+}).issues, ['EMBEDDING_MODEL_ARTIFACT_RECEIPT_UNKNOWN:unknown-model']);
 
 const blindV6CandidateRows = corpus.candidates.filter(row =>
     String(row.sourceId || '').startsWith('representation-stability-v6:'));

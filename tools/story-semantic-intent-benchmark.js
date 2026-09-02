@@ -50,6 +50,18 @@ const LABEL_AXES = Object.freeze(Object.keys(LABEL_VALUES));
 const REQUIRED_LABEL_FIELDS = Object.freeze([...LABEL_AXES, 'outOfDomain']);
 const SPLITS = Object.freeze(['prototype', 'calibration', 'blind_test']);
 const GOLD_REVIEWERS = Object.freeze(['LOCAL_HUMAN', 'CODEX_INDIVIDUAL_REVIEW']);
+const EMBEDDING_MODEL_ARTIFACTS = Object.freeze({
+    'multilingual-e5-small-q8_0': Object.freeze({
+        basename: 'twinsuns-multilingual-e5-small-q8_0.gguf',
+        sizeBytes: 132439008,
+        sha256: 'e011debc1208e31bf7b6aebee2d9fc8bd2ca11694a77ed66ac9d0c9d0a877c93'
+    }),
+    'bge-m3-q8_0': Object.freeze({
+        basename: 'bge-m3-q8_0.gguf',
+        sizeBytes: 634553760,
+        sha256: 'aa473d51f451a22f0fcf39ba3330c14bed38a385712b1113440f69df4047a173'
+    })
+});
 const HIGH_RISK_ACTS = Object.freeze([
     'THREATEN', 'REQUEST_ACTION', 'PROPOSE_COMMERCIAL_DEAL', 'SHARE_SECRET',
     'BLUFF_CANDIDATE'
@@ -1074,7 +1086,57 @@ function hashFile(filePath) {
     });
 }
 
+function compareEmbeddingModelArtifactReceipt(modelId, actual) {
+    const expected = EMBEDDING_MODEL_ARTIFACTS[modelId];
+    if (!expected) {
+        return { ok: false, modelId, expected: null, actual,
+            issues: [`EMBEDDING_MODEL_ARTIFACT_RECEIPT_UNKNOWN:${modelId}`] };
+    }
+    const issues = [];
+    if (actual.basename !== expected.basename) {
+        issues.push(`EMBEDDING_MODEL_ARTIFACT_BASENAME:${actual.basename}`);
+    }
+    if (actual.sizeBytes !== expected.sizeBytes) {
+        issues.push(`EMBEDDING_MODEL_ARTIFACT_SIZE:${actual.sizeBytes}`);
+    }
+    if (actual.sha256 !== expected.sha256) {
+        issues.push(`EMBEDDING_MODEL_ARTIFACT_SHA256:${actual.sha256}`);
+    }
+    return { ok: issues.length === 0, modelId, expected, actual, issues };
+}
+
+async function inspectEmbeddingModelArtifact(modelId, modelPath) {
+    const resolvedPath = path.resolve(modelPath);
+    if (!fs.existsSync(resolvedPath)) {
+        return { ok: false, modelId, resolvedPath,
+            expected: EMBEDDING_MODEL_ARTIFACTS[modelId] || null,
+            actual: null,
+            issues: [`EMBEDDING_MODEL_ARTIFACT_MISSING:${resolvedPath}`] };
+    }
+    const stat = fs.statSync(resolvedPath);
+    if (!stat.isFile()) {
+        return { ok: false, modelId, resolvedPath,
+            expected: EMBEDDING_MODEL_ARTIFACTS[modelId] || null,
+            actual: null,
+            issues: [`EMBEDDING_MODEL_ARTIFACT_NOT_FILE:${resolvedPath}`] };
+    }
+    const actual = { basename: path.basename(resolvedPath),
+        sizeBytes: stat.size, sha256: await hashFile(resolvedPath) };
+    return { ...compareEmbeddingModelArtifactReceipt(modelId, actual), resolvedPath };
+}
+
+async function requireEmbeddingModelArtifact(spec) {
+    const receipt = await inspectEmbeddingModelArtifact(spec.id, spec.modelPath);
+    if (!receipt.ok) {
+        const error = new Error(receipt.issues.join(','));
+        error.receipt = receipt;
+        throw error;
+    }
+    return receipt;
+}
+
 async function runEmbeddingModel(spec, rowsBySplit) {
+    const artifactReceipt = await requireEmbeddingModelArtifact(spec);
     const started = performance.now();
     const rssBefore = process.memoryUsage().rss;
     let peakObservedRssBytes = rssBefore;
@@ -1135,9 +1197,9 @@ async function runEmbeddingModel(spec, rowsBySplit) {
                 selectedRepresentation: selected.representationId,
                 anchorCurve: curve });
         }
-        return { id: spec.id, modelPath: path.basename(spec.modelPath),
-            fileBytes: fs.statSync(spec.modelPath).size,
-            sha256: await hashFile(spec.modelPath),
+        return { id: spec.id, modelPath: artifactReceipt.actual.basename,
+            fileBytes: artifactReceipt.actual.sizeBytes,
+            sha256: artifactReceipt.actual.sha256,
             runtime: { package: 'node-llama-cpp',
                 version: readJson(path.join(ROOT, 'node_modules', 'node-llama-cpp',
                     'package.json'), {}).version || null,
@@ -1699,5 +1761,7 @@ module.exports = {
     embeddingEvaluationSplits, embeddingCalibrationStudySplits,
     evaluateHighRiskRecall, buildBlindEvaluationAcceptance,
     buildCalibrationStudyRecommendation, runEmbeddingSpike,
-    runEmbeddingCalibrationStudy
+    runEmbeddingCalibrationStudy, EMBEDDING_MODEL_ARTIFACTS,
+    compareEmbeddingModelArtifactReceipt, inspectEmbeddingModelArtifact,
+    requireEmbeddingModelArtifact
 };

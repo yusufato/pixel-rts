@@ -1793,3 +1793,10 @@
 - **What happened:** Çoğul/kibar emir, soru biçimli rica ve gereklilik kipi tek cümle listeleri yerine kanonik eylem kökü ile morfolojik ek bileşimi olarak çözüldü. Sınır/sinir eşseslisi, dinleyici icracı, gelecek eylem zamanı ve soru epistemik durumu aynı kompozisyon içinde ayrıldı.
 - **Evidence:** Kör erişimsiz calibration `REQUEST_ACTION` deterministik doğruluğu `7/11 → 11/11` oldu. `iletin`, `çekin`, `hazırlayın`, `değiştirin` ve `tutar mısın` aileleri eylem talebine ulaştı; güven sorusu, şimdiki-zaman bilgi sorusu ve konuşanın kendi eylemini soran biçim yüksek-risk talebe dönmedi. Dört hedef test komutu exit `0` verdi.
 - **Implication for future audits:** Aynı fiiller için cümle bazlı dal ekleme veya bütün soru parçacıklarını bilgi isteği sayma. BGE fit-anchor kalibrasyonu doğrulanmış model dosyasıyla yeniden ölçülmeden bu deterministik sonucu model kabulü, yeni blind izni, runtime entegrasyonu ya da `%90+`/B1 kanıtı sayma.
+
+## 2026-09-02 — Embedding modeli yükleme öncesi makbuza bağlandı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` model artefakt kapısı
+- **What happened:** E5 ve BGE GGUF kimlikleri dosya adı, tam byte boyutu ve SHA-256 üçlüsüyle sürümlendi. Model koşucusu bu makbuzu `node-llama-cpp` yüklemesinden önce doğrulayacak ve eksik/farklı dosyada duracak şekilde değiştirildi.
+- **Evidence:** E5 makbuzu `twinsuns-multilingual-e5-small-q8_0.gguf / 132439008 / e011debc…0a877c93`; BGE makbuzu `bge-m3-q8_0.gguf / 634553760 / aa473d51…4047a173`dır. BGE için kullanıcı alanında hedefli dosya araması sonuç vermedi; makbuz karşılaştırma regresyonu doğru, yanlış-boyut ve bilinmeyen-model yollarını doğruladı.
+- **Implication for future audits:** Aynı ada sahip veya rastgele başka GGUF ile geçmiş ölçümü yeniden üretme. Fit-anchor kalibrasyonunu ancak tam makbuzu geçen artefakt geri getirildiğinde, yalnız prototype+calibration sınırında çalıştır; spent blind epoch'lara erişme.

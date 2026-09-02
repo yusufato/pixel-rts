@@ -1160,3 +1160,10 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   Doğrulanmış hash'e sahip BGE-M3 dosyası mevcut çalışma alanında bulunmadığı
   için fit-anchor dış-kat ölçümü bu turda yeniden çalıştırılmadı; bu sonuç yeni
   blind, runtime/Electron/IPC veya `%90+`/B1 kabulü açmaz.
+- Model koşucusu artık GGUF'u yüklemeden önce sürümlü artefakt makbuzundaki dosya
+  adı, byte boyutu ve SHA-256'yı birlikte doğrular. BGE-M3 makbuzu
+  `bge-m3-q8_0.gguf / 634553760 / aa473d51…4047a173`, E5 makbuzu
+  `twinsuns-multilingual-e5-small-q8_0.gguf / 132439008 /
+  e011debc…0a877c93` olarak kod ve regresyon testinde kilitlendi. Eksik, farklı
+  veya bozuk artefakt artık `node-llama-cpp` yüklenmeden açık hata verir; kayıp
+  model sessizce başka GGUF ile ikame edilemez.
