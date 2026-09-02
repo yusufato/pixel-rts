@@ -326,6 +326,24 @@ try {
     assert.notEqual(analyze('Komutan kararını kişisel olarak doğru buluyor.').speechAct,
         'ASK_PERSONAL_OPINION');
 
+    const personalRecognitionQuestions = [
+        'Beni ne kadar iyi tanıyorsunuz efendim?',
+        'Benden kastediyorum, beni tanıyor musunuz?',
+        'Beni neden tanımıyorsunuz?'
+    ];
+    for (const text of personalRecognitionQuestions) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'ASK', text);
+        assert.equal(result.semanticFrame.predicate, 'RELATIONSHIP', text);
+        assert.equal(result.semanticFrame.target, 'PLAYER', text);
+        assert.equal(result.speechAct, 'ASK_RELATIONSHIP', text);
+    }
+    assert.equal(analyze("Cermen Federasyonu'nu tanıyor musunuz?").speechAct,
+        'ASK_INFORMATION');
+    assert.notEqual(analyze('Komutan beni tanıyor.').speechAct, 'ASK_RELATIONSHIP');
+    assert.notEqual(analyze('Beni karargâha götürür müsünüz?').speechAct,
+        'ASK_RELATIONSHIP');
+
     const epistemicBluffFamilies = [
         ['Üç ülke de planımı destekliyor; isimlerini vermem.', true],
         ['Rakibinizin bütün şifreleri elimde, ama şimdi gösteremem.', true],

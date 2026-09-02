@@ -167,12 +167,17 @@ function storySemanticFramePredicate(tokens) {
         && storySemanticFrameHas(tokens, ['kisisel'])
         && tokens.some(token => /^buluyor/.test(token))
         ? storySemanticFrameEvidence(tokens, ['kisisel']) : [];
+    const personalRecognitionEvidence = questionEvidence.length
+        && storySemanticFrameHas(tokens, ['beni', 'benden'])
+        && tokens.some(token => /^tani/.test(token))
+        ? tokens.filter(token => /^tani/.test(token)) : [];
     const compositionalOpinionEvidence = discussionPreferenceEvidence
         .concat(personalEvaluationEvidence)
         .filter((value, index, all) => all.indexOf(value) === index);
     const candidates = Object.entries(STORY_SEMANTIC_PREDICATES).map(([id, roots]) => {
         const evidence = storySemanticFrameEvidence(tokens, roots)
             .concat(id === 'OPINION' ? compositionalOpinionEvidence : [])
+            .concat(id === 'RELATIONSHIP' ? personalRecognitionEvidence : [])
             .filter((value, index, all) => all.indexOf(value) === index)
             .filter(token =>
             id !== 'EMOTION' || !/^sinir(?:da|de|dan|den|daki|deki)/.test(token)

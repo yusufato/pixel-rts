@@ -1281,3 +1281,15 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   `33/33`; toplam doğruluk `247/272 → 249/272` (`%90,8 → %91,5`) ve hata
   `25 → 23` oldu. Dört hedef regresyon paketi geçti. Bu non-blind geliştirme
   ölçümü B1 veya ürün `%90+` kabulü değildir.
+- Oyuncunun dinleyici tarafından tanınıp tanınmadığını soran ilişki ailesi,
+  yalnız `tanı` sözcüğüyle değil soru kanıtı + oyuncunun belirtme/ayrılma hâli
+  (`beni/benden`) + tanıma yüklemi bileşimiyle bağlandı. Ülkeyi tanıma sorusu,
+  üçüncü kişi bildirimi ve oyuncuya yönelen başka eylemler ilişki sayılmadı.
+- Spent blind açılmadan `ASK_RELATIONSHIP` `0/2 → 2/2`, yanlış ilişki `0`, OOD
+  `33/33`; toplam doğruluk `249/272 → 251/272` (`%91,5 → %92,3`) ve hata
+  `23 → 21` oldu. Başlangıçtaki 143 non-blind hatanın `122/143`ü (`%85,3`)
+  kapandı. Dört hedef regresyon paketi geçti; bu yine B1/ürün kabulü değildir.
+- Hard-negative tasarımında “Beni karargâha götürür müsünüz?” ilişkiye dönüşmedi
+  fakat mevcut motorun bunu `REQUEST_ACTION` yerine `UNKNOWN` bıraktığı görüldü.
+  Bu ayrı hareket-talebi açığı ilişki yamasına karıştırılmadı ve sonraki hata
+  ailesine ertelendi.

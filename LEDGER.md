@@ -1870,3 +1870,10 @@
 - **What happened:** Cümle başındaki `iyi akşamlar/günler/sabahlar` bileşimi selam icrası oldu. Aynı sözcüklerin durum, yemek ve metalinguistik çeviri/anlam bağlamları selam sayılmadı.
 - **Evidence:** Spent blind açılmadan non-blind `GREETING` `8/10 → 10/10`, yanlış selam `0`, OOD `33/33`; toplam doğruluk `247/272 → 249/272` (`%90,8 → %91,5`) ve hata `25 → 23` oldu. Semantic-frame, router, conversation-case ve review-server testleri exit `0` verdi.
 - **Implication for future audits:** `iyi` veya zaman sözcüğünü tek başına selam kanıtı sayma; başlangıç konumu ve kalıp birlikteliğini iste. `%91,5` non-blind geliştirme doğruluğunu B1 veya ürün `%90+` kabulü olarak raporlama.
+
+## 2026-09-02 — Oyuncuyu tanıma soruları ilişki yönüne bağlandı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` player-recognition relationship family
+- **What happened:** Soru + `beni/benden` + tanıma yüklemi, dinleyicinin oyuncuyla ilişkisel aşinalığını soran bileşim oldu. Ülkeyi tanıma, üçüncü kişi bildirimi ve oyuncuya yönelen başka eylemler bu sınıfa alınmadı.
+- **Evidence:** Spent blind açılmadan non-blind `ASK_RELATIONSHIP` `0/2 → 2/2`, yanlış ilişki `0`, OOD `33/33`; toplam doğruluk `249/272 → 251/272` (`%91,5 → %92,3`) ve hata `23 → 21` oldu. Başlangıçtaki 143 hatanın `122/143`ü (`%85,3`) kapandı; dört hedef test paketi exit `0` verdi.
+- **Implication for future audits:** `tanı` kökünü tek başına sosyal ilişki sayma; soru yönü ve oyuncu nesnesini birlikte iste. “Beni karargâha götürür müsünüz?” ayrı bir hareket-talebi açığıdır ve bu ilişki sonucuyla kapanmış sayılmamalıdır; `%92,3` non-blind oran B1/ürün kabulü değildir.
