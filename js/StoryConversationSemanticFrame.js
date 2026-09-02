@@ -193,6 +193,13 @@ function storySemanticFrameTarget(tokens) {
 
 function storySemanticFrameFunction(raw, tokens, predicate) {
     const questionEvidence = storySemanticFrameQuestionEvidence(tokens);
+    const challengeEvidence = questionEvidence.length ? tokens.filter(token =>
+        /^(?:kanit|kanitla|mesru|inan|emin|iddia|sucla|dayan)/.test(token)) : [];
+    const authorityChallengeContext = questionEvidence.length && tokens.some(token =>
+        /^(?:gercekten|nasil|gostermeden|yokken|olmadan|alinmadan|destekle)/.test(token));
+    if (authorityChallengeContext) {
+        challengeEvidence.push(...tokens.filter(token => /^yetki/.test(token)));
+    }
     const closeEvidence = storySemanticFrameEvidence(tokens,
         ['gorusuruz', 'hosca', 'gule', 'ayril', 'gidiyor', 'doneceg']);
     const greetingEvidence = storySemanticFrameEvidence(tokens,
@@ -280,6 +287,11 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     if (conditionalThreatEvidence.length) {
         return { value: 'TELL', requestedOutcome: 'ACTION',
             evidence: conditionalThreatEvidence, score: 3300 };
+    }
+    if (challengeEvidence.length && !directedRequestEvidence.length) {
+        return { value: 'ASK', speechActOverride: 'CHALLENGE',
+            evidence: challengeEvidence.concat(questionEvidence)
+                .filter((value, index, all) => all.indexOf(value) === index), score: 3300 };
     }
     if (!questionEvidence.length && !negativeDisclosureImperativeEvidence.length
         && !negatedDisclosureEvidence.length
@@ -682,13 +694,15 @@ function storyConversationSemanticFrameCompile(raw, context) {
         worldMutation: false,
         proposedCommand: null
     };
-    frame.suggestedSpeechAct = storySemanticFrameSpeechAct(frame);
+    frame.suggestedSpeechAct = communicative.speechActOverride
+        || storySemanticFrameSpeechAct(frame);
     return frame;
 }
 
 function storyConversationSemanticFrameFuse(legacy, frame) {
     const selfSufficientFunction = frame && (['CLOSE', 'GREET', 'THANK', 'APOLOGIZE']
         .includes(frame.communicativeFunction)
+        || frame.suggestedSpeechAct === 'CHALLENGE'
         || frame.communicativeFunction === 'CONFIDE'
         || (frame.communicativeFunction === 'TELL'
             && ['HEALTH', 'EMOTION', 'WEATHER'].includes(frame.predicate)));

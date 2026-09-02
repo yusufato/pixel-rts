@@ -392,6 +392,14 @@ assert.deepEqual(calibrationRequestRows.filter(row =>
     calibrationRequestProposals.get(row.id).labels.speechAct !== 'REQUEST_ACTION')
     .map(row => row.id), [],
 'calibration action requests must remain directionally understood before embedding');
+const calibrationChallengeRows = corpus.candidates.filter(row =>
+    row.split === 'calibration' && row.adjudication
+    && row.adjudication.labels.speechAct === 'CHALLENGE');
+const calibrationChallengeProposals = buildBaselineProposals(calibrationChallengeRows);
+assert.deepEqual(calibrationChallengeRows.filter(row =>
+    calibrationChallengeProposals.get(row.id).labels.speechAct !== 'CHALLENGE')
+    .map(row => row.id), [],
+'calibration evidence and authority challenges must not collapse into information requests');
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));

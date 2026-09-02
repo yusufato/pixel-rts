@@ -201,6 +201,30 @@ try {
         assert.notEqual(result.semanticFrame.suggestedSpeechAct, 'BLUFF_CANDIDATE', text);
         assert.notEqual(result.speechAct, 'BLUFF_CANDIDATE', text);
     }
+    const challengeFamilies = [
+        'Bu kararınızın gerçekten mantıklı olduğunu kanıtlayabilir misiniz?',
+        'Ordunun hazır olduğunu söylüyorsunuz; buna neden inanayım?',
+        'Bu bütçe hesabınızın doğru olduğundan emin misiniz?',
+        'Bu emri vermeye gerçekten yetkiniz var mı?',
+        'Yetki belgesini göstermeden bu tesise nasıl el koyabilirsiniz?',
+        'Halkın onayı alınmadan bu vergiyi meşru saymamızı mı istiyorsunuz?',
+        'Tek bir rapora dayanarak bütün şehri nasıl tahliye edebilirsiniz?'
+    ];
+    for (const text of challengeFamilies) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'ASK', text);
+        assert.equal(result.semanticFrame.suggestedSpeechAct, 'CHALLENGE', text);
+        assert.equal(result.speechAct, 'CHALLENGE', text);
+    }
+    const neutralQuestions = [
+        'Yetki belgesini hangi arşivde bulabilirim?',
+        'Denetim raporu ne zaman yayımlanacak?',
+        'Toplantının tutanağını bana iletir misiniz?',
+        'Kanıt dosyasını bana iletir misiniz?'
+    ];
+    for (const text of neutralQuestions) {
+        assert.notEqual(analyze(text).speechAct, 'CHALLENGE', text);
+    }
     const directedPromise = analyze(
         'Yardım birliğini gün batmadan göndereceğime söz veriyorum.');
     assert.equal(directedPromise.semanticFrame.surfaceForm, 'DECLARATIVE');

@@ -1167,3 +1167,10 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   e011debc…0a877c93` olarak kod ve regresyon testinde kilitlendi. Eksik, farklı
   veya bozuk artefakt artık `node-llama-cpp` yüklenmeden açık hata verir; kayıp
   model sessizce başka GGUF ile ikame edilemez.
+- Model beklenirken prototype+calibration deterministik hata envanteri yeniden
+  çıkarıldı; spent blind satırları dahil edilmedi. En büyük güvenli oyun-içi
+  ortak aile olan kanıt/yetki/meşruiyet/gerekçe itirazları, soru yüzeyi ile
+  tartışılan iddia veya otorite kanıtının bileşimine bağlandı. Kalibrasyondaki
+  `10/10` CHALLENGE kaydı doğru sınıfa ulaştı; toplam prototype+calibration ana
+  eylem hatası `143 → 133` oldu. Belge konumu ve kanıt/tutanak iletme gibi nötr
+  bilgi/eylem soruları hard-negative olarak itiraza dönüşmeden kaldı.

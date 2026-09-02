@@ -1800,3 +1800,10 @@
 - **What happened:** E5 ve BGE GGUF kimlikleri dosya adı, tam byte boyutu ve SHA-256 üçlüsüyle sürümlendi. Model koşucusu bu makbuzu `node-llama-cpp` yüklemesinden önce doğrulayacak ve eksik/farklı dosyada duracak şekilde değiştirildi.
 - **Evidence:** E5 makbuzu `twinsuns-multilingual-e5-small-q8_0.gguf / 132439008 / e011debc…0a877c93`; BGE makbuzu `bge-m3-q8_0.gguf / 634553760 / aa473d51…4047a173`dır. BGE için kullanıcı alanında hedefli dosya araması sonuç vermedi; makbuz karşılaştırma regresyonu doğru, yanlış-boyut ve bilinmeyen-model yollarını doğruladı.
 - **Implication for future audits:** Aynı ada sahip veya rastgele başka GGUF ile geçmiş ölçümü yeniden üretme. Fit-anchor kalibrasyonunu ancak tam makbuzu geçen artefakt geri getirildiğinde, yalnız prototype+calibration sınırında çalıştır; spent blind epoch'lara erişme.
+
+## 2026-09-02 — Kanıt ve otorite itirazları bilgi sorusundan ayrıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` calibration-only hata ailesi sayımı
+- **What happened:** Kanıt, yetki, meşruiyet ve gerekçe sorguları yalnız soru işaretine göre bilgi isteği sayılmak yerine, soru yüzeyi ile tartışılan iddia/otorite kanıtının bileşimi olarak CHALLENGE'a bağlandı. Nötr belge konumu ve belge iletme soruları karşı örnek olarak korundu.
+- **Evidence:** Spent blind erişmeden `272` prototype+calibration gold üzerinde ana eylem hatası `143 → 133` indi. Kalibrasyondaki CHALLENGE doğruluğu `0/10 → 10/10`; semantik-frame, router, conversation-case ve review-server regresyonları geçti.
+- **Implication for future audits:** Her soru biçimli cümleyi ASK_INFORMATION sayma; fakat `yetki` veya `kanıt` kelimesini tek başına itiraz da sayma. CHALLENGE için tartışılan iddia/otorite bileşimi aranmalı, yöneltilmiş belge eylemi REQUEST olarak kalmalıdır.
