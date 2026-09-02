@@ -157,8 +157,24 @@ function storySemanticFramePoliteRequestEvidence(tokens) {
 function storySemanticFramePredicate(tokens) {
     const militaryContext = storySemanticFrameEvidence(tokens,
         STORY_SEMANTIC_PREDICATES.MILITARY).length > 0;
+    const questionEvidence = storySemanticFrameQuestionEvidence(tokens);
+    const discussionPreferenceEvidence = questionEvidence.length
+        && storySemanticFrameHas(tokens, ['hakkinda'])
+        && storySemanticFrameHas(tokens, ['konusmak'])
+        && storySemanticFrameHas(tokens, ['ister'])
+        ? storySemanticFrameEvidence(tokens, ['konusmak']) : [];
+    const personalEvaluationEvidence = questionEvidence.length
+        && storySemanticFrameHas(tokens, ['kisisel'])
+        && tokens.some(token => /^buluyor/.test(token))
+        ? storySemanticFrameEvidence(tokens, ['kisisel']) : [];
+    const compositionalOpinionEvidence = discussionPreferenceEvidence
+        .concat(personalEvaluationEvidence)
+        .filter((value, index, all) => all.indexOf(value) === index);
     const candidates = Object.entries(STORY_SEMANTIC_PREDICATES).map(([id, roots]) => {
-        const evidence = storySemanticFrameEvidence(tokens, roots).filter(token =>
+        const evidence = storySemanticFrameEvidence(tokens, roots)
+            .concat(id === 'OPINION' ? compositionalOpinionEvidence : [])
+            .filter((value, index, all) => all.indexOf(value) === index)
+            .filter(token =>
             id !== 'EMOTION' || !/^sinir(?:da|de|dan|den|daki|deki)/.test(token)
                 && !(token === 'sinir' && militaryContext));
         return { id, evidence, score: evidence.length * 2600 };
@@ -475,7 +491,10 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     }
     if (offerEvidence.length) return { value: 'OFFER', evidence: offerEvidence, score: 2700 };
     if (String(raw || '').includes('?') || questionEvidence.length) {
-        return { value: 'ASK', evidence: questionEvidence, score: 3000 };
+        const opinionQuestion = predicate.primary === 'OPINION'
+            || predicate.secondary.includes('OPINION');
+        return { value: 'ASK', requestedOutcome: opinionQuestion ? 'OPINION' : 'INFORMATION',
+            evidence: questionEvidence, score: 3000 };
     }
     return { value: 'TELL', evidence: [], score: predicate.primary === 'UNSPECIFIED' ? 0 : 1800 };
 }

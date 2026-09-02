@@ -286,6 +286,29 @@ try {
         assert.equal(analyze(text).speechAct, speechAct, text);
     }
 
+    const listenerOpinionQuestions = [
+        'Yatırım fırsatları hakkında konuşmak ister misiniz?',
+        'Halkın yaşamı hakkında konuşmak ister misiniz?',
+        'Komutanın kararını kişisel olarak doğru buluyor musun?'
+    ];
+    for (const text of listenerOpinionQuestions) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'ASK', text);
+        assert.equal(result.semanticFrame.requestedOutcome, 'OPINION', text);
+        assert.equal(result.semanticFrame.suggestedSpeechAct, 'ASK_PERSONAL_OPINION', text);
+        assert.equal(result.speechAct, 'ASK_PERSONAL_OPINION', text);
+    }
+    const opinionQuestionHardNegatives = [
+        'Yatırım fırsatları hakkında hangi raporlar var?',
+        'Komutanın kararı ne zaman açıklandı?',
+        'Bütçe raporunu hazırlıyor musunuz?'
+    ];
+    for (const text of opinionQuestionHardNegatives) {
+        assert.equal(analyze(text).speechAct, 'ASK_INFORMATION', text);
+    }
+    assert.notEqual(analyze('Komutan kararını kişisel olarak doğru buluyor.').speechAct,
+        'ASK_PERSONAL_OPINION');
+
     const epistemicBluffFamilies = [
         ['Üç ülke de planımı destekliyor; isimlerini vermem.', true],
         ['Rakibinizin bütün şifreleri elimde, ama şimdi gösteremem.', true],

@@ -1856,3 +1856,10 @@
 - **What happened:** Önceki yürütme kaydındaki “`hazırlamamı ister misin` bilgi sorusu olarak kaldı” kararı kullanıcı onayıyla tersine çevrildi. Konuşanın yapacağı `-mamı/-memi ister misiniz?` eylemi `OFFER_SUPPORT`; dinleyicinin yapacağı geniş zaman soru biçimi `REQUEST_ACTION`; sürmekte olan eylem sorusu `ASK_INFORMATION` olarak ayrıldı.
 - **Evidence:** Dört gramer varyantı ve iki aktör-yönü hard-negative regresyonu geçti. Spent blind açılmadan non-blind `OFFER_SUPPORT` `4/10 → 10/10`, yanlış teklif `0`, OOD `33/33`; toplam doğruluk `238/272 → 244/272` (`%87,5 → %89,7`) ve hata `34 → 28` oldu. Dört hedef test paketi exit `0` verdi.
 - **Implication for future audits:** Soru yüzeyini tek başına bilgi sorusu sayma. Eylemi kimin gerçekleştireceğini Türkçe kişi/adlaştırma morfolojisinden çıkar; ekonomik konu sözcüğünü karşılıklı bedel veya değişim kanıtı olmadan ticari teklif sayma. Bu tersine çevirme B1 ya da `%90+` kabulü değildir.
+
+## 2026-09-02 — Dinleyici değerlendirmesi kişisel görüş sorusuna bağlandı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` listener-evaluation family
+- **What happened:** Konu hakkında konuşma tercihi ve açık kişisel doğru bulma soruları, genel bilgi sorusundan bileşimsel dinleyici değerlendirmesine ayrıldı. Bilgi kaynağı/zamanı ve devam eden eylem soruları görüşe çevrilmedi.
+- **Evidence:** Spent blind açılmadan non-blind `ASK_PERSONAL_OPINION` `3/7 → 6/7`, yanlış görüş `0`, OOD `33/33`; toplam doğruluk `244/272 → 247/272` (`%89,7 → %90,8`) ve hata `28 → 25` oldu. Semantic-frame, router, conversation-case ve review-server testleri exit `0` verdi.
+- **Implication for future audits:** `%90,8` non-blind geliştirme doğruluğunu B1 veya ürün `%90+` kabulü sayma. “Sen olsan bu barış teklifini kabul eder miydin?” eski testte `ASK_INFORMATION`, tekil gold’da `ASK_PERSONAL_OPINION`; bu sözleşme çatışmasını kullanıcı kararı olmadan sessizce tersine çevirme.

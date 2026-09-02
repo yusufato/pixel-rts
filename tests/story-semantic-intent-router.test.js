@@ -454,6 +454,18 @@ assert.deepEqual(nonBlindOfferSupportRows.filter(row =>
     nonBlindOfferSupportProposals.get(row.id).labels.speechAct !== 'OFFER_SUPPORT')
     .map(row => row.id), [],
 'prototype and calibration speaker-action offers must remain support offers');
+const nonBlindOpinionRows = corpus.candidates.filter(row => row.split !== 'blind_test'
+    && row.adjudication && row.adjudication.labels.speechAct === 'ASK_PERSONAL_OPINION');
+const deferredOpinionContractId = 'semantic-intent:stability0004';
+const resolvedNonBlindOpinionRows = nonBlindOpinionRows.filter(row =>
+    row.id !== deferredOpinionContractId);
+const resolvedNonBlindOpinionProposals = buildBaselineProposals(resolvedNonBlindOpinionRows);
+assert.equal(nonBlindOpinionRows.length, 7);
+assert.equal(resolvedNonBlindOpinionRows.length, 6);
+assert.deepEqual(resolvedNonBlindOpinionRows.filter(row =>
+    resolvedNonBlindOpinionProposals.get(row.id).labels.speechAct !== 'ASK_PERSONAL_OPINION')
+    .map(row => row.id), [],
+'non-blind listener evaluation questions must remain personal-opinion questions');
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));

@@ -1259,3 +1259,17 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   (`%87,5 → %89,7`), hata `34 → 28` indi. Semantic-frame, router,
   conversation-case ve review-server regresyonları geçti. Bu ölçüm `%90+` veya
   B1 kabulü değildir; plan `In Progress` kalır.
+- Kişisel görüş soruları, genel soru parçacığı veya konu sözcüğüyle değil
+  dinleyicinin değerlendirmesini isteyen iki bileşimle genişletildi: `hakkında
+  konuşmak ister misiniz?` konuya dair görüş/diyalog tercihi, `kişisel olarak
+  doğru buluyor musunuz?` açık kişisel değerlendirmedir. Bilgi kaynağı, rapor
+  zamanı ve sürmekte olan eylem soruları hard-negative olarak bilgi sorusu
+  kaldı.
+- Spent blind açılmadan `ASK_PERSONAL_OPINION` `3/7 → 6/7`, yanlış görüş `0`,
+  OOD `33/33`; toplam doğruluk `244/272 → 247/272` (`%89,7 → %90,8`) ve hata
+  `28 → 25` oldu. Dört hedef regresyon paketi geçti. Bu non-blind geliştirme
+  ölçümü B1 veya ürün `%90+` kabulü değildir.
+- Kalan görüş kaydı bilinçli olarak düzeltilmedi: “Sen olsan bu barış teklifini
+  kabul eder miydin?” eski semantic-frame testinde `ASK_INFORMATION`, tekil
+  gold corpusunda `ASK_PERSONAL_OPINION` sözleşmesine sahip. Tarihsel beklenti
+  kullanıcı kararı olmadan tersine çevrilmedi; ayrı karar borcu olarak kaldı.
