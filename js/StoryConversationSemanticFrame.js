@@ -195,6 +195,42 @@ function storySemanticFrameTarget(tokens) {
     return { value: 'UNSPECIFIED', evidence: [], score: 0 };
 }
 
+function storySemanticFrameCorrectionEvidence(tokens) {
+    const questionEvidence = storySemanticFrameQuestionEvidence(tokens);
+    if (questionEvidence.length) return { matched: false, evidence: [] };
+    const explicitCorrection = storySemanticFrameEvidence(tokens, ['duzelt', 'yanlis']);
+    const contraryToPrior = storySemanticFrameEvidence(tokens, ['aksine']);
+    const rejectionLead = storySemanticFrameEvidence(tokens, ['hayir']);
+    const contrastiveReplacement = storySemanticFrameEvidence(tokens, ['degil']);
+    const categoricalCorrection = tokens.filter(token => /^degildir$/.test(token));
+    const metalinguisticActNegation = tokens.flatMap((token, index) =>
+        /^(?:teklif|tehdit|iddia|hakaret)$/.test(token)
+            && /^(?:etmiyorum|etmiyoruz)$/.test(tokens[index + 1] || '')
+            ? [token, tokens[index + 1]] : []);
+    const priorUtterance = storySemanticFrameEvidence(tokens,
+        ['onceki', 'soyledig', 'dedin', 'soyledin']);
+    const repetition = storySemanticFrameEvidence(tokens, ['ayni', 'tekrar']);
+    const missingContent = storySemanticFrameEvidence(tokens,
+        ['nokta', 'haber', 'bilgi', 'ayrinti']);
+    const missingState = storySemanticFrameEvidence(tokens, ['eksik']);
+    const roleReference = storySemanticFrameEvidence(tokens,
+        ['rol', 'yonetici', 'makam']);
+    const apparentIdentity = storySemanticFrameEvidence(tokens, ['gozuk', 'gorun']);
+    const evidence = explicitCorrection.concat(contraryToPrior,
+        rejectionLead.length && contrastiveReplacement.length
+            ? rejectionLead.concat(contrastiveReplacement) : [],
+        categoricalCorrection,
+        metalinguisticActNegation,
+        priorUtterance.length && repetition.length
+            ? priorUtterance.concat(repetition) : [],
+        missingContent.length && missingState.length
+            ? missingContent.concat(missingState) : [],
+        roleReference.length && apparentIdentity.length
+            ? roleReference.concat(apparentIdentity) : [])
+        .filter((value, index, all) => all.indexOf(value) === index);
+    return { matched: evidence.length > 0, evidence };
+}
+
 function storySemanticFrameFunction(raw, tokens, predicate) {
     const questionEvidence = storySemanticFrameQuestionEvidence(tokens);
     const directDeceptionEvidence = tokens.filter(token =>
@@ -313,11 +349,16 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
         .some(id => predicateIds.has(id));
     const hasEconomicPredicate = predicateIds.has('ECONOMY');
     const bluffEvidence = storySemanticFrameBluffEvidence(tokens);
+    const correctionEvidence = storySemanticFrameCorrectionEvidence(tokens);
     if (closeEvidence.length) return { value: 'CLOSE', evidence: closeEvidence, score: 3300 };
     if (greetingEvidence.length) return { value: 'GREET', evidence: greetingEvidence, score: 3300 };
     if (thanksEvidence.length) return { value: 'THANK', evidence: thanksEvidence, score: 3300 };
     if (apologyPerformanceEvidence.length) {
         return { value: 'APOLOGIZE', evidence: apologyPerformanceEvidence, score: 3300 };
+    }
+    if (correctionEvidence.matched) {
+        return { value: 'CORRECT', requestedOutcome: 'ACKNOWLEDGEMENT',
+            evidence: correctionEvidence.evidence, score: 3300 };
     }
     if (bluffEvidence.matched) {
         return { value: 'TELL', speechActOverride: 'BLUFF_CANDIDATE',
@@ -532,7 +573,10 @@ function storySemanticFrameEpistemic(tokens) {
 }
 
 function storySemanticFrameContinuity(tokens) {
-    const correction = storySemanticFrameEvidence(tokens, ['hayir', 'yanlis', 'aslinda', 'duzelt']);
+    const boundedCorrection = storySemanticFrameCorrectionEvidence(tokens);
+    const correction = boundedCorrection.evidence.concat(
+        storySemanticFrameEvidence(tokens, ['hayir', 'aslinda']))
+        .filter((value, index, all) => all.indexOf(value) === index);
     const repair = storySemanticFrameEvidence(tokens, ['anlamadim', 'tekrar', 'acikla', 'ne demek']);
     const continuation = storySemanticFrameEvidence(tokens, ['peki', 'tamam', 'ayrica', 'oyle ise', 'neden']);
     if (correction.length) return { value: 'CORRECTION', evidence: correction };
@@ -825,7 +869,8 @@ function storyConversationSemanticFrameFuse(legacy, frame) {
         && frame.temporality !== 'HABITUAL';
     const selfSufficientFunction = frame && (['CLOSE', 'GREET', 'THANK', 'APOLOGIZE']
         .includes(frame.communicativeFunction)
-        || ['CHALLENGE', 'THREATEN', 'MAKE_PROMISE', 'REJECT', 'BLUFF_CANDIDATE']
+        || ['CHALLENGE', 'THREATEN', 'MAKE_PROMISE', 'REJECT', 'CORRECT_STATEMENT',
+            'BLUFF_CANDIDATE']
             .includes(frame.suggestedSpeechAct)
         || frame.communicativeFunction === 'CONFIDE'
         || (frame.communicativeFunction === 'TELL'
@@ -845,7 +890,7 @@ function storyConversationSemanticFrameFuse(legacy, frame) {
             && frame.predicate === 'SECRET')
         || (frame.communicativeFunction === 'TELL'
             && frame.requestedOutcome === 'ACTION')
-        || ['MAKE_PROMISE', 'REJECT', 'BLUFF_CANDIDATE']
+        || ['MAKE_PROMISE', 'REJECT', 'CORRECT_STATEMENT', 'BLUFF_CANDIDATE']
             .includes(frame.suggestedSpeechAct));
     if (!genericLegacy && legacy.primary !== frame.suggestedSpeechAct
         && !directionallySelfSufficient) return legacy;

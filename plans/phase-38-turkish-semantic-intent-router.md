@@ -1223,3 +1223,15 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
 - Blind açılmadan `SMALL_TALK` ana niyeti `8/22 → 22/22`, toplam doğruluk
   `211/272 → 227/272` (`%77,6 → %83,5`) ve hata `61 → 45` oldu. OOD güvenliği
   `33/33` kaldı. Bu hâlâ B1 veya `%90+` kabulü değildir.
+- Şemada bulunmasına rağmen deterministik derleyicide hiçbir üretim yolu olmayan
+  `CORRECT` işlevi beş bileşimsel aileyle bağlandı: açık öz-düzeltme, `X değil Y`
+  ikamesi, önceki söze karşı çıkma, bitişik metalinguistik eylem inkârı ve
+  önceki içeriğin eksik/tekrarlı olduğunu bildirme. `Hayır` tek başına düzeltme
+  değildir; `teklif etmiyorum` düzeltmeyken `teklifini kabul etmiyorum` rettir.
+  Çerçeve birleşimi özgül legacy etiketine karşı `CORRECT_STATEMENT` yönünü
+  yetkili kabul eder.
+- Blind açılmadan `CORRECT_STATEMENT` `0/11 → 11/11`, yanlış pozitif `0`, OOD
+  `33/33` kaldı. Toplam doğruluk `227/272 → 238/272` (`%83,5 → %87,5`) ve hata
+  `45 → 34` oldu. Açık olumlu “tehdit ediyorum” biçiminin ekonomik rapora
+  düşmesi ayrı yüksek-risk yön ailesi olarak sonraya bırakıldı; bu ölçüm B1 veya
+  `%90+` kabulü değildir.

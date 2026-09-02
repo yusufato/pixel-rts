@@ -135,6 +135,30 @@ try {
     for (const text of externalTellCommands) {
         assert.equal(analyze(text).speechAct, 'UNKNOWN', text);
     }
+    const correctionFamilies = [
+        'Hayır, sevkiyat dün değil bu sabah ulaştı.',
+        'Söylediğinizin aksine anlaşma henüz imzalanmadı.',
+        'Ticaret anlaşması teklif etmiyorum.',
+        'Aynı şeyleri tekrar söyledin.',
+        'Bu toplantıda bazı önemli noktalar eksik.',
+        'Devlet yönetmek bir şirket yönetmek değildir.'
+    ];
+    for (const text of correctionFamilies) {
+        const result = analyze(text);
+        assert.equal(result.speechAct, 'CORRECT_STATEMENT', text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'CORRECT', text);
+        assert.equal(result.semanticFrame.continuity, 'CORRECTION', text);
+    }
+    const correctionHardNegatives = [
+        ['Hayır, anlaşmayı kabul etmiyorum.', 'REJECT'],
+        ['Yeni bir ticaret teklifi hazırlıyorum.', 'REPORT_ECONOMIC'],
+        ['Size yeni bir ticaret teklifi sunuyorum.', 'PROPOSE_COMMERCIAL_DEAL'],
+        ['Hazine rezervi eksik görünüyor.', 'REPORT_ECONOMIC']
+    ];
+    for (const [text, excludedSpeechAct] of correctionHardNegatives) {
+        assert.notEqual(analyze(text).speechAct, 'CORRECT_STATEMENT', text);
+        assert.equal(analyze(text).speechAct, excludedSpeechAct, text);
+    }
     const reciprocalCommercialFamilies = [
         'Bakırın tonu için sekiz yüz verirseniz altı aylık sevkiyat garantisi sunarız.',
         'Liman kullanımını bize açın, karşılığında gümrük payını yüzde iki artırayım.',
