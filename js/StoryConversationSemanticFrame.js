@@ -57,14 +57,15 @@ const STORY_SEMANTIC_PREDICATES = Object.freeze({
     RELATIONSHIP: ['guven', 'ilisk', 'sadakat', 'dost', 'husumet', 'itibar'],
     WORK: ['gorev', 'is', 'calis', 'ihtiyac', 'yardim', 'destek', 'gelistir',
         'rapor'],
-    SECRET: ['sir', 'gizli', 'mahrem', 'aramiz', 'sifre', 'anahtar', 'kimsenin', 'sakli', 'muhbir'],
+    SECRET: ['sir', 'gizli', 'mahrem', 'aramiz', 'sifre', 'anahtar', 'kimse', 'kimsenin', 'sakli', 'muhbir'],
     TECHNOLOGY: ['teknoloji', 'arastir', 'yapayzeka', 'otomasyon', 'bilim'],
     MILITARY: ['ordu', 'asker', 'birlik', 'tabur', 'garnizon', 'dusman', 'cephe',
-        'savas', 'savun', 'saldir'],
+        'savas', 'savun', 'saldir', 'general', 'filo', 'kesif', 'ikmal',
+        'muhimmat', 'catisma', 'zirhli', 'tugay'],
     ECONOMY: ['ekonomi', 'hazine', 'butce', 'enflasyon', 'fiyat', 'piyasa', 'borc', 'ticaret',
         'issizlik', 'bugday', 'liman', 'bakim', 'sozlesme', 'gelir', 'dinar', 'gumruk',
         'fabrika', 'vardiya', 'bakir', 'ton', 'garanti', 'pay', 'ucret', 'bedel',
-        'yakit',
+        'yakit', 'rezerv', 'enerji', 'yatirim', 'banka', 'ithalat', 'maliye',
         'karsilik', 'karsilig'],
     LOCATION: ['nerede', 'konum', 'sehir', 'bolge', 'bulun', 'getir', 'gotur',
         'tasi', 'sevk', 'yonlendir', 'gonder'],
@@ -154,9 +155,12 @@ function storySemanticFramePoliteRequestEvidence(tokens) {
 }
 
 function storySemanticFramePredicate(tokens) {
+    const militaryContext = storySemanticFrameEvidence(tokens,
+        STORY_SEMANTIC_PREDICATES.MILITARY).length > 0;
     const candidates = Object.entries(STORY_SEMANTIC_PREDICATES).map(([id, roots]) => {
         const evidence = storySemanticFrameEvidence(tokens, roots).filter(token =>
-            id !== 'EMOTION' || !/^sinir(?:da|de|dan|den|daki|deki)/.test(token));
+            id !== 'EMOTION' || !/^sinir(?:da|de|dan|den|daki|deki)/.test(token)
+                && !(token === 'sinir' && militaryContext));
         return { id, evidence, score: evidence.length * 2600 };
     }).filter(row => row.score > 0)
         .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id, 'en'));
@@ -193,6 +197,11 @@ function storySemanticFrameTarget(tokens) {
 
 function storySemanticFrameFunction(raw, tokens, predicate) {
     const questionEvidence = storySemanticFrameQuestionEvidence(tokens);
+    const directDeceptionEvidence = tokens.filter(token =>
+        /^(?:yanilt|kandir)/.test(token));
+    const falseClaimEvidence = storySemanticFrameEvidence(tokens, ['sahte'])
+        .concat(tokens.filter(token =>
+            /(?:diginizi|diginiz|yorsunuz|iyorsunuz)$/.test(token)));
     const challengeEvidence = questionEvidence.length ? tokens.filter(token =>
         /^(?:kanit|kanitla|mesru|inan|emin|iddia|sucla|dayan)/.test(token)) : [];
     const authorityChallengeContext = questionEvidence.length && tokens.some(token =>
@@ -244,8 +253,9 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     const secretEvidence = predicateIds.has('SECRET') ? predicate.evidence : [];
     const confideEvidence = storySemanticFrameEvidence(tokens,
         ['kalsin', 'soyleme', 'paylas', 'vereceg', 'anlat', 'goster', 'emanet', 'sirrim',
-            'bilgim', 'yalniz', 'kimsenin']);
-    const restrictedAudienceEvidence = storySemanticFrameEvidence(tokens, ['yalniz', 'sadece']);
+            'bilgim', 'yalniz', 'kimse', 'kimsenin']);
+    const restrictedAudienceEvidence = storySemanticFrameEvidence(tokens,
+        ['yalniz', 'sadece', 'kimse']);
     const confidentialRestrictionEvidence = storySemanticFrameEvidence(tokens,
         ['aramiz', 'ikimiz', 'masadan', 'disari', 'kalsin']);
     const trustAudienceEvidence = storySemanticFrameHas(tokens, ['sana', 'size'])
@@ -287,6 +297,12 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     if (conditionalThreatEvidence.length) {
         return { value: 'TELL', requestedOutcome: 'ACTION',
             evidence: conditionalThreatEvidence, score: 3300 };
+    }
+    if (!questionEvidence.length && (directDeceptionEvidence.length
+        || falseClaimEvidence.length >= 2)) {
+        return { value: 'TELL', speechActOverride: 'ACCUSE',
+            evidence: directDeceptionEvidence.concat(falseClaimEvidence)
+                .filter((value, index, all) => all.indexOf(value) === index), score: 3300 };
     }
     if (challengeEvidence.length && !directedRequestEvidence.length) {
         return { value: 'ASK', speechActOverride: 'CHALLENGE',
@@ -369,11 +385,11 @@ function storySemanticFrameSurfaceForm(raw, tokens) {
 function storySemanticFrameBluffEvidence(tokens) {
     const ownerEvidence = storySemanticFrameEvidence(tokens,
         ['elimde', 'bende', 'tarafima']).concat(tokens.filter(token =>
-        /^(?:plan|para|tabur|ordu|birlik|destek|cogunluk|hesap|kayit|belge|kanit|sifre|anahtar).*(?:m|im|um)(?:i|e|de|den)?$/.test(token)))
+        /^(?:plan|para|tabur|ordu|asker|kuvvet|birlik|destek|cogunluk|hesap|kayit|belge|kanit|sifre|anahtar|rezerv).*(?:m|im|um|imiz|imizde|imizden|miz|mizde|mizden)(?:i|e|de|den)?$/.test(token)))
         .filter((value, index, all) => all.indexOf(value) === index);
     const stateEvidence = storySemanticFrameEvidence(tokens,
         ['destekliyor', 'hazir', 'var', 'kesin', 'coktan', 'gecti',
-            'elimde', 'bende']);
+            'elimde', 'bende', 'artti', 'cikti']);
     const negatedDisclosureEvidence = tokens.filter(token =>
         /^(?:acikla|anlat|goster|paylas|soyle|ver).*(?:amam|emem|mayac|meyece|mam|mem|maz|mez)/
             .test(token));
@@ -385,9 +401,15 @@ function storySemanticFrameBluffEvidence(tokens) {
                 'sonra', 'gelince']) : [];
     const withholdingEvidence = negatedDisclosureEvidence.concat(deferredEvidence)
         .filter((value, index, all) => all.indexOf(value) === index);
+    const contradictionEvidence = tokens.some(token =>
+        /^(?:olmadig|yokken|olmadan)/.test(token))
+        && tokens.some(token => /^(?:gibi|davran|iddia)/.test(token))
+        ? tokens.filter(token => /^(?:olmadig|yokken|olmadan|gibi|davran|iddia)/
+            .test(token)) : [];
     return { matched: ownerEvidence.length > 0 && stateEvidence.length > 0
-        && withholdingEvidence.length > 0,
-        evidence: ownerEvidence.concat(stateEvidence, withholdingEvidence)
+        && (withholdingEvidence.length > 0 || contradictionEvidence.length > 0),
+        evidence: ownerEvidence.concat(stateEvidence, withholdingEvidence,
+            contradictionEvidence)
             .filter((value, index, all) => all.indexOf(value) === index) };
 }
 
@@ -395,7 +417,10 @@ function storySemanticFramePolarity(tokens) {
     const bluff = storySemanticFrameBluffEvidence(tokens);
     if (bluff.matched) return { value: 'MIXED', evidence: bluff.evidence };
     const evidence = storySemanticFrameEvidence(tokens,
-        ['degil', 'yok', 'hic', 'istemiyor', 'guvenmiyor', 'bilmiyor']);
+        ['degil', 'yok', 'hic', 'istemiyor', 'guvenmiyor', 'bilmiyor'])
+        .concat(tokens.filter(token =>
+            /(?:miyor|miyorum|miyoruz|miyorsun|miyorsunuz|mayac|meyece|madim|medim|madi|medi)$/.test(token)))
+        .filter((value, index, all) => all.indexOf(value) === index);
     return { value: evidence.length ? 'NEGATIVE' : 'POSITIVE_OR_UNMARKED', evidence };
 }
 
@@ -404,7 +429,13 @@ function storySemanticFrameTime(tokens, communicative) {
     const future = storySemanticFrameEvidence(tokens,
         ['yarin', 'sonra', 'gelecek', 'yapacag', 'edeceg', 'doneceg'])
         .concat(tokens.filter(token => /(?:inca|ince|unca|unce)$/.test(token)));
-    const habitual = storySemanticFrameEvidence(tokens, ['genelde', 'surekli', 'herzaman', 'bazen']);
+    const habitual = storySemanticFrameEvidence(tokens,
+        ['genelde', 'surekli', 'herzaman', 'bazen']);
+    if (tokens.includes('her') && tokens.some(token =>
+        /^(?:gun|hafta|ay|yil)(?:de|da|lik)?$/.test(token))) {
+        habitual.push('her', ...tokens.filter(token =>
+            /^(?:gun|hafta|ay|yil)(?:de|da|lik)?$/.test(token)));
+    }
     if (past.length) return { value: 'PAST', evidence: past };
     if (future.length) return { value: 'FUTURE', evidence: future };
     if (habitual.length) return { value: 'HABITUAL', evidence: habitual };
@@ -419,7 +450,8 @@ function storySemanticFrameEpistemic(tokens) {
     if (bluff.matched) return { value: 'CLAIMED_CERTAIN', evidence: bluff.evidence };
     const question = storySemanticFrameQuestionEvidence(tokens);
     if (question.length) return { value: 'QUESTIONED', evidence: question };
-    const rumor = storySemanticFrameEvidence(tokens, ['duydum', 'soylenti', 'deniyor', 'galiba', 'sanirim']);
+    const rumor = storySemanticFrameEvidence(tokens,
+        ['duydum', 'soylenti', 'soylen', 'deniyor', 'galiba', 'sanirim']);
     const hypothetical = storySemanticFrameEvidence(tokens, ['eger', 'varsay', 'olursa', 'belki']);
     const certainty = storySemanticFrameEvidence(tokens, ['biliyorum', 'eminim', 'kesin']);
     if (rumor.length) return { value: 'HEARSAY', evidence: rumor };
@@ -700,15 +732,35 @@ function storyConversationSemanticFrameCompile(raw, context) {
 }
 
 function storyConversationSemanticFrameFuse(legacy, frame) {
+    const genericLegacy = !legacy || ['UNKNOWN', 'ASK_INFORMATION', 'SMALL_TALK']
+        .includes(legacy.primary);
+    const domainReportCandidate = frame
+        && ['REPORT_MILITARY', 'REPORT_ECONOMIC'].includes(frame.suggestedSpeechAct);
+    const reportStateEvidence = frame && frame.evidence
+        && Array.isArray(frame.evidence.predicate)
+        && frame.evidence.predicate.some(token =>
+            /^(?:hazine|butce|enflasyon|rezerv|yakit|maliye|ordu|asker|birlik|tabur|garnizon|dusman|cephe|filo|ikmal|muhimmat|catisma|zirhli|tugay)/
+                .test(token));
+    const reportSemanticConflict = domainReportCandidate
+        && (frame.temporality === 'HABITUAL'
+            || frame.secondaryPredicates.includes('SECRET')
+            || (frame.secondaryPredicates.includes('EMOTION')
+                && !reportStateEvidence)
+            || ['CORRECTION', 'REPAIR'].includes(frame.continuity));
+    if (reportSemanticConflict) return legacy;
+    const safeDomainReport = domainReportCandidate && genericLegacy
+        && (frame.polarity === 'POSITIVE_OR_UNMARKED'
+            || frame.epistemicStatus === 'HEARSAY')
+        && frame.temporality !== 'HABITUAL';
     const selfSufficientFunction = frame && (['CLOSE', 'GREET', 'THANK', 'APOLOGIZE']
         .includes(frame.communicativeFunction)
         || frame.suggestedSpeechAct === 'CHALLENGE'
         || frame.communicativeFunction === 'CONFIDE'
         || (frame.communicativeFunction === 'TELL'
             && ['HEALTH', 'EMOTION', 'WEATHER'].includes(frame.predicate)));
-    const minimumConfidence = selfSufficientFunction ? 3000 : 5200;
+    const minimumConfidence = selfSufficientFunction ? 3000
+        : safeDomainReport ? 4400 : 5200;
     if (!frame || frame.confidenceBps < minimumConfidence || frame.suggestedSpeechAct === 'UNKNOWN') return legacy;
-    const genericLegacy = !legacy || ['UNKNOWN', 'ASK_INFORMATION', 'SMALL_TALK'].includes(legacy.primary);
     const directionallySelfSufficient = frame
         && ((frame.communicativeFunction === 'ASK'
             && frame.surfaceForm === 'INTERROGATIVE')

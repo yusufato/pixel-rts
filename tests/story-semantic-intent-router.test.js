@@ -400,6 +400,15 @@ assert.deepEqual(calibrationChallengeRows.filter(row =>
     calibrationChallengeProposals.get(row.id).labels.speechAct !== 'CHALLENGE')
     .map(row => row.id), [],
 'calibration evidence and authority challenges must not collapse into information requests');
+const calibrationReportRows = corpus.candidates.filter(row =>
+    row.split === 'calibration' && row.adjudication
+    && ['REPORT_MILITARY', 'REPORT_ECONOMIC'].includes(
+        row.adjudication.labels.speechAct));
+const calibrationReportProposals = buildBaselineProposals(calibrationReportRows);
+assert.deepEqual(calibrationReportRows.filter(row =>
+    calibrationReportProposals.get(row.id).labels.speechAct
+        !== row.adjudication.labels.speechAct).map(row => row.id), [],
+'calibration military and economic reports must retain domain and direction');
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));

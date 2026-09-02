@@ -1807,3 +1807,10 @@
 - **What happened:** Kanıt, yetki, meşruiyet ve gerekçe sorguları yalnız soru işaretine göre bilgi isteği sayılmak yerine, soru yüzeyi ile tartışılan iddia/otorite kanıtının bileşimi olarak CHALLENGE'a bağlandı. Nötr belge konumu ve belge iletme soruları karşı örnek olarak korundu.
 - **Evidence:** Spent blind erişmeden `272` prototype+calibration gold üzerinde ana eylem hatası `143 → 133` indi. Kalibrasyondaki CHALLENGE doğruluğu `0/10 → 10/10`; semantik-frame, router, conversation-case ve review-server regresyonları geçti.
 - **Implication for future audits:** Her soru biçimli cümleyi ASK_INFORMATION sayma; fakat `yetki` veya `kanıt` kelimesini tek başına itiraz da sayma. CHALLENGE için tartışılan iddia/otorite bileşimi aranmalı, yöneltilmiş belge eylemi REQUEST olarak kalmalıdır.
+
+## 2026-09-02 — Alan raporları generic UNKNOWN eşiğinden ayrıldı
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` non-blind rapor/yön ailesi
+- **What happened:** Kanonik askerî ve ekonomik varlık ontolojisi genişletildi; doğru alanı taşıyan düşük güvenli bildirimler yalnız generic legacy ve yön çatışması yokken rapor olarak birleşti. Sır, blöf, suçlama, duygu, habitual anlatı ve fiil olumsuzluğu aynı rapor kapısında karşı kanıt oldu.
+- **Evidence:** Spent blind erişmeden `272` prototype+calibration gold üzerinde ana eylem hatası `133 → 111` indi. `REPORT_MILITARY=14/14`, `REPORT_ECONOMIC=16/18`; kalibrasyondaki iki rapor sınıfı eksiksiz doğru. Değişiklik öncesindeki beş tehdit/söz/blöf→rapor hatası kaldı fakat yeni rapor yanlış pozitifi oluşmadı.
+- **Implication for future audits:** Her domain sözcüklü bildirimi rapor sayma ve güven eşiğini global düşürme. Rapor kabulü kanonik durum kanıtı ile sır/duygu/düzeltme/habitual çatışmasını birlikte değerlendirmeli; kalan beş yön hatası ayrı tehdit-söz-blöf ailesidir.

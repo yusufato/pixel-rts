@@ -225,6 +225,41 @@ try {
     for (const text of neutralQuestions) {
         assert.notEqual(analyze(text).speechAct, 'CHALLENGE', text);
     }
+    const domainReportFamilies = [
+        ['Generalin emirlerinin başkentten gelmediği söyleniyor.', 'REPORT_MILITARY'],
+        ['Düşman filosu doğu limanına ulaştı.', 'REPORT_MILITARY'],
+        ['Üç keşif aracı üsse geri döndü.', 'REPORT_MILITARY'],
+        ['Dünkü çatışmada zırhlı tugayımız yedi araç kaybetti.', 'REPORT_MILITARY'],
+        ['Enflasyon bu ay yüzde iki yükseldi.', 'REPORT_ECONOMIC'],
+        ['Merkez bankası rezervi bu ay yüzde sekiz arttı.', 'REPORT_ECONOMIC'],
+        ['Yeni bir yatırım fırsatı var.', 'REPORT_ECONOMIC']
+    ];
+    for (const [text, speechAct] of domainReportFamilies) {
+        assert.equal(analyze(text).speechAct, speechAct, text);
+    }
+    const reportFalsePositiveHardNegatives = [
+        'Sözleşmeden çekilirsen bütün gizli ödemelerini meclise açıklarım.',
+        'Askerim olmadığı halde sınırda büyük bir kuvvetim varmış gibi davranıyorum.'
+    ];
+    for (const text of reportFalsePositiveHardNegatives) {
+        assert.ok(!['REPORT_MILITARY', 'REPORT_ECONOMIC'].includes(
+            analyze(text).speechAct), text);
+    }
+    assert.equal(analyze(
+        'Sahte bir hesap dökümü gösterip borcu ödediğinizi söylüyorsunuz.').speechAct,
+    'ACCUSE');
+    const reportDirectionHardNegatives = [
+        ['Rezervimiz üç katına çıktı; banka kayıtlarını paylaşmayacağım.',
+            'BLUFF_CANDIDATE'],
+        ['Kimse duymasın, generalin emirleri aslında başkentten gelmiyor.',
+            'SHARE_SECRET'],
+        ['Borcu cuma gününe kadar ödeyeceğime söz veriyorum.', 'MAKE_PROMISE'],
+        ['Liman kullanım hakkı karşılığında ortak ticaret anlaşması yapalım.',
+            'PROPOSE_COMMERCIAL_DEAL']
+    ];
+    for (const [text, speechAct] of reportDirectionHardNegatives) {
+        assert.equal(analyze(text).speechAct, speechAct, text);
+    }
     const directedPromise = analyze(
         'Yardım birliğini gün batmadan göndereceğime söz veriyorum.');
     assert.equal(directedPromise.semanticFrame.surfaceForm, 'DECLARATIVE');

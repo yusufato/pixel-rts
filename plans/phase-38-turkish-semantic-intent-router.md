@@ -1174,3 +1174,19 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   `10/10` CHALLENGE kaydı doğru sınıfa ulaştı; toplam prototype+calibration ana
   eylem hatası `143 → 133` oldu. Belge konumu ve kanıt/tutanak iletme gibi nötr
   bilgi/eylem soruları hard-negative olarak itiraza dönüşmeden kaldı.
+- Sonraki ortak ailede kanonik askerî/ekonomik durum bildirimlerinin iki ayrı
+  sorunu giderildi: alan doğruyken `4400` güvenle legacy `UNKNOWN` altında kalma
+  ve `general/filo/keşif/ikmal/mühimmat/çatışma/zırhlı/tugay` ile
+  `rezerv/enerji/yatırım/banka/ithalat/maliye` varlıklarının ontolojide olmaması.
+  Düşük güvenli rapor yalnız generic legacy, yön çatışması olmayan bildirim ve
+  kaynaklı alan kanıtıyla kabul edilir; habitual anlatı, sır, düzeltme ve alan
+  kanıtı olmayan duygu ikincili raporu yetkilendirmez. `sınır`, askerî bağlamda
+  `sinir` duygusu olmaktan çıkar; söylenti çekimi ve periyodik `her gün/hafta/
+  ay/yıl` zamanı bileşimsel okunur.
+- Aynı çalışma rapora benzeyen gerçek sır/blöf ve suçlamaları da korudu:
+  “kimse duymasın”, çoğul birinci kişi varlık sahipliği + saklanan kanıt,
+  yoklukla çelişen “varmış gibi” iddiası ve sahte belgeyle doğrudan aldatma
+  ayrı yön kanıtlarıdır. Blind açılmadan `272` prototype+calibration kaydında
+  ana eylem hatası `133 → 111`; askerî rapor `14/14`, ekonomik rapor `16/18`
+  oldu. Kalibrasyondaki iki rapor sınıfı eksiksizdir ve yeni rapor yanlış
+  pozitifi oluşmadı.
