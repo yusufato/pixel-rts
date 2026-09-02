@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "kind": "CENTRAL_SEMANTIC_TRIAGE_V1",
+  "batchId": "external-review-0002",
+  "generatedAt": "2026-09-02T13:40:00+03:00",
+  "sources": [
+    {
+      "reviewer": "Gemini-3.7-Flash-A",
+      "path": "qa-runtime/external-ai-reviews/external-review-0002/gemini-3-7-flash-a.json",
+      "receiptStatus": "DISQUALIFIED_PROTOCOL_VIOLATION",
+      "eligibleForConsensus": false
+    }
+  ],
+  "boundary": {
+    "inputRecords": 20,
+    "blindRecords": 0,
+    "centralDeltaChecks": 20,
+    "externalVotesUsed": 0,
+    "corpusWritten": false
+  },
+  "templateClusters": [
+    {
+      "id": "MALFORMED_RECIPROCAL_OFFER_V1",
+      "commonRule": "Teklif ve karşılık sözcükleri var, fakat konuşanın ve dinleyicinin edimleri güvenilir biçimde ayrılmıyor veya cümle aynı tarafın edimlerini karşılık gibi bağlıyor.",
+      "members": [
+        "semantic-intent:88cb1f9a0af33815",
+        "semantic-intent:4da105688a3cb0f9",
+        "semantic-intent:5defde4a5feaf5f1",
+        "semantic-intent:16adf68a96416952",
+        "semantic-intent:861a43d461bf18e0",
+        "semantic-intent:283047cc46152921",
+        "semantic-intent:edc5006757e0c24d",
+        "semantic-intent:dd9e84100747ef36"
+      ]
+    },
+    {
+      "id": "ELLIPSIS_FRAGMENT_V1",
+      "commonRule": "Üç noktayla kesilen konu öbeği tamamlanmış bir soru, bildirim, teklif veya eylem talebi taşımıyor; konu sözcüğü tek başına niyet değildir.",
+      "members": [
+        "semantic-intent:ca3961e6f2a549db",
+        "semantic-intent:800f3fd026c93e21",
+        "semantic-intent:433a6e8fe511751b",
+        "semantic-intent:af640207c426c059",
+        "semantic-intent:0ef98e78b69fc9f8",
+        "semantic-intent:be69db050905226a",
+        "semantic-intent:ceb57775405da5ca",
+        "semantic-intent:1b05dbcab56d6efb",
+        "semantic-intent:96fcc179120e5df5",
+        "semantic-intent:9ff85582447341fb",
+        "semantic-intent:37467ccbeeb364aa",
+        "semantic-intent:7c50e9f06671cde2"
+      ]
+    }
+  ],
+  "records": [
+    { "id": "semantic-intent:88cb1f9a0af33815", "decision": "NOT_GOLD_DIRECTIONALLY_INCOHERENT", "delta": "Destek de pay da konuşanın teklifi gibi kurulmuş; dinleyicinin karşı edimi yok." },
+    { "id": "semantic-intent:4da105688a3cb0f9", "decision": "NOT_GOLD_DIRECTIONALLY_INCOHERENT", "delta": "Dinleyiciye ait medya desteği konuşanın teklifi gibi yazılmış; bilgi paylaşımı da gerçekleşmiş sır değil olasılık." },
+    { "id": "semantic-intent:5defde4a5feaf5f1", "decision": "SEMANTIC_NEAR_DUPLICATE", "delta": "Destek ve payı aynı konuşanın sunduğu 88cb iskeletinin işsizlik alanı varyantı." },
+    { "id": "semantic-intent:16adf68a96416952", "decision": "NOT_GOLD_DIRECTIONALLY_INCOHERENT", "delta": "Ortak geleceği 'teklif ediyorum' yüklemine bağlayan bozuk yapı, karşı taraf edimini belirtmiyor." },
+    { "id": "semantic-intent:861a43d461bf18e0", "decision": "NOT_GOLD_DIRECTIONALLY_INCOHERENT", "delta": "Geçmiş operasyon iddiası, kimlik paylaşma amacı ve pay teklifi arasında kimin ne vereceği çözülemiyor." },
+    { "id": "semantic-intent:283047cc46152921", "decision": "SEMANTIC_NEAR_DUPLICATE", "delta": "Konuşanın destek ve anlaşma sunduğu aynı tek-taraflı teklif iskeletinin nüfus alanı varyantı." },
+    { "id": "semantic-intent:edc5006757e0c24d", "decision": "SEMANTIC_NEAR_DUPLICATE", "delta": "88cb iskeletindeki destek artı pay teklifinin bilim alanı varyantı." },
+    { "id": "semantic-intent:dd9e84100747ef36", "decision": "NOT_GOLD_DIRECTIONALLY_INCOHERENT", "delta": "Yetki talebi açık olsa da 'iddiaya karşılığında' bölümü anlamsız ve payın koşulunu çözülemez kılıyor." },
+    { "id": "semantic-intent:ca3961e6f2a549db", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Medya ve belirsiz zamirden sonra yüklem yok." },
+    { "id": "semantic-intent:800f3fd026c93e21", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Gereklilik bildiriliyor fakat yapılacak yönetim eylemi belirtilmiyor." },
+    { "id": "semantic-intent:433a6e8fe511751b", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "İhracatı kontrol etmek mastar öbeği; talep veya plan yüklemi yok." },
+    { "id": "semantic-intent:af640207c426c059", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Yatırım konu öbeği; teklif, soru veya rapor tamamlanmamış." },
+    { "id": "semantic-intent:0ef98e78b69fc9f8", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Yönetim kararları yalnız konu başlığıdır." },
+    { "id": "semantic-intent:be69db050905226a", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Eski nottan söz eder fakat içeriğini paylaşmaz ve bilgi istemez." },
+    { "id": "semantic-intent:ceb57775405da5ca", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Teknoloji başarısı bildiriminin devamı kesilmiş; iletişim sonucu güvenilir değil." },
+    { "id": "semantic-intent:1b05dbcab56d6efb", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Tedarik sorunu fark edilmiş görünse de cümle bilinçli olarak kesilmiş ve sonuç yok." },
+    { "id": "semantic-intent:96fcc179120e5df5", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Amaç yan cümlesi var; güveni kazanmak için yapılacak eylem yok." },
+    { "id": "semantic-intent:9ff85582447341fb", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Göç düzeni yalnız konu öbeğidir." },
+    { "id": "semantic-intent:37467ccbeeb364aa", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Hazine harcamaları yalnız konu öbeğidir." },
+    { "id": "semantic-intent:7c50e9f06671cde2", "decision": "NOT_GOLD_INCOMPLETE_UTTERANCE", "delta": "Gereklilik var fakat kontrol eyleminin hedefi ve muhatabı tamamlanmamış." }
+  ],
+  "summary": {
+    "reviewedByDeltaCheck": 20,
+    "goldAccepted": 0,
+    "semanticNearDuplicates": 3,
+    "directionallyIncoherent": 5,
+    "incompleteUtterances": 12,
+    "goldAfterTriage": 623
+  }
+}

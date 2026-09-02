@@ -140,6 +140,34 @@ Eksik, kesik veya dilbilgisel olarak anlamı değiştirecek kadar bozuk cümlele
 zorla etiketlenmez. Yazım hatası, argo veya B1 Türkçesi tek başına ret sebebi
 değildir.
 
+### 6.1 Maliyet kontrollü merkezi inceleme
+
+Gold güveni ile inceleme maliyeti ayrı tutulur:
+
+1. Ucuz ve deterministik ön eleme yalnız normalize metni birebir aynı kayıtları
+   işaretleyebilir. Otomasyon `ACCEPT`, etiket veya gold provenansı yazamaz.
+2. Benzer iskeletler `templateCluster` altında yalnız sıralanır. Merkezi
+   inceleyici kümenin ortak anlam kuralını bir kez okur, ardından her kaydın
+   değişen bölümünü ayrı bir **delta kontrolüyle** doğrular. Delta kontrolü
+   yapılmayan kayıt bireysel incelenmiş sayılmaz.
+3. Eksik sözce, çözülemeyen yön, çelişkili edim veya mevcut gold'un alan adı
+   değiştirilmiş tekrarı kısa bir neden koduyla gold dışı bırakılabilir. Bunlar
+   için on bir eksenli etiket ve uzun doğal dil gerekçesi üretmek zorunlu değildir.
+4. Yalnız semantik yenilik kapısını geçen kayıt tam SemanticFrameV2 eksenleri,
+   en yakın karşı sınıf ayrımı ve bireysel reviewer provenansıyla gold adayı olur.
+5. Yüksek-risk sözcük taşıyan kayıt ucuz filtreyle kabul veya ret edilmez; en az
+   yön, talep edilen sonuç, karşılıklılık, gizlilik ve iddia sahipliği delta
+   kontrolünden geçer.
+
+Merkezi gold-dışı karar türleri `EXACT_DUPLICATE`,
+`SEMANTIC_NEAR_DUPLICATE`, `NOT_GOLD_INCOMPLETE_UTTERANCE` ve
+`NOT_GOLD_DIRECTIONALLY_INCOHERENT` olabilir. `NEEDS_HUMAN_DECISION` yalnız
+yüksek bilgi değerli fakat gerçek anlam ayrımı çözülemeyen kayıtlar için kullanılır;
+düşük kaliteli sentetik veriyi kullanıcıya yığmak için kullanılmaz.
+
+Bu düzen “her gold tek tek incelenir” şartını değiştirmez. Yalnız gold olmaya
+uygun olmadığı açık kayıtlar için pahalı tam etiketleme işini keser.
+
 ## 7. Etiket güvenliği
 
 Bütün SemanticFrameV2 alanları doldurulur: `speechAct`,

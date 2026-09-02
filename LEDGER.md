@@ -1779,3 +1779,10 @@
 - **What happened:** Sonnet 4.6 ve Opus 4.6'nın 20 kör-dışı bağımsız incelemesi merkezi olarak karşılaştırıldı; corpus geneliyle tekrar kontrolünden sonra 3 kayıt gold, 16 kayıt semantik tekrar, 1 yüksek-risk kayıt insan kararı olarak sonuçlandı.
 - **Evidence:** İki makbuz geçerli, karar türü eşleşmesi `17/20`, tam kabul çerçevesi eşleşmesi `1`; gold `620 → 623`, prototype `111 → 114`. `node tests/story-semantic-intent-router.test.js` sonucu `ok=true`, `issues=0`.
 - **Implication for future audits:** Harici iki modelin `ACCEPT` uzlaşması corpus-geneli benzersizliği veya eksen doğruluğunu kanıtlamaz. Merkezi hakem mevcut non-blind şablon envanterini ve bütün SemanticFrame eksenlerini yeniden doğrulamadan gold yazmamalıdır.
+
+## 2026-09-02 — Gold incelemesi yenilik-öncelikli maliyet kapısına alındı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` merkezi review triage / `external-review-0002`
+- **What happened:** Gold standardı korunurken düşük değerli adaylara tam on bir eksenli açıklama yazma zorunluluğu kaldırıldı. Otomasyon yalnız tam tekrarları işaretleyebilir; şablon gruplarında ortak kural bir kez, her kaydın farkı ise ayrı delta kontrolüyle okunur. Gold ancak bireysel tam incelemeyle oluşur.
+- **Evidence:** İkinci partinin `20/20` kaydı delta kontrolünden geçti; 3 semantik tekrar, 5 yönsel olarak çözülemez bileşik teklif ve 12 eksik sözce gold dışı kaldı. Harici oy kullanılmadı, blind kayıt açılmadı, corpus değişmedi ve gold `623` kaldı.
+- **Implication for future audits:** Gold sayısını büyütmek için eksik sentetik parçaları zorla etiketleme veya her tekrar için uzun gerekçe üretme. Önce doğal dil kalitesi ve semantik yenilik kapısını uygula; pahalı tam incelemeyi yalnız yeni ayrım taşıyan adaylara harca. Grup kuralı tek başına bireysel gold kanıtı değildir.

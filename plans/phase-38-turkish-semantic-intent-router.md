@@ -18,6 +18,7 @@ touches:
   - tools/story-sim-harness.js
   - qa-runtime/external-ai-reviews/PROTOCOL.md
   - qa-runtime/external-ai-reviews/external-review-0001/consensus.json
+  - qa-runtime/external-ai-reviews/external-review-0002/consensus.json
   - tests/story-semantic-intent-router.test.js
   - tests/story-semantic-review-server.test.js
   - tests/story-conversation-semantic-frame.test.js
@@ -1120,3 +1121,21 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   spent blind içerikleri değişmedi. Aktif Sonnet/Opus görevleri `CLOSED` yapıldı;
   birleştirme makbuzu `external-review-0001/consensus.json` içindedir. Router
   testi `ok=true`, `issues=0` ile geçti.
+
+### 2 Eylül 2026 — İnceleme maliyeti yenilik-öncelikli kapıya alındı
+
+- Gold güveni gevşetilmedi: otomasyon hiçbir kaydı gold yapamaz ve her gold aday
+  cümlesi bütün eksenleriyle bireysel olarak okunur. Ancak her düşük değerli
+  aday için aynı uzun açıklamanın yeniden üretilmesi durduruldu.
+- Ucuz ön eleme yalnız tam metin tekrarını otomatik kapatabilir. Şablon kümeleri
+  karar vermez; merkezi inceleyici ortak kuralı bir kez doğrular ve her kaydın
+  farklı kısmını ayrı kontrol eder. Şablon tekrarı, eksik sözce ve bozuk yön
+  kayıtları kısa neden koduyla gold dışı bırakılır.
+- İkinci kurtarma partisindeki 20 kayıt bu yöntemle tek tek fark kontrolünden
+  geçti: 8 bileşik teklif kaydı aynı üretilmiş yön/karşılık sorununu taşıdı,
+  12 üç noktalı kayıt tamamlanmış bir iletişim eylemi taşımadı. Corpus'a yeni
+  gold eklenmedi; sayaç `623` kaldı. Makbuz
+  `external-review-0002/consensus.json` içindedir.
+- Bundan sonraki pahalı tam inceleme kuyruğu, önce doğal dil kalitesi ve semantik
+  yenilik kapısını geçen adaylara ayrılır. Bu yöntem daha az kayıt üretmeyi değil,
+  aynı bütçeyle daha yüksek bilgi değerine sahip gold üretmeyi hedefler.
