@@ -405,6 +405,30 @@ try {
             assert.ok(!result.secondaryActs.includes('ASK_INFORMATION'), text);
         }
     }
+    const explicitSecretDisclosureFamilies = [
+        'Bunu yalnız sen bil: doğu kasasındaki altınların yarısı sahte.',
+        'Bunu sadece siz bilin: kuzey deposunun yedek anahtarı kırık.',
+        'Sana gizli operasyonun kod adını söyleyeceğim.',
+        'Size gizli rotayı göstereceğim.',
+        'Kasadaki gizli belgenin yerini sana açıklıyorum.',
+        'Sana gizli kasanın yerini söylüyorum.'
+    ];
+    for (const text of explicitSecretDisclosureFamilies) {
+        const result = analyze(text);
+        assert.equal(result.semanticFrame.communicativeFunction, 'CONFIDE', text);
+        assert.equal(result.semanticFrame.target, 'LISTENER', text);
+        assert.equal(result.semanticFrame.requestedOutcome, 'CONFIDENTIAL_HANDLING', text);
+        assert.equal(result.speechAct, 'SHARE_SECRET', text);
+    }
+    const secretDisclosureHardNegatives = [
+        ['Size gizli rotayı göstermeyeceğim.', 'MAKE_PROMISE'],
+        ['Gizli operasyonun kod adını biliyor musunuz?', 'ASK_INFORMATION'],
+        ['Bu bilgiyi yalnız sen bil.', 'UNKNOWN'],
+        ['Kasadaki gizli belgenin yerini bana açıklayın.', 'REQUEST_ACTION']
+    ];
+    for (const [text, speechAct] of secretDisclosureHardNegatives) {
+        assert.equal(analyze(text).speechAct, speechAct, text);
+    }
     const nonBluffEvidenceFamilies = [
         'Bu dosyanın içeriğini dışarıya sızdırmayacağıma söz veriyorum.',
         'Sınırdaki birliklerin yer değiştirdiği söyleniyor, doğruluğunu bilmiyorum.',

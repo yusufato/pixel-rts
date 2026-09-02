@@ -46,6 +46,7 @@ const STORY_SEMANTIC_DIRECTED_ACTION_ROOTS = Object.freeze([
     'ver', 'yap', 'ac', 'gonder', 'yonlendir', 'baslat', 'artir', 'getir',
     'gotur', 'gel', 'tasi', 'sevk', 'bosalt', 'ode', 'cagir', 'dondur', 'ilet',
     'cek', 'hazirla', 'tut', 'koru', 'kapat', 'duzenle', 'incele', 'kontrol',
+    'acikla',
     'aktar', 'teslim', 'imzala', 'degistir'
 ]);
 
@@ -333,6 +334,8 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
             'bilgim', 'yalniz', 'kimse', 'kimsenin']);
     const restrictedAudienceEvidence = storySemanticFrameEvidence(tokens,
         ['yalniz', 'sadece', 'kimse']);
+    const listenerAudienceEvidence = storySemanticFrameEvidence(tokens,
+        ['sana', 'size']);
     const confidentialRestrictionEvidence = storySemanticFrameEvidence(tokens,
         ['aramiz', 'ikimiz', 'masadan', 'disari', 'kalsin']);
     const trustAudienceEvidence = storySemanticFrameHas(tokens, ['sana', 'size'])
@@ -340,7 +343,19 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
     const assertedFactEvidence = storySemanticFrameEvidence(tokens,
         ['bende', 'elimde', 'sakli', 'var', 'aslinda', 'gececek', 'calisiyor']);
     const disclosureEvidence = storySemanticFrameEvidence(tokens,
-        ['anlat', 'soyle', 'paylas', 'ver', 'goster', 'emanet']);
+        ['anlat', 'soyle', 'soyl', 'paylas', 'ver', 'goster', 'acikla', 'acikliyor',
+            'emanet']);
+    const firstPersonDisclosureEvidence = tokens.filter(token =>
+        /^(?:anlatiyor|anlatacag|soyluyor|soyleyeceg|paylasiyor|paylasacag|veriyor|vereceg|gosteriyor|gostereceg|acikliyor|aciklayacag)(?:um|im|uz|iz)$/.test(token));
+    const explicitListenerDisclosureEvidence = secretEvidence.length
+        && listenerAudienceEvidence.length && firstPersonDisclosureEvidence.length
+        ? secretEvidence.concat(listenerAudienceEvidence, firstPersonDisclosureEvidence) : [];
+    const restrictedKnowledgeDisclosureEvidence = /[:;]/.test(String(raw || ''))
+        && restrictedAudienceEvidence.length
+        && storySemanticFrameHas(tokens, ['sen', 'siz'])
+        && tokens.some(token => /^(?:bil|bilin):?$/.test(token))
+        ? restrictedAudienceEvidence.concat(tokens.filter(token =>
+            /^(?:sen|siz|bil|bilin):?$/.test(token))) : [];
     const negatedDisclosureEvidence = tokens.filter(token =>
         /^(?:anlat|soyle|paylas|ver|goster|emanet).*(?:amam|emem|mayac|meyece|mam|mem|maz|mez)/
             .test(token));
@@ -444,10 +459,13 @@ function storySemanticFrameFunction(raw, tokens, predicate) {
         || (confidentialRestrictionEvidence.length && assertedFactEvidence.length)
         || (trustAudienceEvidence.length
             && storySemanticFrameHas(tokens, ['aslinda']))
-        || (restrictedAudienceEvidence.length && disclosureEvidence.length))) {
+        || (restrictedAudienceEvidence.length && disclosureEvidence.length)
+        || explicitListenerDisclosureEvidence.length
+        || restrictedKnowledgeDisclosureEvidence.length)) {
         return { value: 'CONFIDE', evidence: secretEvidence.concat(confideEvidence,
             restrictedAudienceEvidence, confidentialRestrictionEvidence,
-            trustAudienceEvidence, assertedFactEvidence, disclosureEvidence)
+            trustAudienceEvidence, assertedFactEvidence, disclosureEvidence,
+            explicitListenerDisclosureEvidence, restrictedKnowledgeDisclosureEvidence)
             .filter((value, index, all) => all.indexOf(value) === index), score: 3200 };
     }
     const reciprocalCommercialOffer = hasEconomicPredicate

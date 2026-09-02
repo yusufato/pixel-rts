@@ -1884,3 +1884,10 @@
 - **What happened:** `musun/musunuz` soru parçacığı ve `gel` eylem ailesi yönlü istek morfolojisine eklendi. `karargâh` oyun-domain temeli oldu; askerî bağlamdaki açık yardım/destek isteği genel iş yerine askerî destek yönünü korudu.
 - **Evidence:** “Beni karargâha götürür müsünüz?” `REQUEST_ACTION`; askerî “yardım için gelir misiniz?” `REQUEST_SUPPORT`; üçüncü kişi “birlikler gelir mi?” `ASK_INFORMATION` oldu. Spent blind açılmadan `REQUEST_SUPPORT` `1/2 → 2/2`, yanlış destek `0`, OOD `33/33`; toplam `251/272 → 252/272` (`%92,3 → %92,6`), hata `21 → 20` ve başlangıç hata kapanışı `123/143` (`%86,0`). Dört hedef test paketi exit `0` verdi.
 - **Implication for future audits:** Kibar soru ekini yalnız düz ünlülü `misiniz` biçimiyle sınırlama ve askerî yardım talebini `yardım=WORK` diye genelleme. Bu non-blind kazanımı B1 veya ürün `%90+` kabulü değildir.
+
+## 2026-09-02 — Açık gizli-bilgi aktarım yüzeyleri birleştirildi
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` explicit secret disclosure family
+- **What happened:** Kısıtlı dinleyici çerçevesinden sonra gerçekten açıklanan olgu ile gizli içeriği dinleyiciye olumlu birinci kişi şimdiki/gelecek açıklama eylemiyle aktarma `CONFIDE` bileşimine bağlandı. Soru, olumsuz açıklama, içeriksiz gizlilik talimatı ve dinleyiciden açıklama isteme dışarıda kaldı.
+- **Evidence:** Spent blind açılmadan `SHARE_SECRET` `12/15 → 15/15`, yanlış gizli paylaşım `0`, OOD `33/33`; toplam `252/272 → 255/272` (`%92,6 → %93,8`), hata `20 → 17` ve başlangıç hata kapanışı `126/143` (`%88,1`) oldu. Dört hedef regresyon paketi exit `0` verdi.
+- **Implication for future audits:** `gizli` sözcüğünü tek başına sır paylaşımı sayma. Açıklanmış içerik, sınırlı dinleyici ve olumlu aktarım yönünü birlikte doğrula; gelecek zaman bu corpus sözleşmesinde gerçek gizli aktarım yönünü korur. Bu sonuç B1 veya ürün kabulü değildir.

@@ -490,6 +490,14 @@ assert.deepEqual(nonBlindSupportRequestRows.filter(row =>
     nonBlindSupportRequestProposals.get(row.id).labels.speechAct !== 'REQUEST_SUPPORT')
     .map(row => row.id), [],
 'prototype and calibration military support requests must retain support direction');
+const nonBlindSecretRows = corpus.candidates.filter(row => row.split !== 'blind_test'
+    && row.adjudication && row.adjudication.labels.speechAct === 'SHARE_SECRET');
+const nonBlindSecretProposals = buildBaselineProposals(nonBlindSecretRows);
+assert.equal(nonBlindSecretRows.length, 15);
+assert.deepEqual(nonBlindSecretRows.filter(row =>
+    nonBlindSecretProposals.get(row.id).labels.speechAct !== 'SHARE_SECRET')
+    .map(row => row.id), [],
+'prototype and calibration explicit disclosures must remain confidential acts');
 assert.deepEqual(report.issues, []);
 assert.ok(!report.issues.some((issue) => issue.startsWith('OOD_POSITIVE_MISSING:')));
 assert.ok(!report.issues.includes('HIGH_RISK_SPLIT_COVERAGE_MISSING:THREATEN'));

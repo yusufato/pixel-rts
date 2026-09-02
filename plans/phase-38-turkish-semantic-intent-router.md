@@ -1305,3 +1305,13 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   OOD `33/33`; toplam doğruluk `251/272 → 252/272` (`%92,3 → %92,6`) ve hata
   `21 → 20` oldu. Başlangıçtaki 143 hatanın `123/143`ü (`%86,0`) kapandı.
   Dört hedef regresyon paketi geçti; bu B1/ürün kabulü değildir.
+- Açık gizli-bilgi aktarımı üç yüzeyde tek bileşimsel aile olarak kapatıldı:
+  `yalnız/sadece + sen/siz + bil:` kısıtlı dinleyici çerçevesinden sonra gelen
+  olgu; gizli içerik + dinleyici + olumlu birinci kişi şimdiki açıklama; aynı
+  yapının gelecek açıklama biçimi. Soru, olumsuz açıklama, içeriksiz gizlilik
+  talimatı ve dinleyiciden açıklama isteme `SHARE_SECRET` sayılmadı.
+- Spent blind açılmadan `SHARE_SECRET` `12/15 → 15/15`, yanlış gizli paylaşım
+  `0`, OOD `33/33`; toplam doğruluk `252/272 → 255/272` (`%92,6 → %93,8`) ve
+  hata `20 → 17` oldu. Başlangıçtaki 143 hatanın `126/143`ü (`%88,1`) kapandı.
+  Dört hedef regresyon paketi geçti. Bu non-blind geliştirme ölçümü B1/ürün
+  kabulü değildir.
