@@ -38,6 +38,7 @@ assert.ok(v3Candidates.filter(row => row.adjudication).every(row =>
 const externalReviewRoot = path.join(__dirname, '..', 'qa-runtime',
     'external-ai-reviews');
 const geminiBatch = require('../qa-runtime/external-ai-reviews/external-review-0003/input.json');
+const geminiOutput = require('../qa-runtime/external-ai-reviews/external-review-0003/gemini-3-8-flash.json');
 const priorExternalRows = [
     require('../qa-runtime/external-ai-reviews/external-review-0001/input.json'),
     require('../qa-runtime/external-ai-reviews/external-review-0002/input.json')
@@ -66,9 +67,37 @@ assert.ok(geminiBatch.records.every(row => {
         && allowedExternalFields.every(field =>
             JSON.stringify(row[field]) === JSON.stringify(source[field]));
 }));
+assert.equal(geminiOutput.schemaVersion, 1);
+assert.equal(geminiOutput.kind, 'EXTERNAL_SEMANTIC_INDIVIDUAL_REVIEW');
+assert.equal(geminiOutput.batchId, geminiBatch.batchId);
+assert.equal(geminiOutput.reviewer, 'Gemini-3.8-Flash');
+assert.equal(geminiOutput.role, 'LABELER');
+assert.equal(geminiOutput.protocolStatus, 'COMPLETE');
+assert.equal(geminiOutput.consensusEligible, false);
+assert.equal(geminiOutput.records.length, 100);
+assert.equal(geminiOutput.evaluatedIds.length, 100);
+assert.equal(new Set(geminiOutput.records.map(row => row.id)).size, 100);
+assert.deepEqual(new Set(geminiOutput.records.map(row => row.id)),
+    new Set(geminiBatch.records.map(row => row.id)));
+assert.deepEqual(new Set(geminiOutput.evaluatedIds),
+    new Set(geminiBatch.records.map(row => row.id)));
+const geminiDecisionCounts = Object.fromEntries([
+    'ACCEPT', 'NEEDS_REVIEW', 'SEMANTIC_NEAR_DUPLICATE'
+].map(decision => [decision, geminiOutput.records.filter(row =>
+    row.decision === decision).length]));
+assert.deepEqual(geminiDecisionCounts, {
+    ACCEPT: 91, NEEDS_REVIEW: 0, SEMANTIC_NEAR_DUPLICATE: 9
+});
+assert.equal(geminiOutput.summary.reviewed, geminiOutput.records.length);
+assert.equal(geminiOutput.summary.accepted, geminiDecisionCounts.ACCEPT);
+assert.equal(geminiOutput.summary.needsReview, geminiDecisionCounts.NEEDS_REVIEW);
+assert.equal(geminiOutput.summary.semanticNearDuplicates,
+    geminiDecisionCounts.SEMANTIC_NEAR_DUPLICATE);
+assert.ok(geminiOutput.records.every(row => row.decision !== 'ACCEPT'
+    ? row.labels == null : benchmark.validateLabels(row.labels).ok));
 const externalProtocol = fs.readFileSync(path.join(externalReviewRoot, 'PROTOCOL.md'), 'utf8');
 assert.match(externalProtocol, /ACTIVE_BATCH_ID: external-review-0003/);
-assert.match(externalProtocol, /Gemini-3\.8-Flash:[\s\S]*?STATUS: READY[\s\S]*?CONSENSUS_ELIGIBLE: false[\s\S]*?EXPECTED_RECORD_COUNT: 100[\s\S]*?EXPECTED_UNIQUE_FAMILY_COUNT: 100/);
+assert.match(externalProtocol, /Gemini-3\.8-Flash:[\s\S]*?STATUS: CLOSED[\s\S]*?CONSENSUS_ELIGIBLE: false[\s\S]*?EXPECTED_RECORD_COUNT: 100[\s\S]*?EXPECTED_UNIQUE_FAMILY_COUNT: 100/);
 
 const candidate = Object.assign({}, corpus.candidates[0]);
 delete candidate.adjudication;
@@ -107,6 +136,34 @@ const codexAccepted = Object.assign({}, fullAccepted.value, {
 });
 assert.equal(benchmark.isHumanGoldReview(codexAccepted, new Set([candidate.id])), false);
 assert.equal(benchmark.isGoldReview(codexAccepted, new Set([candidate.id])), true);
+
+const geminiAssisted = Object.assign({}, codexAccepted, {
+    generator: 'Gemini-3.8-Flash',
+    candidateConfidence: 'HIGH',
+    adjudicator: 'CODEX_INDIVIDUAL_REVIEW',
+    adjudicationVerdict: codexAccepted.verdict,
+    goldStatus: 'VERIFIED_GOLD'
+});
+assert.deepEqual(benchmark.validateAssistedGoldProvenance(geminiAssisted), {
+    ok: true, assisted: true, issues: []
+});
+assert.equal(benchmark.isGoldReview(geminiAssisted, new Set([candidate.id])), true);
+const rawGeminiCandidate = Object.assign({}, geminiAssisted, {
+    reviewer: 'Gemini-3.8-Flash', adjudicator: 'Gemini-3.8-Flash'
+});
+assert.equal(benchmark.isGoldReview(rawGeminiCandidate, new Set([candidate.id])), false,
+    'A Gemini candidate cannot adjudicate itself into gold.');
+const partialAssistance = Object.assign({}, codexAccepted, {
+    generator: 'Gemini-3.8-Flash'
+});
+assert.equal(benchmark.validateAssistedGoldProvenance(partialAssistance).ok, false,
+    'Partial assisted-gold provenance must fail closed.');
+const partialHumanAssistance = Object.assign({}, fullAccepted.value, {
+    generator: 'Gemini-3.8-Flash'
+});
+assert.equal(benchmark.isHumanGoldReview(partialHumanAssistance,
+    new Set([candidate.id])), false,
+    'Human gold must also reject partial assisted provenance.');
 
 const oppositeActionFamilies = benchmark.classifyErrorFamilies({
     ...labels, speechAct: 'THREATEN', communicativeFunction: 'REQUEST',

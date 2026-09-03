@@ -1326,3 +1326,24 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   53 prototype, 47 calibration ve 19 speech-act sınıfı. Steril alan kümesi,
   kaynak eşitliği, önceki parti çakışmazlığı ve protokol görev zarfı kalıcı
   regresyonla doğrulanır.
+
+### 3 Eylül 2026 — Gemini aday üreticisi olarak tutuldu
+
+- Gemini makbuzu yapısal denetimi geçti: 100/100 ID ve aile, 91 `ACCEPT`, 9
+  `SEMANTIC_NEAR_DUPLICATE`; blind erişimi bildirilmedi ve görev oy hakkı
+  olmadan `CLOSED` yapıldı.
+- Mevcut doğrulanmış non-blind referansa göre kabul kapsamındaki ana speech-act
+  eşleşmesi `77/91` (`%84,6`), bütün SemanticFrameV2 eksenlerinde tam eşleşme
+  `5/91` (`%5,5`) oldu. Modelin 99/100 `HIGH` güveni bu nedenle gold güveni
+  veya kalibre olasılık sayılmaz.
+- Kullanıcı Gemini'yi bırakmak yerine doğrulanmış özel gold üretiminde yardımcı
+  aday kaynağı olarak kullanmayı onayladı. Zincir `GEMINI_CANDIDATE →
+  GEMINI_ASSISTED_REVIEW → VERIFIED_GOLD` olarak sabitlendi; ilk iki durum gold
+  değildir.
+- Yardımlı gold ancak `generator`, `candidateConfidence`, yetkili `adjudicator`,
+  eşleşen `adjudicationVerdict` ve `goldStatus=VERIFIED_GOLD` alanlarının tamamı
+  bulunduğunda kabul edilir. Gemini kendini hakemleyemez; eksik provenans
+  fail-closed reddedilir.
+- Bu adım mevcut corpus'a yeni gold eklemedi. Dört hedef regresyon paketi geçti;
+  plan `In Progress` kalır ve sonraki çalışma Gemini adaylarından yalnız yeni
+  bilgi değeri taşıyanların merkezi bireysel incelemesidir.

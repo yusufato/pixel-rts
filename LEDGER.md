@@ -1898,3 +1898,10 @@
 - **What happened:** Kullanıcı onayıyla `Gemini-3.8-Flash`, yalnız `external-review-0003` için `LABELER` olarak açıldı; görev `CONSENSUS_ELIGIBLE: false` olduğundan sonucu gold zincirine veya hakemliğe giremez. Steril input 100 kayıt ve 100 benzersiz aileyle üretildi.
 - **Evidence:** Parti 53 prototype + 47 calibration kayıt ve 19 speech-act sınıfı taşır. Her kayıt yalnız `id`, `text`, `history`, `speakerFamily`, `familyId`, `split` alanlarına sahiptir; spent-blind yoktur ve önceki iki dış partiyle ID/aile çakışması bulunmaz. Review-server regresyonu bu kapıları doğruladı.
 - **Implication for future audits:** Gemini deneme çıktısını Sonnet/Opus oyu, gold veya consensus girdisi sayma. Görev `READY` iken model yalnız atanmış input/output yollarını kullanabilir; 100/100 kardinalitesi bozulursa fail-closed durmalıdır.
+
+## 2026-09-03 — Gemini çıktısı aday üretim katmanında tutuldu
+- **Type:** Measured
+- **Source:** `phase-38-turkish-semantic-intent-router` external-review-0003 değerlendirmesi ve kullanıcı onayı
+- **What happened:** Gemini 3.8 Flash'ın 100 kayıt/100 ailelik makbuzu yapısal olarak doğrulandı ve görev `CLOSED` yapıldı. Kullanıcı onayıyla model doğrudan gold yazarı değil, `GEMINI_CANDIDATE → GEMINI_ASSISTED_REVIEW → VERIFIED_GOLD` zincirinin aday üreticisi olarak tutuldu. Yardımlı gold için üretici güveni ile merkezi adjudicator kararı ayrı provenans alanlarına bağlandı; eksik alan ve modelin kendini hakemlemesi fail-closed reddedilir.
+- **Evidence:** Çıktı 91 kabul ve 9 semantik tekrar bildirdi. Mevcut doğrulanmış non-blind referansta kabul kapsamı speech-act eşleşmesi `77/91` (`%84,6`), tam SemanticFrameV2 eşleşmesi `5/91` (`%5,5`) iken model `99/100` HIGH güven bildirdi. Review-server, intent-router, semantic-frame ve conversation-case testleri exit `0` verdi; corpus gold sayısı değişmedi.
+- **Implication for future audits:** Gemini güvenini gold güveni veya kalibre olasılık sayma. Gemini çıktısını yalnız maliyet düşüren aday/tekrar bulucu olarak kullan; corpus ve ürün kapılarına ancak yetkili bireysel adjudication ve tam `VERIFIED_GOLD` provenansı sonrası al. Yüksek-risk ve UNKNOWN/OOD kararlarını otomatik yükseltme.

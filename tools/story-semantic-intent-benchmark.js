@@ -50,6 +50,12 @@ const LABEL_AXES = Object.freeze(Object.keys(LABEL_VALUES));
 const REQUIRED_LABEL_FIELDS = Object.freeze([...LABEL_AXES, 'outOfDomain']);
 const SPLITS = Object.freeze(['prototype', 'calibration', 'blind_test']);
 const GOLD_REVIEWERS = Object.freeze(['LOCAL_HUMAN', 'CODEX_INDIVIDUAL_REVIEW']);
+const ASSISTED_GOLD_GENERATORS = Object.freeze(['Gemini-3.8-Flash']);
+const ASSISTED_GOLD_CONFIDENCE = Object.freeze(['HIGH', 'MEDIUM', 'LOW']);
+const ASSISTED_GOLD_FIELDS = Object.freeze([
+    'generator', 'candidateConfidence', 'adjudicator', 'adjudicationVerdict',
+    'goldStatus'
+]);
 const EMBEDDING_MODEL_ARTIFACTS = Object.freeze({
     'multilingual-e5-small-q8_0': Object.freeze({
         basename: 'twinsuns-multilingual-e5-small-q8_0.gguf',
@@ -204,6 +210,39 @@ function validateLabels(labels) {
     return { ok: issues.length === 0, issues };
 }
 
+function validateAssistedGoldProvenance(review) {
+    if (!review || typeof review !== 'object' || Array.isArray(review)) {
+        return { ok: false, assisted: false, issues: ['REVIEW_OBJECT_REQUIRED'] };
+    }
+    const assisted = ASSISTED_GOLD_FIELDS.some(field =>
+        Object.prototype.hasOwnProperty.call(review, field));
+    if (!assisted) return { ok: true, assisted: false, issues: [] };
+    const issues = [];
+    for (const field of ASSISTED_GOLD_FIELDS) {
+        if (!Object.prototype.hasOwnProperty.call(review, field)) {
+            issues.push(`ASSISTED_GOLD_FIELD_REQUIRED:${field}`);
+        }
+    }
+    if (!ASSISTED_GOLD_GENERATORS.includes(review.generator)) {
+        issues.push('ASSISTED_GOLD_GENERATOR');
+    }
+    if (!ASSISTED_GOLD_CONFIDENCE.includes(review.candidateConfidence)) {
+        issues.push('ASSISTED_GOLD_CONFIDENCE');
+    }
+    if (review.adjudicator !== review.reviewer
+        || !GOLD_REVIEWERS.includes(review.adjudicator)) {
+        issues.push('ASSISTED_GOLD_ADJUDICATOR');
+    }
+    if (review.adjudicationVerdict !== review.verdict
+        || !['ACCEPT', 'EDIT'].includes(review.adjudicationVerdict)) {
+        issues.push('ASSISTED_GOLD_VERDICT');
+    }
+    if (review.goldStatus !== 'VERIFIED_GOLD') {
+        issues.push('ASSISTED_GOLD_STATUS');
+    }
+    return { ok: issues.length === 0, assisted: true, issues };
+}
+
 function classifyErrorFamilies(actual, predicted) {
     if (!actual || !predicted) return [];
     const families = [];
@@ -274,6 +313,10 @@ function validateCorpus(corpus) {
                 || !validateLabels(row.adjudication.labels).ok) {
                 issues.push(`ADJUDICATION_LABELS:${row.id || ''}`);
             }
+            const assisted = validateAssistedGoldProvenance(row.adjudication);
+            for (const issue of assisted.issues) {
+                issues.push(`ADJUDICATION_PROVENANCE:${row.id || ''}:${issue}`);
+            }
         }
     }
     for (const [family, splits] of familySplits) {
@@ -289,7 +332,8 @@ function isHumanGoldReview(review, candidateIds) {
         && review.annotationContractVersion === 1
         && review.reviewer === 'LOCAL_HUMAN'
         && ['ACCEPT', 'EDIT'].includes(review.verdict)
-        && validateLabels(review.labels).ok);
+        && validateLabels(review.labels).ok
+        && validateAssistedGoldProvenance(review).ok);
 }
 
 function isGoldReview(review, candidateIds) {
@@ -298,7 +342,8 @@ function isGoldReview(review, candidateIds) {
         && review.annotationContractVersion === 1
         && GOLD_REVIEWERS.includes(review.reviewer)
         && ['ACCEPT', 'EDIT'].includes(review.verdict)
-        && validateLabels(review.labels).ok);
+        && validateLabels(review.labels).ok
+        && validateAssistedGoldProvenance(review).ok);
 }
 
 function labelsFromAnalysis(analysis) {
@@ -1743,8 +1788,10 @@ if (require.main === module) {
 
 module.exports = {
     LABEL_VALUES, LABEL_AXES, REQUIRED_LABEL_FIELDS, SPLITS, GOLD_REVIEWERS,
+    ASSISTED_GOLD_GENERATORS, ASSISTED_GOLD_CONFIDENCE,
     ERROR_FAMILY_DEFINITIONS, classifyErrorFamilies, summarizeErrorFamilies,
-    normalizeText, validateLabels, validateCorpus, isHumanGoldReview, isGoldReview,
+    normalizeText, validateLabels, validateAssistedGoldProvenance, validateCorpus,
+    isHumanGoldReview, isGoldReview,
     labelsFromAnalysis, buildBaselineProposals, buildBenchmark, buildEmbeddingSpikePreflight,
     l2Normalize, dotProduct, cosineSimilarity, frameCompatibility,
     matchesHighRiskFrameContract, matchesAuthoritativeSpeechActContract,

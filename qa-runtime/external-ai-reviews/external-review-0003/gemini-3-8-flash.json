@@ -1,0 +1,3246 @@
+{
+  "schemaVersion": 1,
+  "kind": "EXTERNAL_SEMANTIC_INDIVIDUAL_REVIEW",
+  "batchId": "external-review-0003",
+  "reviewer": "Gemini-3.8-Flash",
+  "role": "LABELER",
+  "consensusEligible": false,
+  "expectedRecordCount": 100,
+  "expectedUniqueFamilyCount": 100,
+  "uniqueFamilyCount": 100,
+  "protocolStatus": "COMPLETE",
+  "protocolVersion": "PROTOCOL.md @ qa-runtime/external-ai-reviews/PROTOCOL.md",
+  "modelIdentityVerified": true,
+  "blindAccessed": false,
+  "sourcePredictionsAccessed": false,
+  "inputPath": "qa-runtime/external-ai-reviews/external-review-0003/input.json",
+  "outputPath": "qa-runtime/external-ai-reviews/external-review-0003/gemini-3-8-flash.json",
+  "forbiddenPathsNotAccessed": [
+    "tools/story-semantic-intent-corpus.json",
+    "other-model-outputs",
+    "blind_test",
+    "spent-blind"
+  ],
+  "evaluatedIds": [
+    "semantic-intent:13dc06f008dd78d9",
+    "semantic-intent:6ff6720d6ba60386",
+    "semantic-intent:355a0cb473425d51",
+    "semantic-intent:targeted0028",
+    "semantic-intent:stability0008",
+    "semantic-intent:64ad193ced692c22",
+    "semantic-intent:d45fac8a184d1fbc",
+    "semantic-intent:5947db35f07733d5",
+    "semantic-intent:stability0018",
+    "semantic-intent:720ebd49cf3d1b75",
+    "semantic-intent:targeted0037",
+    "semantic-intent:stability0029",
+    "semantic-intent:110e9b2f1db8f8b0",
+    "semantic-intent:targeted0070",
+    "semantic-intent:7ba872be68244ad4",
+    "semantic-intent:targeted0019",
+    "semantic-intent:655dd66fd2492dd0",
+    "semantic-intent:targeted0010",
+    "semantic-intent:oodtaxp0012",
+    "semantic-intent:consstress0028",
+    "semantic-intent:consstress0019",
+    "semantic-intent:b69dc4a9c580fc90",
+    "semantic-intent:consstress0013",
+    "semantic-intent:consstress0030",
+    "semantic-intent:stability0012",
+    "semantic-intent:stability0079",
+    "semantic-intent:consstress0017",
+    "semantic-intent:consstress0023",
+    "semantic-intent:consstress0007",
+    "semantic-intent:consstress0018",
+    "semantic-intent:consstress0020",
+    "semantic-intent:consstress0027",
+    "semantic-intent:consstress0004",
+    "semantic-intent:consstress0010",
+    "semantic-intent:dirrisk0018",
+    "semantic-intent:consstress0001",
+    "semantic-intent:oodtaxc0012",
+    "semantic-intent:0f09a6e3b6c127e1",
+    "semantic-intent:fa72bd9ff93739da",
+    "semantic-intent:stability0002",
+    "semantic-intent:targeted0029",
+    "semantic-intent:stability0009",
+    "semantic-intent:5bc70d4648e3bc75",
+    "semantic-intent:58dfd67bae753e02",
+    "semantic-intent:stability0017",
+    "semantic-intent:stability0024",
+    "semantic-intent:targeted0038",
+    "semantic-intent:stability0030",
+    "semantic-intent:b16b3ba177ff5a5c",
+    "semantic-intent:targeted0046",
+    "semantic-intent:d3d89bdf9d19a5c5",
+    "semantic-intent:targeted0020",
+    "semantic-intent:4248c1d6446cd430",
+    "semantic-intent:targeted0011",
+    "semantic-intent:oodtaxp0006",
+    "semantic-intent:dirrisk0020",
+    "semantic-intent:consstress0026",
+    "semantic-intent:stability0005",
+    "semantic-intent:consstress0015",
+    "semantic-intent:dirrisk0013",
+    "semantic-intent:stability0075",
+    "semantic-intent:stability0078",
+    "semantic-intent:dirrisk0008",
+    "semantic-intent:consstress0021",
+    "semantic-intent:consstress0009",
+    "semantic-intent:dirrisk0010",
+    "semantic-intent:consstress0022",
+    "semantic-intent:consstress0016",
+    "semantic-intent:consstress0025",
+    "semantic-intent:consstress0011",
+    "semantic-intent:b6c039b83f9ddf2c",
+    "semantic-intent:consstress0003",
+    "semantic-intent:oodtaxc0006",
+    "semantic-intent:02968ba3881e1d7c",
+    "semantic-intent:stability0003",
+    "semantic-intent:targeted0030",
+    "semantic-intent:4d1e513d347bfb0c",
+    "semantic-intent:ceea4ec752f93be9",
+    "semantic-intent:targeted0067",
+    "semantic-intent:stability0023",
+    "semantic-intent:targeted0039",
+    "semantic-intent:targeted0068",
+    "semantic-intent:87e8e9be027d1dc1",
+    "semantic-intent:targeted0047",
+    "semantic-intent:8b9d671babbea10b",
+    "semantic-intent:targeted0021",
+    "semantic-intent:9610a222ea702af5",
+    "semantic-intent:targeted0012",
+    "semantic-intent:oodtaxp0005",
+    "semantic-intent:dirrisk0019",
+    "semantic-intent:consstress0024",
+    "semantic-intent:stability0004",
+    "semantic-intent:consstress0014",
+    "semantic-intent:stability0064",
+    "semantic-intent:stability0011",
+    "semantic-intent:stability0077",
+    "semantic-intent:stability0020",
+    "semantic-intent:dirrisk0015",
+    "semantic-intent:consstress0008",
+    "semantic-intent:4c4950730d2e91e5"
+  ],
+  "invariantChecksPassed": {
+    "inv1_lengths_match": true,
+    "inv2_ids_each_once": true,
+    "inv3_no_extra_missing": true,
+    "inv4_reviewed_eq_records": true,
+    "inv5_accepted_count": true,
+    "inv6_needs_review_count": true,
+    "inv7_snd_count": true,
+    "inv8_confidence_sums": true,
+    "inv9_cluster_counts_match": true,
+    "inv10_cluster_coverage_complete": true,
+    "inv11_exactly_100_unique_families": true,
+    "inv12_all_pass_protocol_complete": true
+  },
+  "records": [
+    {
+      "id": "semantic-intent:13dc06f008dd78d9",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_ECONOMIC",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "THIRD_PARTY",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ACCUSE",
+      "notes": "Bütçe bağlamında yetkisiz harcamalar yapıldığı bildirilmektedir; doğrudan muhataba yönelik ikinci şahıs bir suçlama (ACCUSE) yerine kurumsal/mali usulsüzlük durum raporudur (REPORT_ECONOMIC). Devrik konu başlığı yapısı anlamı çözmeyi engellemez.",
+      "templateCluster": "cluster_budget_unauthorized_spending",
+      "nearDuplicateOf": null,
+      "confidence": "MEDIUM"
+    },
+    {
+      "id": "semantic-intent:6ff6720d6ba60386",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_INFORMATION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_PERSONAL_OPINION",
+      "notes": "Fiyatın neden bu şekilde oluştuğuna dair nesnel neden sorulmaktadır; muhatabın öznel fikrinden ziyade olgusal gerekçe talep edildiğinden ASK_PERSONAL_OPINION değil ASK_INFORMATION'dır.",
+      "templateCluster": "cluster_ask_price_reason",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:355a0cb473425d51",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CHECK_IN",
+        "secondarySpeechActs": [
+          "SMALL_TALK"
+        ],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "CONTINUATION",
+        "requestedOutcome": "OPINION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SMALL_TALK",
+      "notes": "Konuşmacı konuyu topluma getirmekte ve karşı tarafın bu başlığı konuşmaya istekliliğini yoklamaktadır; salt sohbet (SMALL_TALK) yerine gündem geçişi ve teyit odaklı bir CHECK_IN eylemidir.",
+      "templateCluster": "cluster_topic_switch_willingness_inquiry",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0028",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "BLUFF_CANDIDATE",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "THREATEN",
+      "notes": "Cümle açıkça 'kanıtım yok ama' diyerek delilsiz bir iddia ortaya koymakta ve hasmı sarsmayı amaçlamaktadır; doğrudan bir yaptırım şartı (THREATEN) içermediği için BLUFF_CANDIDATE olarak belirlenmiştir.",
+      "templateCluster": "cluster_bluff_unsupported_claim",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0008",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CHALLENGE",
+        "secondarySpeechActs": [
+          "ASK_INFORMATION"
+        ],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "Konuşmacı tarafsız bir bilgi alma niyetiyle değil, muhatabın emir verme meşruiyetini ve yetkisini doğrudan sorgulamak (meydan okumak) amacıyla sormaktadır; bu yüzden ASK_INFORMATION yerine CHALLENGE seçilmiştir.",
+      "templateCluster": "cluster_challenge_command_authority",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:64ad193ced692c22",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CHECK_IN",
+        "secondarySpeechActs": [
+          "GREETING"
+        ],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "HEALTH",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "GREETING",
+      "notes": "Hitabın ardından doğrudan hal/hatır sorma eylemi ('nasılsınız') yer aldığından birincil eylem CHECK_IN olarak belirlenmiş, GREETING ikincil eylem olarak eklenmiştir.",
+      "templateCluster": "cluster_greeting_check_in_honorific",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:d45fac8a184d1fbc",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CHALLENGE",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SMALL_TALK",
+      "notes": "Toplantının içeriğine ve gündemine dair eksiklik tespiti yapılmakta, sürecin yetersizliği eleştirilmektedir; salt gündelik sohbet (SMALL_TALK) yerine toplantı düzenine yönelik bir itiraz/eleştiri (CHALLENGE) niteliğindedir.",
+      "templateCluster": "cluster_meeting_agenda_critique",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:5947db35f07733d5",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "labels": null,
+      "closestAlternativeSpeechAct": "GREETING",
+      "notes": "'selamlar' kök selamlaşma ifadesine yalnız kişi yer tutucusu ([KARAKTER]) eklenmiş şablonsal bir tekrardır; bağımsız gold değeri taşımadığından SEMANTIC_NEAR_DUPLICATE kararı verilmiştir.",
+      "templateCluster": "cluster_informal_greeting_selamlar",
+      "nearDuplicateOf": "semantic-intent:ceea4ec752f93be9",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0018",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "MAKE_PROMISE",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "SECRET",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "CONFIDENTIAL_HANDLING",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SHARE_SECRET",
+      "notes": "Gizlilik taahhüdü verilmektedir ('Gizli bilgiyi paylaşmama sözü SHARE_SECRET değildir' kuralı uyarınca). Bilgi ifşası değil, geleceğe dönük bağlayıcı bir gizlilik sözü (MAKE_PROMISE) söz konusudur.",
+      "templateCluster": "cluster_confidentiality_promise",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:720ebd49cf3d1b75",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "OFFER_SUPPORT",
+        "secondarySpeechActs": [
+          "ASK_INFORMATION"
+        ],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "TECHNOLOGY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "Konuşmacı kendi yapacağı araştırma ve teknoloji başlatma eylemini karşı tarafın onayına/isteğine sunmaktadır ('Konuşanın yapmayı teklif ettiği eylem OFFER_SUPPORT olabilir' kuralı gereğince ASK_INFORMATION değil OFFER_SUPPORT'tur).",
+      "templateCluster": "cluster_offer_rd_project_support",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0037",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "OFFER_SUPPORT",
+      "notes": "Karşılıklı edimler açık ve bağlayıcıdır (buğday verilip petrol takası istenmektedir); tek taraflı destek (OFFER_SUPPORT) değil iki taraflı ticari takas teklifidir (PROPOSE_COMMERCIAL_DEAL).",
+      "templateCluster": "cluster_commodity_barter_exchange",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0029",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REJECT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REJECT",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "NONE",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "COUNTER_OFFER",
+      "notes": "Karşı tarafın sunduğu koşullara dair açık ve kesin bir ret bildirilmektedir; yeni bir şart veya karşı teklif (COUNTER_OFFER) sunulmadığı için yalın REJECT eylemidir.",
+      "templateCluster": "cluster_agreement_rejection",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:110e9b2f1db8f8b0",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_ECONOMIC",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "PROPOSE_COMMERCIAL_DEAL",
+      "notes": "Cümlede herhangi bir karşılıklı edim veya teklif bulunmamaktadır ('Karşılıklı edimler açık değilse ticari anlaşma üretme' ve 'Para konusu geçmesi teklif anlamına gelmez' kuralları gereği PROPOSE_COMMERCIAL_DEAL değil, salt ekonomik bilgi aktarımı yani REPORT_ECONOMIC'tir).",
+      "templateCluster": "cluster_report_investment_opportunity",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0070",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_MILITARY",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "HYPOTHETICAL",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "NONE",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHALLENGE",
+      "notes": "Geçmişe veya varsayıma dayalı askeri geri çekilme koşulu aktarılmaktadır; tehdit veya talep içermez, varsayımsal askeri durum bildirimidir (REPORT_MILITARY).",
+      "templateCluster": "cluster_military_hypothetical_withdrawal",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:7ba872be68244ad4",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_ECONOMIC",
+        "secondarySpeechActs": [
+          "SMALL_TALK"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "CONTINUATION",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SMALL_TALK",
+      "notes": "Konu iş alanına taşınmakta ve şirketin yeni bir proje başlatma niyeti aktarılmaktadır; B1 düzeyindeki özne-yüklem uyumsuzluğu ('Şirketimiz ... istiyoruz') anlamı bozmaz; salt gevezelik (SMALL_TALK) yerine kurumsal faaliyet bildirimi (REPORT_ECONOMIC) ağır basmaktadır.",
+      "templateCluster": "cluster_topic_switch_company_project_plan",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0019",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "MAKE_PROMISE",
+        "secondarySpeechActs": [
+          "SHARE_SECRET"
+        ],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "SECRET",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "CONFIDENTIAL_HANDLING",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SHARE_SECRET",
+      "notes": "Cümlede gizli operasyonun kod adı henüz açıklanmamış ('Sır vermeyi teklif etmek ile sırrı gerçekten açıklamak aynı değildir' kuralı gereğince), gelecekte paylaşılacağına dair bağlayıcı bir taahhüt verilmiştir. Bu sebeple SHARE_SECRET değil MAKE_PROMISE eylemidir.",
+      "templateCluster": "cluster_promise_to_reveal_secret",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:655dd66fd2492dd0",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "SMALL_TALK",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_ECONOMIC",
+      "notes": "Konuşmacı nüfusun göç eğilimine dair kişisel bir gözlemini sohbete konu etmektedir; doğrudan mali veya ticari veri içermediğinden (REPORT_ECONOMIC yerine) genel durum paylaşımı olarak SMALL_TALK sınıfına girmektedir.",
+      "templateCluster": "cluster_demographic_trend_observation",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0010",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "THREATEN",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REQUEST_ACTION",
+      "notes": "Sınır ihlali yapılması halinde birliklerin vurulacağı açık bir askeri yaptırım koşuluna bağlanmıştır; salt caydırıcı talep (REQUEST_ACTION) değil doğrudan cebir ve şiddet tehdididir (THREATEN).",
+      "templateCluster": "cluster_military_border_threat",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:oodtaxp0012",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_INFORMATION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "UNSPECIFIED",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "HABITUAL",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": true
+      },
+      "closestAlternativeSpeechAct": "UNKNOWN",
+      "notes": "Cümle oyun/öykü evreni dışı (outOfDomain: true) akademik bir biyoloji sorusudur; dilsel iletişim eylemi bakımından açık ve net bir bilgi talebidir (ASK_INFORMATION).",
+      "templateCluster": "cluster_ood_academic_biology_question",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0028",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ACCUSE",
+        "secondarySpeechActs": [
+          "CHALLENGE"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHALLENGE",
+      "notes": "Muhataba yönelik füze kilitlenme kanıtını kasten gizlediği suçlaması yöneltilmektedir; genel bir meydan okumadan (CHALLENGE) ziyade doğrudan kasıtlı kusur isnadı (ACCUSE) mevcuttur.",
+      "templateCluster": "cluster_accuse_withholding_missile_proof",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0019",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_INFORMATION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REQUEST_ACTION",
+      "notes": "'Soru biçimindeki eylem planı, otomatik olarak emir sayılmaz' kuralı uyarınca; konuşmacı emir/talep (REQUEST_ACTION) vermemekte, askeri sevkiyat planı hakkında bilgi sormaktadır (ASK_INFORMATION).",
+      "templateCluster": "cluster_inquire_battalion_deployment",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:b69dc4a9c580fc90",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "labels": null,
+      "closestAlternativeSpeechAct": "CHECK_IN",
+      "notes": "'semantic-intent:355a0cb473425d51' kaydındaki 'Bu arada [konu] konusuna geçelim. [...] hakkında konuşmak ister misiniz?' iskeletinin alan adı değiştirilmiş birebir semantik tekrarıdır.",
+      "templateCluster": "cluster_topic_switch_willingness_inquiry",
+      "nearDuplicateOf": "semantic-intent:355a0cb473425d51",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0013",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "BLUFF_CANDIDATE",
+        "secondarySpeechActs": [
+          "THREATEN"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "THREATEN",
+      "notes": "Hasıma karşı kritik bir askeri üstünlük iddia edilmekte ('füzelerimiz kilitli'), ancak kanıtın sunulmayacağı peşinen bildirilmektedir; doğrudan bir şartlı yaptırım (THREATEN) olmaktan ziyade blöf adayıdır (BLUFF_CANDIDATE).",
+      "templateCluster": "cluster_bluff_unsupported_claim",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0030",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CHALLENGE",
+        "secondarySpeechActs": [
+          "ASK_INFORMATION"
+        ],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "Karşı tarafın siyasi oy üstünlüğü iddiası sorgulanmakta ve tutanakla ispatlanması talep edilerek meydan okunmaktadır; tarafsız bir bilgi sorusu (ASK_INFORMATION) değil açık bir CHALLENGE eylemidir.",
+      "templateCluster": "cluster_challenge_evidence_demand",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0012",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CORRECT_STATEMENT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "CORRECT",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "PAST",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "CORRECTION",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REJECT",
+      "notes": "Muhatabın yanlış bir iddiası ('söylediğinizin aksine') olgusal olarak düzeltilmektedir; bir teklifi geri çevirmek (REJECT) değil, gerçeği tashihtir (CORRECT_STATEMENT).",
+      "templateCluster": "cluster_correction_refuting_claim",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0079",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "GREETING",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "GREET",
+        "surfaceForm": "FRAGMENT",
+        "predicate": "IDENTITY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHECK_IN",
+      "notes": "Kurul üyelerine yönelik resmi ve toplu bir selamlama açılışıdır; hal/hatır sorma (CHECK_IN) içermediğinden yalın GREETING eylemidir.",
+      "templateCluster": "cluster_formal_group_greeting",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0017",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "MAKE_PROMISE",
+        "secondarySpeechActs": [
+          "COUNTER_OFFER"
+        ],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "COUNTER_OFFER",
+      "notes": "Konuşmacı karşı tarafın ablukayı kaldırması koşuluna bağlı olarak kendi birliklerini geri çekeceğini açıkça taahhüt etmektedir; diplomatik/askeri bir pazarlık taahhüdüdür (MAKE_PROMISE).",
+      "templateCluster": "cluster_conditional_military_concession",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0023",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "OFFER_SUPPORT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "PROPOSE_COMMERCIAL_DEAL",
+      "notes": "Konuşmacı tek taraflı ve bedelsiz ('ücretsiz') destek teklif etmektedir; karşılıklı bir edim veya ticari bedel yer almadığı için PROPOSE_COMMERCIAL_DEAL değil OFFER_SUPPORT'tur.",
+      "templateCluster": "cluster_offer_support_logistics",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0007",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "OFFER_SUPPORT",
+      "notes": "Karşılıklı fiyat ve tedarik taahhüdü içeren açık bir ticari anlaşma teklifidir (800 birim karşılığı 6 ay sevkiyat garantisi); tek taraflı destek (OFFER_SUPPORT) değil PROPOSE_COMMERCIAL_DEAL'dir.",
+      "templateCluster": "cluster_commercial_price_guarantee_deal",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0018",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REJECT",
+        "secondarySpeechActs": [
+          "CHALLENGE"
+        ],
+        "communicativeFunction": "REJECT",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "NONE",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHALLENGE",
+      "notes": "Tehdide boyun eğilmeyip limanın açılması talebi kesin bir dille reddedilmektedir; karşı tarafa yönelik bir tehdit (THREATEN) değil, açık bir ret eylemidir (REJECT).",
+      "templateCluster": "cluster_refusal_under_threat",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0020",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_ECONOMIC",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_MILITARY",
+      "notes": "Yakıt tüketim kayıtlarının maliyeye iletildiğine dair geçmiş bir idari/mali durum raporudur; askeri bir sevkiyat değil ekonomik kayıt bildirimidir (REPORT_ECONOMIC).",
+      "templateCluster": "cluster_report_past_financial_record",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0027",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_MILITARY",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "HEARSAY",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ACCUSE",
+      "notes": "Generalin emir kaynağına dair söylenti (HEARSAY) niteliğinde bir askeri durum aktarılmaktadır; doğrudan bir şahsı suçlamak (ACCUSE) yerine askeri dedikodu/raporlama (REPORT_MILITARY) niteliğindedir.",
+      "templateCluster": "cluster_military_hearsay_report",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0004",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REQUEST_ACTION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REQUEST",
+        "surfaceForm": "IMPERATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_MILITARY",
+      "notes": "Emir kipinde doğrudan askeri eylem talimatıdır; durum raporu (REPORT_MILITARY) değil eylem icrası talebidir (REQUEST_ACTION).",
+      "templateCluster": "cluster_imperative_military_order",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0010",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "SHARE_SECRET",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "CONFIDE",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "SECRET",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "CONFIDENTIAL_HANDLING",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_ECONOMIC",
+      "notes": "Konuşmacı 'Aramızda kalsın' gizlilik uyarısıyla henüz kamuya açıklanmamış valinin görevden alınması kararını fiilen ifşa etmektedir; salt haber verme değil gerçek bir sır paylaşımıdır (SHARE_SECRET).",
+      "templateCluster": "cluster_insider_confidential_disclosure",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:dirrisk0018",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "SMALL_TALK",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SHARE_SECRET",
+      "notes": "'Sır' kelimesi mecazi/esprili olarak fırın çöreği için kullanılmıştır ('Konu benzerliği eylem niyeti değildir' kuralı gereğince SHARE_SECRET değil, havadan sudan sohbet yani SMALL_TALK'tır).",
+      "templateCluster": "cluster_figurative_pleasantry_small_talk",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0001",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "THREATEN",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REQUEST_ACTION",
+      "notes": "Ablukanın kaldırılmaması halinde depoların yakılacağı bildirilmektedir; örtülü bir eylem ricası (REQUEST_ACTION) değil, ağır fiziksel zarar içeren şartlı bir tehdittir (THREATEN).",
+      "templateCluster": "cluster_coercive_ultimatum_threat",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:oodtaxc0012",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_INFORMATION",
+        "secondarySpeechActs": [
+          "REQUEST_ACTION"
+        ],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "UNSPECIFIED",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": true
+      },
+      "closestAlternativeSpeechAct": "REQUEST_ACTION",
+      "notes": "Cümle oyun dışı (outOfDomain: true) akademik matematik konusudur; nezaket kipiyle ('açıklar mısın?') bilgi ve izahat talep edilmektedir (ASK_INFORMATION).",
+      "templateCluster": "cluster_ood_academic_math_question",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:0f09a6e3b6c127e1",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CHALLENGE",
+        "secondarySpeechActs": [
+          "SMALL_TALK"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SMALL_TALK",
+      "notes": "Yönetimin kararlarına dair şüphe ve eleştirel değerlendirme dile getirilmektedir; tarafsız bir bilgi aktarımı değil, meşruiyet ve şeffaflığı sorgulayan örtük bir itiraz/eleştiridir (CHALLENGE).",
+      "templateCluster": "cluster_critique_governance_decisions",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:fa72bd9ff93739da",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_INFORMATION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_PERSONAL_OPINION",
+      "notes": "Yönetim değişikliklerinin somut nedenleri sorulmaktadır; konuşmacı muhatabın şahsi fikrini değil olgusal sebepleri sorguladığı için ASK_INFORMATION olarak etiketlenmiştir.",
+      "templateCluster": "cluster_inquire_governance_changes",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0002",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_PERSONAL_OPINION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "OPINION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "Sorunun 'Sence' ifadesiyle başlaması muhatabın öznel kanaatini ve değerlendirmesini hedeflediğini gösterir; nesnel bilgi talebi (ASK_INFORMATION) yerine ASK_PERSONAL_OPINION'dur.",
+      "templateCluster": "cluster_ask_personal_opinion_trust",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0029",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "labels": null,
+      "closestAlternativeSpeechAct": "BLUFF_CANDIDATE",
+      "notes": "'semantic-intent:targeted0028' kaydındaki belgesiz/kanıtsız iddiada bulunma kalıbının doğrudan semantik benzeridir; bağımsız gold değeri olmayıp SEMANTIC_NEAR_DUPLICATE olarak değerlendirilmiştir.",
+      "templateCluster": "cluster_bluff_unsupported_claim",
+      "nearDuplicateOf": "semantic-intent:targeted0028",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0009",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CHALLENGE",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "RELATIONSHIP",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "Konuşmacı kanıtsız suçlamayı reddederek muhatabın suçlama hakkını doğrudan sorgulamakta ve meydan okumaktadır (CHALLENGE).",
+      "templateCluster": "cluster_challenge_accusation_without_proof",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:5bc70d4648e3bc75",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CHALLENGE",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SMALL_TALK",
+      "notes": "Medyadaki son haberlerin eksikliğine ve manipülasyonuna yönelik eleştirel değerlendirmedir; salt laflama (SMALL_TALK) yerine bilgi akışının eksikliğine dikkat çeken bir itiraz/eleştiridir (CHALLENGE).",
+      "templateCluster": "cluster_critique_news_completeness",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:58dfd67bae753e02",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "labels": null,
+      "closestAlternativeSpeechAct": "GREETING",
+      "notes": "'selamlar' kök selamlama ifadesine yalnızca samimi hitap ('dostum') eklenmiş varyantıdır; bağımsız bir semantik çerçeve oluşturmadığı için SEMANTIC_NEAR_DUPLICATE olarak işaretlenmiştir.",
+      "templateCluster": "cluster_informal_greeting_selamlar",
+      "nearDuplicateOf": "semantic-intent:ceea4ec752f93be9",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0017",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "MAKE_PROMISE",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "PROPOSE_COMMERCIAL_DEAL",
+      "notes": "Borcun belirli bir vadeye kadar ödeneceğine dair kesin taahhüt verilmektedir; karşılıklı bir anlaşma müzakeresi (PROPOSE_COMMERCIAL_DEAL) değil tek taraflı bağlayıcı sözdür (MAKE_PROMISE).",
+      "templateCluster": "cluster_debt_payment_promise",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0024",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "OFFER_SUPPORT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "PROPOSE_COMMERCIAL_DEAL",
+      "notes": "Konvoy için karşılıksız/tek taraflı kamyon desteği önerilmektedir ('Konuşanın yapmayı teklif ettiği eylem OFFER_SUPPORT olabilir' kuralı gereğince ticari anlaşma değil OFFER_SUPPORT'tur).",
+      "templateCluster": "cluster_offer_support_logistics",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0038",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "OFFER_SUPPORT",
+      "notes": "Karşılıklı edimler (liman kullanım hakkı ve ortak ticaret anlaşması) açıkça tanımlanmış ticari bir anlaşma teklifidir (PROPOSE_COMMERCIAL_DEAL).",
+      "templateCluster": "cluster_port_commercial_treaty_proposal",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0030",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REJECT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REJECT",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "NONE",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHALLENGE",
+      "notes": "Muhatabın askeri konuşlandırma talebine karşı kesin ret bildirilmektedir; yeni bir şart koşulmadığından yalın REJECT eylemidir.",
+      "templateCluster": "cluster_reject_troop_deployment",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:b16b3ba177ff5a5c",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_ECONOMIC",
+        "secondarySpeechActs": [
+          "SMALL_TALK"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "CONTINUATION",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SMALL_TALK",
+      "notes": "Konuşmacı banka başlığına geçerek şirketin yatırım fırsatı ve kredi/banka başvurusu hakkında olgusal bilgi vermektedir; kurumsal mali durum aktarımı (REPORT_ECONOMIC) ön plandadır.",
+      "templateCluster": "cluster_topic_switch_bank_application",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0046",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_MILITARY",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_ECONOMIC",
+      "notes": "Kuzey cephesindeki askeri birlik hareketine ilişkin nesnel durum raporudur (REPORT_MILITARY).",
+      "templateCluster": "cluster_military_battalion_movement_report",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:d3d89bdf9d19a5c5",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REQUEST_ACTION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REQUEST",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "'Dinleyicinin yapacağı eylem REQUEST_ACTION olabilir' kuralı gereğince muhatabın bütçeyi incelemesi talep edilmektedir; soru veya teklif değil açık eylem talebidir (REQUEST_ACTION).",
+      "templateCluster": "cluster_request_budget_review",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0020",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "labels": null,
+      "closestAlternativeSpeechAct": "MAKE_PROMISE",
+      "notes": "'semantic-intent:targeted0019' kaydındaki gelecekte gizli bilgiyi paylaşma taahhüdünün ('[Sana/seninle] [gizli bilgiyi] [paylaşacağım/söyleyeceğim]') doğrudan semantik tekrarıdır.",
+      "templateCluster": "cluster_promise_to_reveal_secret",
+      "nearDuplicateOf": "semantic-intent:targeted0019",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:4248c1d6446cd430",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "SMALL_TALK",
+        "secondarySpeechActs": [
+          "REPORT_MILITARY"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "FRAGMENT",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_MILITARY",
+      "notes": "Görevin tamamlanma durumuna ilişkin kısa bir durum bildirimidir; resmi bir harekat tekmilinden ziyade sohbete eklenen bir durum notudur (SMALL_TALK).",
+      "templateCluster": "cluster_mission_progress_fragment",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0011",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "THREATEN",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "PROPOSE_COMMERCIAL_DEAL",
+      "notes": "Teklifin reddedilmesi halinde liman ablukası uygulanacağı yönünde açık bir yaptırım/zarar koşulu vardır; ticari bir pazarlık (PROPOSE_COMMERCIAL_DEAL) değil zorlayıcı bir tehdittir (THREATEN).",
+      "templateCluster": "cluster_blockade_conditional_threat",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:oodtaxp0006",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REQUEST_ACTION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REQUEST",
+        "surfaceForm": "IMPERATIVE",
+        "predicate": "UNSPECIFIED",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": true
+      },
+      "closestAlternativeSpeechAct": "UNKNOWN",
+      "notes": "Cümle oyun/kurgu evreni dışı (outOfDomain: true) yapay zekaya yönelik yaratıcı şiir yazma istemidir; açık bir eylem talimatıdır (REQUEST_ACTION).",
+      "templateCluster": "cluster_ood_creative_writing_poem",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:dirrisk0020",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ACCUSE",
+        "secondarySpeechActs": [
+          "CHALLENGE"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "RELATIONSHIP",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "BLUFF_CANDIDATE",
+      "notes": "Konuşmacı muhatabın sahte bir gizlilik numarasıyla aldatma yaptığını yüzüne vurarak itham etmektedir; kendisi blöf yapmamakta, hasmın blöfünü doğrudan suçlama (ACCUSE) konusu yapmaktadır.",
+      "templateCluster": "cluster_accuse_deception_fake_informant",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0026",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_INFORMATION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SHARE_SECRET",
+      "notes": "Konuşmacı bir sır ifşa etmemekte, siyasi bir idari karar hakkında soru sorarak bilgi talep etmektedir (ASK_INFORMATION).",
+      "templateCluster": "cluster_inquire_cabinet_decision",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0005",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_PERSONAL_OPINION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "OPINION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "'Kişisel olarak doğru buluyor musun' ifadesi doğrudan muhatabın öznel yargısını ve kanaatini sormaktadır; olgusal bilgi (ASK_INFORMATION) değil fikir talebidir (ASK_PERSONAL_OPINION).",
+      "templateCluster": "cluster_ask_opinion_command_decision",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0015",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "BLUFF_CANDIDATE",
+        "secondarySpeechActs": [
+          "REPORT_ECONOMIC"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_ECONOMIC",
+      "notes": "Mali rezervin üç katına çıktığı iddiası öne sürülürken delil olan banka kayıtlarının paylaşılmayacağı peşinen ilan edilerek delilsiz üstünlük kurgulanmaktadır (BLUFF_CANDIDATE).",
+      "templateCluster": "cluster_bluff_unsupported_claim",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:dirrisk0013",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CHALLENGE",
+        "secondarySpeechActs": [
+          "ASK_INFORMATION"
+        ],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "Muhatabın kesin iddiasına karşı delil talep edilerek iddianın temelsizliği ortaya konulmak istenmektedir; tarafsız bir bilgi sorusundan öte meydan okumadır (CHALLENGE).",
+      "templateCluster": "cluster_challenge_evidence_demand",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0075",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CORRECT_STATEMENT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "CORRECT",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "CORRECTION",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REJECT",
+      "notes": "Toplantı gününe ilişkin yanlış bilgi olgusal olarak düzeltilmektedir; bir teklif reddedilmemekte (REJECT), takvim tashih edilmektedir (CORRECT_STATEMENT).",
+      "templateCluster": "cluster_schedule_time_correction",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0078",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "GREETING",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "GREET",
+        "surfaceForm": "FRAGMENT",
+        "predicate": "IDENTITY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHECK_IN",
+      "notes": "Günün saatine ve makama uygun resmi selamlama ifadesidir (GREETING).",
+      "templateCluster": "cluster_formal_presidential_greeting",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:dirrisk0008",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "labels": null,
+      "closestAlternativeSpeechAct": "MAKE_PROMISE",
+      "notes": "'semantic-intent:stability0018' kaydındaki gizlilik taahhüdü ('[...] sızdırmayacağıma/aktarmayacağıma söz veriyorum') iskeletinin doğrudan semantik kopyasıdır.",
+      "templateCluster": "cluster_confidentiality_promise",
+      "nearDuplicateOf": "semantic-intent:stability0018",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0021",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "OFFER_SUPPORT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REQUEST_ACTION",
+      "notes": "Konuşmacı kendi eylemiyle dosyayı iletme yardımını teklif etmektedir ('Konuşanın yapmayı teklif ettiği eylem OFFER_SUPPORT olabilir' kuralı gereğince OFFER_SUPPORT'tur).",
+      "templateCluster": "cluster_offer_support_administrative",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0009",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "labels": null,
+      "closestAlternativeSpeechAct": "PROPOSE_COMMERCIAL_DEAL",
+      "notes": "'semantic-intent:targeted0037' kaydındaki 'X karşılığında Y takası/devri' emtia takas şablonunun doğrudan semantik benzeridir.",
+      "templateCluster": "cluster_commodity_barter_exchange",
+      "nearDuplicateOf": "semantic-intent:targeted0037",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:dirrisk0010",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REJECT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REJECT",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "SECRET",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "NONE",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SHARE_SECRET",
+      "notes": "Gizli kaynağın ismini açıklamaya yönelik talep kesin bir dille geri çevrilmektedir; sır ifşası (SHARE_SECRET) değil açık bir ret kararıdır (REJECT).",
+      "templateCluster": "cluster_refusal_informant_disclosure",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0022",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_ECONOMIC",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SMALL_TALK",
+      "notes": "Bakır emtiasının günlük piyasa fiyatına dair nesnel ekonomik durum raporudur (REPORT_ECONOMIC).",
+      "templateCluster": "cluster_commodity_price_report",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0016",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_MILITARY",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "HEARSAY",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "THREATEN",
+      "notes": "'Savaş konusu geçmesi tehdit anlamına gelmez' kuralı uyarınca konuşmacı kendisi tehdit savurmamakta, istihbarat raporundaki hasar öngörüsünü aktarmaktadır (REPORT_MILITARY).",
+      "templateCluster": "cluster_intelligence_threat_forecast_report",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0025",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REQUEST_ACTION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REQUEST",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "SECRET",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "CONFIDENTIAL_HANDLING",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SHARE_SECRET",
+      "notes": "'Gizli bilgiyi paylaşmama sözü / sır saklama talebi SHARE_SECRET değildir' kuralı uyarınca; konuşmacı sır vermemekte, gizlilik riayeti talep etmektedir (REQUEST_ACTION).",
+      "templateCluster": "cluster_request_confidentiality_handling",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0011",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "SHARE_SECRET",
+        "secondarySpeechActs": [
+          "REPORT_ECONOMIC"
+        ],
+        "communicativeFunction": "CONFIDE",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "SECRET",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "CONFIDENTIAL_HANDLING",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_ECONOMIC",
+      "notes": "Konuşmacı gizlilik belirteci ('Bunu yalnız sen bil') eşliğinde kasanın sahte altın içerdiğine dair gizli gerçeği fiilen ifşa etmektedir (SHARE_SECRET).",
+      "templateCluster": "cluster_secret_counterfeit_disclosure",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:b6c039b83f9ddf2c",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "SMALL_TALK",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "RELATIONSHIP",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "CONTINUATION",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHECK_IN",
+      "notes": "Güven konusuna geçiş yapılarak kişilerarası ilişkiye dair genel bir beyanda bulunulmaktadır; doğrudan bir teyit veya soru (CHECK_IN) yerine ilişki odaklı sohbet girişimidir (SMALL_TALK).",
+      "templateCluster": "cluster_topic_switch_trust_relation",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0003",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "THREATEN",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "SECRET",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SHARE_SECRET",
+      "notes": "Sözleşmeden çekilme eylemine karşılık ifşaat yaptırımı getirilmektedir; sırrın paylaşılması (SHARE_SECRET) değil, ifşa şantajı içeren şartlı tehdittir (THREATEN).",
+      "templateCluster": "cluster_exposure_blackmail_threat",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:oodtaxc0006",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REQUEST_ACTION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REQUEST",
+        "surfaceForm": "IMPERATIVE",
+        "predicate": "UNSPECIFIED",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": true
+      },
+      "closestAlternativeSpeechAct": "UNKNOWN",
+      "notes": "Cümle oyun/kurgu evreni dışı (outOfDomain: true) metin üretimi talimatıdır; doğrudan yapay zekaya yönelik eylem talebidir (REQUEST_ACTION).",
+      "templateCluster": "cluster_ood_creative_writing_novel",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:02968ba3881e1d7c",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_INFORMATION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "UNSPECIFIED",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SMALL_TALK",
+      "notes": "Siyasi/bölgesel bir varlığın güncel haberlerine dair genel bilgi sorgulanmaktadır (ASK_INFORMATION).",
+      "templateCluster": "cluster_inquire_latest_news",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0003",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_PERSONAL_OPINION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "OPINION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "'Ne düşünüyorsun' ifadesi muhatabın ticari/finansal stratejiye dair şahsi kanaatini istemektedir (ASK_PERSONAL_OPINION).",
+      "templateCluster": "cluster_ask_opinion_company_strategy",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0030",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "BLUFF_CANDIDATE",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_MILITARY",
+      "notes": "Konuşmacı askeri gücü olmadığı halde varmış gibi davranarak açıkça blöf yaptığını itiraf/ifade etmektedir (BLUFF_CANDIDATE).",
+      "templateCluster": "cluster_bluff_unsupported_claim",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:4d1e513d347bfb0c",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CORRECT_STATEMENT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REPAIR",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "REPAIR",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REJECT",
+      "notes": "Konuşmacı önceki ifadesini düzeltme niyetini ('önceki sözümü düzeltmek istiyorum') açıkça beyan etmektedir; ret (REJECT) değil konuşma onarımı/düzeltmesidir (CORRECT_STATEMENT).",
+      "templateCluster": "cluster_self_correction_speech_act",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:ceea4ec752f93be9",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "GREETING",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "GREET",
+        "surfaceForm": "FRAGMENT",
+        "predicate": "IDENTITY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHECK_IN",
+      "notes": "Yalın ve doğrudan selamlama ifadesidir (GREETING).",
+      "templateCluster": "cluster_informal_greeting_selamlar",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0067",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "MAKE_PROMISE",
+        "secondarySpeechActs": [
+          "REPORT_MILITARY"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "THREATEN",
+      "notes": "'Olumsuzluk yalnız kelimeye değil bağlı olduğu eyleme uygulanmalıdır' kuralı uyarınca; saldırı eyleminin olumsuzu bir tehdit (THREATEN) değil, saldırmazlık güvencesi/taahhüdüdür (MAKE_PROMISE).",
+      "templateCluster": "cluster_non_aggression_assurance",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0023",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "OFFER_SUPPORT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REQUEST_ACTION",
+      "notes": "Konuşmacı rapor hazırlama işini muhatap adına üstlenmeyi teklif etmektedir (OFFER_SUPPORT).",
+      "templateCluster": "cluster_offer_support_administrative",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0039",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "OFFER_SUPPORT",
+      "notes": "İki kurum arasında ticari tedarik sözleşmesi yapılması doğrudan teklif edilmektedir (PROPOSE_COMMERCIAL_DEAL).",
+      "templateCluster": "cluster_corporate_supply_contract_proposal",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0068",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REJECT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REJECT",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "SECRET",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "NONE",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SHARE_SECRET",
+      "notes": "'Gizli bilgiyi paylaşmama sözü SHARE_SECRET değildir' kuralı uyarınca; sır ifşası değil, bilgi paylaşım talebinin reddedilmesidir (REJECT).",
+      "templateCluster": "cluster_refusal_secret_disclosure",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:87e8e9be027d1dc1",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_ECONOMIC",
+        "secondarySpeechActs": [
+          "SMALL_TALK"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "CONTINUATION",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SMALL_TALK",
+      "notes": "Ekonomi başlığına geçiş yapılarak fiyatların dikkat çektiği aktarılmaktadır; piyasa ve fiyat hareketliliğine ilişkin genel durum bildirilmektedir (REPORT_ECONOMIC).",
+      "templateCluster": "cluster_topic_switch_price_observation",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0047",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_MILITARY",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_ECONOMIC",
+      "notes": "Sınır garnizonundaki mühimmat durumuna ilişkin operasyonel askeri lojistik raporudur (REPORT_MILITARY).",
+      "templateCluster": "cluster_military_garrison_status_report",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:8b9d671babbea10b",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REPORT_MILITARY",
+        "secondarySpeechActs": [
+          "SMALL_TALK"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "CONTINUATION",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "SMALL_TALK",
+      "notes": "Bilgi harbi ve dezenformasyon operasyonu planı aktarılmaktadır; kurgusal harekat planı paylaşımıdır (REPORT_MILITARY).",
+      "templateCluster": "cluster_topic_switch_disinformation_plan",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0021",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "labels": null,
+      "closestAlternativeSpeechAct": "MAKE_PROMISE",
+      "notes": "'semantic-intent:targeted0019' kaydındaki gizli bilgiyi açıklama eyleminin şablonsal benzeridir; yer bilgisi verilmemekte, açıklama taahhüdü tekrarlanmaktadır.",
+      "templateCluster": "cluster_promise_to_reveal_secret",
+      "nearDuplicateOf": "semantic-intent:targeted0019",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:9610a222ea702af5",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "SMALL_TALK",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "TECHNOLOGY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "PAST",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REPORT_ECONOMIC",
+      "notes": "Bilimsel bir keşfe dair genel bir haber aktarılmaktadır; askeri veya ticari bir zorunluluk içermeyen sohbet konusudur (SMALL_TALK).",
+      "templateCluster": "cluster_scientific_discovery_news",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:targeted0012",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "THREATEN",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REQUEST_ACTION",
+      "notes": "Bilginin ifşası halinde kariyerin bitirileceği açık bir yaptırım tehdididir (THREATEN).",
+      "templateCluster": "cluster_career_destruction_threat",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:oodtaxp0005",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "REQUEST_ACTION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "REQUEST",
+        "surfaceForm": "IMPERATIVE",
+        "predicate": "UNSPECIFIED",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": true
+      },
+      "closestAlternativeSpeechAct": "UNKNOWN",
+      "notes": "Cümle oyun/kurgu evreni dışı (outOfDomain: true) dil çevirisi talimatıdır (REQUEST_ACTION).",
+      "templateCluster": "cluster_ood_translation_request",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:dirrisk0019",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ACCUSE",
+        "secondarySpeechActs": [
+          "CHALLENGE"
+        ],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHALLENGE",
+      "notes": "Muhataba sahte hesap dökümüyle borç ödenmiş gibi gösterildiği suçlaması yöneltilmektedir (ACCUSE).",
+      "templateCluster": "cluster_accuse_forged_ledger",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0024",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_INFORMATION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "PROPOSE_COMMERCIAL_DEAL",
+      "notes": "'Karşılıklı edimler açık değilse ticari anlaşma üretme' kuralı uyarınca; konuşmacı anlaşma önermemekte, takas oranını sormaktadır (ASK_INFORMATION).",
+      "templateCluster": "cluster_inquire_barter_quote",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0004",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "ASK_PERSONAL_OPINION",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "OPINION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "'Sen olsan' kalıbıyla muhatabın şahsi/varsayımsal tercih ve kanaati sorulmaktadır (ASK_PERSONAL_OPINION).",
+      "templateCluster": "cluster_ask_hypothetical_peace_opinion",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0014",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "BLUFF_CANDIDATE",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "TELL",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHALLENGE",
+      "notes": "Tüm oyların elde olduğu iddia edilirken kanıtın ancak seçimden sonra gösterileceği söylenerek blöf yapılmaktadır (BLUFF_CANDIDATE).",
+      "templateCluster": "cluster_bluff_unsupported_claim",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0064",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CHALLENGE",
+        "secondarySpeechActs": [
+          "ASK_INFORMATION"
+        ],
+        "communicativeFunction": "ASK",
+        "surfaceForm": "INTERROGATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "QUESTIONED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "INFORMATION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "ASK_INFORMATION",
+      "notes": "Tek rapora dayanarak tahliye kararı verilmesinin meşruiyeti ve doğruluğu sert biçimde sorgulanıp eleştirilmektedir (CHALLENGE).",
+      "templateCluster": "cluster_challenge_evacuation_basis",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0011",
+      "decision": "SEMANTIC_NEAR_DUPLICATE",
+      "labels": null,
+      "closestAlternativeSpeechAct": "CORRECT_STATEMENT",
+      "notes": "'semantic-intent:stability0075' kaydındaki 'Hayır, [eylem] [zaman 1] değil [zaman 2] [gerçekleşti]' zaman tashih kalıbının doğrudan semantik benzeridir.",
+      "templateCluster": "cluster_schedule_time_correction",
+      "nearDuplicateOf": "semantic-intent:stability0075",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0077",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "GREETING",
+        "secondarySpeechActs": [
+          "CHECK_IN"
+        ],
+        "communicativeFunction": "GREET",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "CHECK_IN",
+      "notes": "Selamlama ('Merhaba') ile görüşmeye başlama teyidi bir aradadır; açılış eylemi olarak GREETING birincil, CHECK_IN ikincil eylemdir.",
+      "templateCluster": "cluster_meeting_opening_greeting",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:stability0020",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "MAKE_PROMISE",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "WORK",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "OFFER_SUPPORT",
+      "notes": "Karar çıkana kadar fabrikanın açık tutulacağına dair kesin söz verilmektedir (MAKE_PROMISE).",
+      "templateCluster": "cluster_factory_continuity_promise",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:dirrisk0015",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "OFFER_SUPPORT",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "MILITARY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "UNMARKED",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REQUEST_ACTION",
+      "notes": "Konuşmacı kendi muhafızlarını tahsis ederek yardım/destek teklif etmektedir (OFFER_SUPPORT).",
+      "templateCluster": "cluster_offer_military_escort_support",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:consstress0008",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "PROPOSE_COMMERCIAL_DEAL",
+        "secondarySpeechActs": [],
+        "communicativeFunction": "OFFER",
+        "surfaceForm": "IMPERATIVE",
+        "predicate": "ECONOMY",
+        "target": "LISTENER",
+        "polarity": "POSITIVE_OR_UNMARKED",
+        "temporality": "FUTURE",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "NEW_OR_UNMARKED",
+        "requestedOutcome": "ACTION",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "OFFER_SUPPORT",
+      "notes": "Karşılıklı açık edimler içeren ticari/mali takas teklifidir: liman açılması karşılığı gümrük payı artışı (PROPOSE_COMMERCIAL_DEAL).",
+      "templateCluster": "cluster_port_customs_barter_deal",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    },
+    {
+      "id": "semantic-intent:4c4950730d2e91e5",
+      "decision": "ACCEPT",
+      "labels": {
+        "speechAct": "CORRECT_STATEMENT",
+        "secondarySpeechActs": [
+          "REJECT"
+        ],
+        "communicativeFunction": "CORRECT",
+        "surfaceForm": "DECLARATIVE",
+        "predicate": "OPINION",
+        "target": "LISTENER",
+        "polarity": "NEGATIVE",
+        "temporality": "CURRENT_OR_UNMARKED",
+        "epistemicStatus": "CLAIMED_CERTAIN",
+        "continuity": "CORRECTION",
+        "requestedOutcome": "ACKNOWLEDGEMENT",
+        "outOfDomain": false
+      },
+      "closestAlternativeSpeechAct": "REJECT",
+      "notes": "Muhatabın nüfus tezine katılmadığını belirterek daha uygun olan stratejiyi düzeltici bir beyanla sunmaktadır (CORRECT_STATEMENT).",
+      "templateCluster": "cluster_disagreement_policy_correction",
+      "nearDuplicateOf": null,
+      "confidence": "HIGH"
+    }
+  ],
+  "templateClusters": [
+    {
+      "clusterId": "cluster_budget_unauthorized_spending",
+      "description": "Hükümet yetkisi dışındaki bütçe harcamalarını bildirme",
+      "representativeId": "semantic-intent:13dc06f008dd78d9",
+      "memberIds": [
+        "semantic-intent:13dc06f008dd78d9"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_ask_price_reason",
+      "description": "Fiyat değişiminin nedenini sorma",
+      "representativeId": "semantic-intent:6ff6720d6ba60386",
+      "memberIds": [
+        "semantic-intent:6ff6720d6ba60386"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_topic_switch_willingness_inquiry",
+      "description": "Konu değiştirip karşı tarafın konuşma istekliliğini yoklama",
+      "representativeId": "semantic-intent:355a0cb473425d51",
+      "memberIds": [
+        "semantic-intent:355a0cb473425d51",
+        "semantic-intent:b69dc4a9c580fc90"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 1
+    },
+    {
+      "clusterId": "cluster_bluff_unsupported_claim",
+      "description": "Delilsiz/belgesiz üstünlük veya durum iddia ederek blöf yapma",
+      "representativeId": "semantic-intent:targeted0028",
+      "memberIds": [
+        "semantic-intent:targeted0028",
+        "semantic-intent:consstress0013",
+        "semantic-intent:targeted0029",
+        "semantic-intent:consstress0015",
+        "semantic-intent:targeted0030",
+        "semantic-intent:consstress0014"
+      ],
+      "acceptedCount": 5,
+      "duplicateCount": 1
+    },
+    {
+      "clusterId": "cluster_challenge_command_authority",
+      "description": "Emir verme yetkisini ve meşruiyetini sorgulama/meydan okuma",
+      "representativeId": "semantic-intent:stability0008",
+      "memberIds": [
+        "semantic-intent:stability0008"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_greeting_check_in_honorific",
+      "description": "Saygı unvanıyla hatır sorma ve selamlama",
+      "representativeId": "semantic-intent:64ad193ced692c22",
+      "memberIds": [
+        "semantic-intent:64ad193ced692c22"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_meeting_agenda_critique",
+      "description": "Toplantı gündemi ve içeriğindeki eksiklikleri eleştirme",
+      "representativeId": "semantic-intent:d45fac8a184d1fbc",
+      "memberIds": [
+        "semantic-intent:d45fac8a184d1fbc"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_informal_greeting_selamlar",
+      "description": "Gayriresmi yalın selamlama kalıbı",
+      "representativeId": "semantic-intent:ceea4ec752f93be9",
+      "memberIds": [
+        "semantic-intent:5947db35f07733d5",
+        "semantic-intent:58dfd67bae753e02",
+        "semantic-intent:ceea4ec752f93be9"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 2
+    },
+    {
+      "clusterId": "cluster_confidentiality_promise",
+      "description": "Konuşma veya dosya içeriğini sızdırmama gizlilik taahhüdü",
+      "representativeId": "semantic-intent:stability0018",
+      "memberIds": [
+        "semantic-intent:stability0018",
+        "semantic-intent:dirrisk0008"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 1
+    },
+    {
+      "clusterId": "cluster_offer_rd_project_support",
+      "description": "Teknoloji geliştirme ve AR-GE projesi başlatma teklifi",
+      "representativeId": "semantic-intent:720ebd49cf3d1b75",
+      "memberIds": [
+        "semantic-intent:720ebd49cf3d1b75"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_commodity_barter_exchange",
+      "description": "Emtia ve hammadde takası teklifi",
+      "representativeId": "semantic-intent:targeted0037",
+      "memberIds": [
+        "semantic-intent:targeted0037",
+        "semantic-intent:consstress0009"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 1
+    },
+    {
+      "clusterId": "cluster_agreement_rejection",
+      "description": "Belirli koşullarda anlaşmayı imzalamayı reddetme",
+      "representativeId": "semantic-intent:stability0029",
+      "memberIds": [
+        "semantic-intent:stability0029"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_report_investment_opportunity",
+      "description": "Yeni yatırım fırsatı mevcudiyeti bildirimi",
+      "representativeId": "semantic-intent:110e9b2f1db8f8b0",
+      "memberIds": [
+        "semantic-intent:110e9b2f1db8f8b0"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_military_hypothetical_withdrawal",
+      "description": "Sınırda askeri varlığa dayalı varsayımsal geri çekilme bildirimi",
+      "representativeId": "semantic-intent:targeted0070",
+      "memberIds": [
+        "semantic-intent:targeted0070"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_topic_switch_company_project_plan",
+      "description": "İş konusuna geçip şirket proje başlatma niyetini aktarma",
+      "representativeId": "semantic-intent:7ba872be68244ad4",
+      "memberIds": [
+        "semantic-intent:7ba872be68244ad4"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_promise_to_reveal_secret",
+      "description": "Gelecekte gizli bilgiyi (kod adı/kimlik/yer) açıklama taahhüdü",
+      "representativeId": "semantic-intent:targeted0019",
+      "memberIds": [
+        "semantic-intent:targeted0019",
+        "semantic-intent:targeted0020",
+        "semantic-intent:targeted0021"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 2
+    },
+    {
+      "clusterId": "cluster_demographic_trend_observation",
+      "description": "Nüfus göç eğilimine ilişkin gözlem aktarımı",
+      "representativeId": "semantic-intent:655dd66fd2492dd0",
+      "memberIds": [
+        "semantic-intent:655dd66fd2492dd0"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_military_border_threat",
+      "description": "Sınır ihlali halinde birlikleri vurma şartlı tehdidi",
+      "representativeId": "semantic-intent:targeted0010",
+      "memberIds": [
+        "semantic-intent:targeted0010"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_ood_academic_biology_question",
+      "description": "Alan dışı akademik biyoloji sorusu",
+      "representativeId": "semantic-intent:oodtaxp0012",
+      "memberIds": [
+        "semantic-intent:oodtaxp0012"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_accuse_withholding_missile_proof",
+      "description": "Füze kilitlenme kanıtını saklama suçlaması",
+      "representativeId": "semantic-intent:consstress0028",
+      "memberIds": [
+        "semantic-intent:consstress0028"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_inquire_battalion_deployment",
+      "description": "Tabur sevkiyatı planını sorma",
+      "representativeId": "semantic-intent:consstress0019",
+      "memberIds": [
+        "semantic-intent:consstress0019"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_challenge_evidence_demand",
+      "description": "İddiayı kanıtlayacak belge/tutanak talep ederek meydan okuma",
+      "representativeId": "semantic-intent:consstress0030",
+      "memberIds": [
+        "semantic-intent:consstress0030",
+        "semantic-intent:dirrisk0013"
+      ],
+      "acceptedCount": 2,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_correction_refuting_claim",
+      "description": "İddia edilenin aksine anlaşmanın imzalanmadığını düzeltme",
+      "representativeId": "semantic-intent:stability0012",
+      "memberIds": [
+        "semantic-intent:stability0012"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_formal_group_greeting",
+      "description": "Kurul üyelerine toplu resmi selamlama",
+      "representativeId": "semantic-intent:stability0079",
+      "memberIds": [
+        "semantic-intent:stability0079"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_conditional_military_concession",
+      "description": "Ablukanın kaldırılmasına karşılık birlikleri geri çekme taahhüdü",
+      "representativeId": "semantic-intent:consstress0017",
+      "memberIds": [
+        "semantic-intent:consstress0017"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_offer_support_logistics",
+      "description": "Lojistik yardım ve ücretsiz rehberlik/kamyon desteği teklifi",
+      "representativeId": "semantic-intent:consstress0023",
+      "memberIds": [
+        "semantic-intent:consstress0023",
+        "semantic-intent:stability0024"
+      ],
+      "acceptedCount": 2,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_commercial_price_guarantee_deal",
+      "description": "Birim fiyat karşılığında sevkiyat garantisi teklifi",
+      "representativeId": "semantic-intent:consstress0007",
+      "memberIds": [
+        "semantic-intent:consstress0007"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_refusal_under_threat",
+      "description": "Tehdide rağmen limanı açmayı reddetme",
+      "representativeId": "semantic-intent:consstress0018",
+      "memberIds": [
+        "semantic-intent:consstress0018"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_report_past_financial_record",
+      "description": "Geçmiş yakıt tüketim kayıtlarının iletildiğini bildirme",
+      "representativeId": "semantic-intent:consstress0020",
+      "memberIds": [
+        "semantic-intent:consstress0020"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_military_hearsay_report",
+      "description": "Generalin emir kaynağına dair söylenti bildirimi",
+      "representativeId": "semantic-intent:consstress0027",
+      "memberIds": [
+        "semantic-intent:consstress0027"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_imperative_military_order",
+      "description": "Doğrudan tabur sevkiyatı askeri emri",
+      "representativeId": "semantic-intent:consstress0004",
+      "memberIds": [
+        "semantic-intent:consstress0004"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_insider_confidential_disclosure",
+      "description": "Hükümet/kabine görevden alma kararını gizlice ifşa etme",
+      "representativeId": "semantic-intent:consstress0010",
+      "memberIds": [
+        "semantic-intent:consstress0010"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_figurative_pleasantry_small_talk",
+      "description": "Şehir sırrına ilişkin mecazi sabah çöreği sohbeti",
+      "representativeId": "semantic-intent:dirrisk0018",
+      "memberIds": [
+        "semantic-intent:dirrisk0018"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_coercive_ultimatum_threat",
+      "description": "Abluka kaldırılmazsa depoları yakma ültimatomu ve tehdidi",
+      "representativeId": "semantic-intent:consstress0001",
+      "memberIds": [
+        "semantic-intent:consstress0001"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_ood_academic_math_question",
+      "description": "Alan dışı Pisagor teoremi açıklama talebi",
+      "representativeId": "semantic-intent:oodtaxc0012",
+      "memberIds": [
+        "semantic-intent:oodtaxc0012"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_critique_governance_decisions",
+      "description": "Yönetim kararlarının şeffaf olmamasını eleştirme",
+      "representativeId": "semantic-intent:0f09a6e3b6c127e1",
+      "memberIds": [
+        "semantic-intent:0f09a6e3b6c127e1"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_inquire_governance_changes",
+      "description": "Yönetim değişikliklerinin nedenini sorma",
+      "representativeId": "semantic-intent:fa72bd9ff93739da",
+      "memberIds": [
+        "semantic-intent:fa72bd9ff93739da"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_ask_personal_opinion_trust",
+      "description": "Bakanın güvenilirliğine dair muhatabın kişisel fikrini sorma",
+      "representativeId": "semantic-intent:stability0002",
+      "memberIds": [
+        "semantic-intent:stability0002"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_challenge_accusation_without_proof",
+      "description": "Kanıtsız suçlama yapılmasına itiraz ve meydan okuma",
+      "representativeId": "semantic-intent:stability0009",
+      "memberIds": [
+        "semantic-intent:stability0009"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_critique_news_completeness",
+      "description": "Haber bültenlerindeki önemli eksiklikleri eleştirme",
+      "representativeId": "semantic-intent:5bc70d4648e3bc75",
+      "memberIds": [
+        "semantic-intent:5bc70d4648e3bc75"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_debt_payment_promise",
+      "description": "Borcu belirli bir güne kadar ödeme taahhüdü",
+      "representativeId": "semantic-intent:stability0017",
+      "memberIds": [
+        "semantic-intent:stability0017"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_port_commercial_treaty_proposal",
+      "description": "Liman kullanım hakkı karşılığında ticaret anlaşması teklifi",
+      "representativeId": "semantic-intent:targeted0038",
+      "memberIds": [
+        "semantic-intent:targeted0038"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_reject_troop_deployment",
+      "description": "Birlikleri sınır dışına gönderme talebini reddetme",
+      "representativeId": "semantic-intent:stability0030",
+      "memberIds": [
+        "semantic-intent:stability0030"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_topic_switch_bank_application",
+      "description": "Banka konusuna geçip yatırım ve kredi başvurusunu bildirme",
+      "representativeId": "semantic-intent:b16b3ba177ff5a5c",
+      "memberIds": [
+        "semantic-intent:b16b3ba177ff5a5c"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_military_battalion_movement_report",
+      "description": "Cephedeki taburların geri çekilmesini bildirme",
+      "representativeId": "semantic-intent:targeted0046",
+      "memberIds": [
+        "semantic-intent:targeted0046"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_request_budget_review",
+      "description": "Bütçeyi gözden geçirme talebi",
+      "representativeId": "semantic-intent:d3d89bdf9d19a5c5",
+      "memberIds": [
+        "semantic-intent:d3d89bdf9d19a5c5"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_mission_progress_fragment",
+      "description": "Görevin bitimine yakın olunduğunu belirten durum parçası",
+      "representativeId": "semantic-intent:4248c1d6446cd430",
+      "memberIds": [
+        "semantic-intent:4248c1d6446cd430"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_blockade_conditional_threat",
+      "description": "Teklif reddedilirse limanları abluka altına alma tehdidi",
+      "representativeId": "semantic-intent:targeted0011",
+      "memberIds": [
+        "semantic-intent:targeted0011"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_ood_creative_writing_poem",
+      "description": "Alan dışı uzay şiiri yazma talimatı",
+      "representativeId": "semantic-intent:oodtaxp0006",
+      "memberIds": [
+        "semantic-intent:oodtaxp0006"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_accuse_deception_fake_informant",
+      "description": "Sahte muhbir bahanesiyle aldatma yapıldığını suçlama",
+      "representativeId": "semantic-intent:dirrisk0020",
+      "memberIds": [
+        "semantic-intent:dirrisk0020"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_inquire_cabinet_decision",
+      "description": "Kabinenin valiyi görevden alıp almayacağını sorma",
+      "representativeId": "semantic-intent:consstress0026",
+      "memberIds": [
+        "semantic-intent:consstress0026"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_ask_opinion_command_decision",
+      "description": "Komutanın kararına dair kişisel kanaat sorma",
+      "representativeId": "semantic-intent:stability0005",
+      "memberIds": [
+        "semantic-intent:stability0005"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_schedule_time_correction",
+      "description": "Toplantı veya sevkiyat zamanındaki yanlışlığı tashih etme",
+      "representativeId": "semantic-intent:stability0075",
+      "memberIds": [
+        "semantic-intent:stability0075",
+        "semantic-intent:stability0011"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 1
+    },
+    {
+      "clusterId": "cluster_formal_presidential_greeting",
+      "description": "Devlet başkanına resmi akşam selamı",
+      "representativeId": "semantic-intent:stability0078",
+      "memberIds": [
+        "semantic-intent:stability0078"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_offer_support_administrative",
+      "description": "Evrak iletimi veya rapor hazırlama idari desteği teklifi",
+      "representativeId": "semantic-intent:consstress0021",
+      "memberIds": [
+        "semantic-intent:consstress0021",
+        "semantic-intent:stability0023"
+      ],
+      "acceptedCount": 2,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_refusal_informant_disclosure",
+      "description": "Muhbirin adını vermeyi reddetme",
+      "representativeId": "semantic-intent:dirrisk0010",
+      "memberIds": [
+        "semantic-intent:dirrisk0010"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_commodity_price_report",
+      "description": "Bakır fiyatındaki artışın piyasa bildirimi",
+      "representativeId": "semantic-intent:consstress0022",
+      "memberIds": [
+        "semantic-intent:consstress0022"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_intelligence_threat_forecast_report",
+      "description": "Saldırı halinde depoların yanacağına dair istihbarat raporu aktarımı",
+      "representativeId": "semantic-intent:consstress0016",
+      "memberIds": [
+        "semantic-intent:consstress0016"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_request_confidentiality_handling",
+      "description": "Konunun aramızda tutulması gizlilik ricası",
+      "representativeId": "semantic-intent:consstress0025",
+      "memberIds": [
+        "semantic-intent:consstress0025"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_secret_counterfeit_disclosure",
+      "description": "Kasada sahte altın bulunduğu sırrını ifşa etme",
+      "representativeId": "semantic-intent:consstress0011",
+      "memberIds": [
+        "semantic-intent:consstress0011"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_topic_switch_trust_relation",
+      "description": "Güven konusuna geçip güvenin önemini belirtme",
+      "representativeId": "semantic-intent:b6c039b83f9ddf2c",
+      "memberIds": [
+        "semantic-intent:b6c039b83f9ddf2c"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_exposure_blackmail_threat",
+      "description": "Sözleşmeden çekilirse gizli ödemeleri ifşa etme şantajı",
+      "representativeId": "semantic-intent:consstress0003",
+      "memberIds": [
+        "semantic-intent:consstress0003"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_ood_creative_writing_novel",
+      "description": "Alan dışı roman açılış cümlesi üretme talimatı",
+      "representativeId": "semantic-intent:oodtaxc0006",
+      "memberIds": [
+        "semantic-intent:oodtaxc0006"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_inquire_latest_news",
+      "description": "Bölgesel federasyonun en son haberlerini sorma",
+      "representativeId": "semantic-intent:02968ba3881e1d7c",
+      "memberIds": [
+        "semantic-intent:02968ba3881e1d7c"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_ask_opinion_company_strategy",
+      "description": "Şirketin halka açılması hakkında fikir sorma",
+      "representativeId": "semantic-intent:stability0003",
+      "memberIds": [
+        "semantic-intent:stability0003"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_self_correction_speech_act",
+      "description": "Önceki ihracat sözünü düzeltme konuşma eylemi",
+      "representativeId": "semantic-intent:4d1e513d347bfb0c",
+      "memberIds": [
+        "semantic-intent:4d1e513d347bfb0c"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_non_aggression_assurance",
+      "description": "Saldırmayacağını beyan ederek güvence/söz verme",
+      "representativeId": "semantic-intent:targeted0067",
+      "memberIds": [
+        "semantic-intent:targeted0067"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_corporate_supply_contract_proposal",
+      "description": "Kurumsal uzun vadeli tedarik sözleşmesi teklifi",
+      "representativeId": "semantic-intent:targeted0039",
+      "memberIds": [
+        "semantic-intent:targeted0039"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_refusal_secret_disclosure",
+      "description": "Gizli bilgiyi muhatapla paylaşmayı reddetme",
+      "representativeId": "semantic-intent:targeted0068",
+      "memberIds": [
+        "semantic-intent:targeted0068"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_topic_switch_price_observation",
+      "description": "Ekonomi konusuna geçip fiyatların dikkat çektiğini bildirme",
+      "representativeId": "semantic-intent:87e8e9be027d1dc1",
+      "memberIds": [
+        "semantic-intent:87e8e9be027d1dc1"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_military_garrison_status_report",
+      "description": "Sınır garnizonu mühimmat durum raporu",
+      "representativeId": "semantic-intent:targeted0047",
+      "memberIds": [
+        "semantic-intent:targeted0047"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_topic_switch_disinformation_plan",
+      "description": "Dezenformasyon etkinliği operasyonel planı aktarımı",
+      "representativeId": "semantic-intent:8b9d671babbea10b",
+      "memberIds": [
+        "semantic-intent:8b9d671babbea10b"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_scientific_discovery_news",
+      "description": "Toprakların yaşına dair bilimsel keşif sohbeti",
+      "representativeId": "semantic-intent:9610a222ea702af5",
+      "memberIds": [
+        "semantic-intent:9610a222ea702af5"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_career_destruction_threat",
+      "description": "Bilgi açıklanırsa kariyeri bitirme kişisel tehdidi",
+      "representativeId": "semantic-intent:targeted0012",
+      "memberIds": [
+        "semantic-intent:targeted0012"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_ood_translation_request",
+      "description": "Alan dışı Japonca kelime çeviri talimatı",
+      "representativeId": "semantic-intent:oodtaxp0005",
+      "memberIds": [
+        "semantic-intent:oodtaxp0005"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_accuse_forged_ledger",
+      "description": "Sahte hesap dökümü sunarak hile yapıldığını suçlama",
+      "representativeId": "semantic-intent:dirrisk0019",
+      "memberIds": [
+        "semantic-intent:dirrisk0019"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_inquire_barter_quote",
+      "description": "Tahıl karşılığı kaç jeneratör verileceği takas oranını sorma",
+      "representativeId": "semantic-intent:consstress0024",
+      "memberIds": [
+        "semantic-intent:consstress0024"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_ask_hypothetical_peace_opinion",
+      "description": "Barış teklifinin kabul edilip edilmeyeceğine dair varsayımsal fikir sorma",
+      "representativeId": "semantic-intent:stability0004",
+      "memberIds": [
+        "semantic-intent:stability0004"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_challenge_evacuation_basis",
+      "description": "Tek rapora dayalı şehir tahliye kararını eleştirme/meydan okuma",
+      "representativeId": "semantic-intent:stability0064",
+      "memberIds": [
+        "semantic-intent:stability0064"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_meeting_opening_greeting",
+      "description": "Müzakere açılış selamı ve başlama teyidi",
+      "representativeId": "semantic-intent:stability0077",
+      "memberIds": [
+        "semantic-intent:stability0077"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_factory_continuity_promise",
+      "description": "Karar çıkana kadar fabrikayı kapatmama sözü",
+      "representativeId": "semantic-intent:stability0020",
+      "memberIds": [
+        "semantic-intent:stability0020"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_offer_military_escort_support",
+      "description": "Gizli geçitten çıkış için muhafız desteği teklifi",
+      "representativeId": "semantic-intent:dirrisk0015",
+      "memberIds": [
+        "semantic-intent:dirrisk0015"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_port_customs_barter_deal",
+      "description": "Liman açılması karşılığı gümrük payı artırma teklifi",
+      "representativeId": "semantic-intent:consstress0008",
+      "memberIds": [
+        "semantic-intent:consstress0008"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    },
+    {
+      "clusterId": "cluster_disagreement_policy_correction",
+      "description": "Nüfus politikasına itiraz edip uygun stratejiyi tashih etme",
+      "representativeId": "semantic-intent:4c4950730d2e91e5",
+      "memberIds": [
+        "semantic-intent:4c4950730d2e91e5"
+      ],
+      "acceptedCount": 1,
+      "duplicateCount": 0
+    }
+  ],
+  "summary": {
+    "reviewed": 100,
+    "accepted": 91,
+    "needsReview": 0,
+    "semanticNearDuplicates": 9,
+    "highConfidence": 99,
+    "mediumConfidence": 1,
+    "lowConfidence": 0,
+    "templateClustersIdentified": 84,
+    "uniqueFamiliesReviewed": 100
+  }
+}

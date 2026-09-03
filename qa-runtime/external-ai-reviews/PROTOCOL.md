@@ -74,7 +74,7 @@ ASSIGNMENTS:
     BATCH_ID: external-review-0003
     INPUT_FILE: qa-runtime/external-ai-reviews/external-review-0003/input.json
     OUTPUT_FILE: qa-runtime/external-ai-reviews/external-review-0003/gemini-3-8-flash.json
-    STATUS: READY
+    STATUS: CLOSED
     CONSENSUS_ELIGIBLE: false
     EXPECTED_RECORD_COUNT: 100
     EXPECTED_UNIQUE_FAMILY_COUNT: 100
@@ -192,6 +192,42 @@ düşük kaliteli sentetik veriyi kullanıcıya yığmak için kullanılmaz.
 
 Bu düzen “her gold tek tek incelenir” şartını değiştirmez. Yalnız gold olmaya
 uygun olmadığı açık kayıtlar için pahalı tam etiketleme işini keser.
+
+### 6.2 Gemini destekli gold güven zinciri
+
+`Gemini-3.8-Flash` çıktısı doğruluğu ne olursa olsun tek başına gold değildir.
+Model yalnız maliyet düşüren aday üretici olarak kullanılabilir ve kayıtlar üç
+ayrı güven durumundan geçer:
+
+1. `GEMINI_CANDIDATE`: Modelin steril inputtan ürettiği ham öneridir. Corpus,
+   benchmark gold sayacı, uzlaşma ve ürün kabul kapıları bu kaydı okuyamaz.
+2. `GEMINI_ASSISTED_REVIEW`: Merkezi inceleyici cümleyi, history'yi, en yakın
+   karşı sınıfı ve bütün SemanticFrameV2 eksenlerini tek tek karşılaştırır.
+   Bu ara durum da gold değildir.
+3. `VERIFIED_GOLD`: Yalnız yetkili merkezi inceleyicinin `ACCEPT` veya `EDIT`
+   kararı verdiği, tam etiketli kayıt gold olabilir. Gemini etiketi değişmeden
+   kopyalanmış olsa bile merkezi inceleme kanıtı olmadan bu duruma geçilemez.
+
+Gemini destekli bir adjudication aşağıdaki provenans alanlarının tamamını taşır;
+tek alanın eksikliği fail-closed biçimde gold kabulünü engeller:
+
+```yaml
+generator: Gemini-3.8-Flash
+candidateConfidence: HIGH | MEDIUM | LOW
+adjudicator: LOCAL_HUMAN | CODEX_INDIVIDUAL_REVIEW
+adjudicationVerdict: ACCEPT | EDIT
+goldStatus: VERIFIED_GOLD
+```
+
+`adjudicator`, kanonik `reviewer` ile; `adjudicationVerdict`, kanonik `verdict`
+ile birebir aynı olmalıdır. Gemini kendi kendisinin `reviewer` veya
+`adjudicator` değeri olamaz. Modelin `candidateConfidence` değeri yalnız kaynak
+makbuzudur; gold güveni veya kalibre edilmiş olasılık değildir.
+
+`THREATEN`, `REQUEST_ACTION`, `PROPOSE_COMMERCIAL_DEAL`, `SHARE_SECRET`,
+`BLUFF_CANDIDATE` ve `UNKNOWN/OOD` ayrımları Gemini yüksek güven bildirse bile
+otomatik yükseltilemez. Bu sınıflarda yön, aktör, olumsuzluk, zaman, istenen
+sonuç, gizlilik/karşılıklılık ve domain temeli merkezi olarak yeniden okunur.
 
 ## 7. Etiket güvenliği
 
