@@ -18,10 +18,16 @@ Bu iş için izin verilen harici model listesi kapalıdır:
 | --- | --- | --- |
 | `Sonnet-4.6` | `LABELER` | Evet |
 | `Opus-4.6` | `LABELER` | Evet |
+| `Gemini-3.8-Flash` | `LABELER` (denetimli değerlendirme) | Evet; oy hakkı yok |
 
-`Gemini-*` dahil tabloda bulunmayan modeller bu corpus için görev alamaz,
+Tabloda bulunmayan modeller bu corpus için görev alamaz,
 çıktı üretemez ve uzlaşmaya katılamaz. Yeni model ancak kullanıcı kararıyla bu
 tabloya açıkça eklenir. Model kendi rolünü seçmez veya tahmin etmez.
+
+`Gemini-3.8-Flash` yalnız kullanıcı tarafından onaylanmış denetimli değerlendirme
+partisinde çalışabilir. Görev satırında `CONSENSUS_ELIGIBLE: false` bulunması
+zorunludur; çıktısı kalite ölçümünde kullanılabilir fakat oy, gold, iki-model
+uzlaşması veya hakem girdisi olamaz.
 
 Sonnet ve Opus aynı sağlayıcıdan geldikleri için istatistiksel olarak bağımsız
 model aileleri oldukları iddia edilmez. Buradaki bağımsızlık; ayrı, kör ve
@@ -29,7 +35,7 @@ birbirinin çıktısını görmeyen iki inceleme çalışması anlamındadır.
 
 | Rol | Görev | Oy |
 | --- | --- | --- |
-| `LABELER` | Steril girdiyi tek tek etiketler | Bir izinli model için 1 |
+| `LABELER` | Steril girdiyi tek tek etiketler | Yalnız `CONSENSUS_ELIGIBLE: true` ise 1 |
 | `STABILITY_AUDITOR` | Aynı model ailesinin tekrar tutarlılığını ölçer | 0 |
 | `ARBITER_AND_MERGER` | İki kapalı çıktıyı karşılaştırır; harici modellere varsayılan atanmaz | 0 |
 
@@ -47,18 +53,31 @@ sormadan çalışmaya başlar.
 ### Aktif görev matrisi
 
 ```yaml
-ACTIVE_BATCH_ID: external-review-0001
+ACTIVE_BATCH_ID: external-review-0003
 ASSIGNMENTS:
   Sonnet-4.6:
     ROLE: LABELER
+    BATCH_ID: external-review-0001
     INPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/input.json
     OUTPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/sonnet-4-6-r1.json
     STATUS: CLOSED
+    CONSENSUS_ELIGIBLE: true
   Opus-4.6:
     ROLE: LABELER
+    BATCH_ID: external-review-0001
     INPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/input.json
     OUTPUT_FILE: qa-runtime/external-ai-reviews/external-review-0001/opus-4-6.json
     STATUS: CLOSED
+    CONSENSUS_ELIGIBLE: true
+  Gemini-3.8-Flash:
+    ROLE: LABELER
+    BATCH_ID: external-review-0003
+    INPUT_FILE: qa-runtime/external-ai-reviews/external-review-0003/input.json
+    OUTPUT_FILE: qa-runtime/external-ai-reviews/external-review-0003/gemini-3-8-flash.json
+    STATUS: READY
+    CONSENSUS_ELIGIBLE: false
+    EXPECTED_RECORD_COUNT: 100
+    EXPECTED_UNIQUE_FAMILY_COUNT: 100
 ```
 
 Bu matris bir görev zarfıdır ve her satır aşağıdaki beş değeri eksiksiz tanımlar:
@@ -77,6 +96,10 @@ dosya yollarından biri eksikse veya `OUTPUT_FILE` başka modele aitse işlem
 başlamaz. Model bu durumda soru sormaz, yol üretmez ve dosya oluşturmaz; yalnız
 hangi kapının kapanmış olduğunu konuşmada bildirir. Model kimliği tahmin edilmez;
 `High`, `Flash`, `Sonnet` ve `Opus` birbirinin yerine yazılamaz.
+Görev satırında `EXPECTED_RECORD_COUNT` veya `EXPECTED_UNIQUE_FAMILY_COUNT`
+varsa model input'u açtıktan sonra ikisini de yeniden hesaplar. Eşitlik
+sağlanmıyorsa çıktı yazmadan durur. `CONSENSUS_ELIGIBLE: false` olan görev,
+çıktı makbuzunda aynı değeri taşımak zorundadır.
 
 Aktif parti değiştiğinde merkezi geliştirici yalnız bu matrisi günceller. Eski
 parti yolu, sohbet geçmişindeki atama veya modelin önceki görevi yeni atama
@@ -95,8 +118,8 @@ durur ve çelişkiyi bildirir.
   verir; corpus'tan kendi başına kayıt seçmez.
 - Model git komutu, formatlayıcı, kod üretici veya toplu arama/değiştirme
   çalıştıramaz.
-- Çıktı önce yeni geçici içerik olarak hazırlanır; hedefte önceden dosya varsa
-  üzerine yazılmaz ve işlem durur.
+- Çıktı önce bellekte hazırlanıp doğrulanır; hedefte önceden dosya varsa üzerine
+  yazılmaz ve işlem durur. Repo içinde geçici dosya oluşturulmaz.
 - Aktif görev matrisinde kendi satırı bulunan model, rol veya yol teyidi istemez.
   Matris dışındaki olası dosyaları aramak da yetki ihlalidir.
 
@@ -116,6 +139,8 @@ eşik, skor ve başka AI cevabı girdide bulunamaz.
   olarak durur ve raporlar.
 - Labeler ile stability auditor birbirlerinin sonuçlarını göremez.
 - Hakem ancak bütün atanmış bağımsız çıktılar kapandıktan sonra çalışır.
+- `CONSENSUS_ELIGIBLE: false` çıktılar hakem tarafından açılamaz ve bağımsız oy
+  sayısına eklenemez.
 
 ## 6. Tekil inceleme ve benzersizlik
 
@@ -220,6 +245,9 @@ kararları, template kümeleri ve özet sayaçları taşır. Model ayrıca:
 - model kimliği doğrulamasını
 
 makbuzlar. “Sorun yok” gibi kanıtsız toplu ifade doğrulama sayılmaz.
+Görev satırında tanımlıysa çıktı ayrıca `consensusEligible`,
+`expectedRecordCount`, `expectedUniqueFamilyCount` ve yeniden hesaplanan
+`uniqueFamilyCount` alanlarını makbuzlar.
 
 `protocolStatus=COMPLETE` yazılmadan önce şu makine-doğrulanabilir eşitliklerin
 tamamı sağlanmalıdır:
@@ -230,6 +258,8 @@ tamamı sağlanmalıdır:
 - karar sayaçlarının toplamı `reviewed` değeridir ve her sayaç kayıt gövdesinden
   yeniden hesaplanan değerle aynıdır;
 - `highConfidence + mediumConfidence + lowConfidence == reviewed`;
+- görevde beklenen kayıt/aile sayısı varsa `records.length` ve farklı
+  `familyId` sayısı bu değerlere eşittir;
 - template kümesi üye ve karar sayaçları kayıt gövdesiyle aynıdır;
 - her `ACCEPT` tam etiket çerçevesi taşır; `NEEDS_REVIEW` ve
   `SEMANTIC_NEAR_DUPLICATE` zorla gold etiketi taşımaz.

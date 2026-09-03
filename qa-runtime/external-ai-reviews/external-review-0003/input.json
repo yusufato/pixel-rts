@@ -1,0 +1,807 @@
+{
+  "schemaVersion": 1,
+  "kind": "EXTERNAL_SEMANTIC_REVIEW_INPUT",
+  "batchId": "external-review-0003",
+  "records": [
+    {
+      "id": "semantic-intent:13dc06f008dd78d9",
+      "text": "Bu bütçe, hükümetin yetkisi dışında harcamalar yapılıyor.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "ABRUPT_TOPIC_SWITCH|AMBIGUOUS_OR_NOISY|GOVERNMENT_AUTHORITY",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:6ff6720d6ba60386",
+      "text": "Bu fiyatın neden böyle oldu?",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "FALSE_SHARED_MEMORY|FALSE_PREMISE|ECONOMY",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:355a0cb473425d51",
+      "text": "Bu arada toplum konusuna geçelim. Halkın yaşamı hakkında konuşmak ister misiniz?",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "EMOTIONAL_PRESSURE|SUPPORTED_PUBLIC|POPULATION_SOCIETY",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0028",
+      "text": "Kanıtım yok ama ordunuzun komutanını satın aldığımı iddia ediyorum.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "TARGETED_EMBEDDING_V1|BLUFF_CANDIDATE|prototype|0028",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:stability0008",
+      "text": "Bu emri vermeye gerçekten yetkiniz var mı?",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "REPRESENTATION_STABILITY_V1|COMMAND_AUTHORITY_CHALLENGE|prototype|0008",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:64ad193ced692c22",
+      "text": "[KARAKTER] bey nasılsınız",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "sha256:e2a7ceaf5616b525aa7fb0fe3554533682cc7e1c69ad5a685a4a97d128057b9b",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:d45fac8a184d1fbc",
+      "text": "Bu toplantıda bazı önemli noktalar eksik.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "ABRUPT_TOPIC_SWITCH|AMBIGUOUS_OR_NOISY|FORMAL_MEETINGS",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:5947db35f07733d5",
+      "text": "selamlar [KARAKTER]",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "sha256:0bdd3c90fcfbed64b412ae921fef9712b015be923d5ea73e4d3ad0fa6a58c3f7",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:stability0018",
+      "text": "Bu konuşmayı kimseye aktarmayacağıma söz veriyorum.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "REPRESENTATION_STABILITY_V1|CONFIDENTIALITY_PROMISE|prototype|0018",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:720ebd49cf3d1b75",
+      "text": "Yeni bir teknoloji geliştirmek için araştırma projelerini başlatmamı ister misiniz?",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "ELLIPSIS|FALSE_PREMISE|TECHNOLOGY_INNOVATION",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0037",
+      "text": "Size beş bin ton buğday karşılığında petrol takası öneriyorum.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "TARGETED_EMBEDDING_V1|PROPOSE_COMMERCIAL_DEAL|prototype|0037",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:stability0029",
+      "text": "Bu koşullarda anlaşmayı imzalamayı reddediyorum.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "REPRESENTATION_STABILITY_V1|AGREEMENT_REJECTION|prototype|0029",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:110e9b2f1db8f8b0",
+      "text": "Yeni bir yatırım fırsatı var.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "ABRUPT_TOPIC_SWITCH|UNKNOWN_TO_CHARACTER|COMPANIES_BANKS",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0070",
+      "text": "Sınırda asker olsaydı geri çekilebilirdik.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "TARGETED_EMBEDDING_V1|MILITARY_HYPOTHETICAL|prototype|0070",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:7ba872be68244ad4",
+      "text": "Bu arada iş konusuna geçelim. Şirketimiz yeni bir proje başlatmak istiyoruz.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "ECONOMIC_RUMOR|FALSE_PREMISE|TASKS_JOBS",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0019",
+      "text": "Sana gizli operasyonun kod adını söyleyeceğim.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "TARGETED_EMBEDDING_V1|SHARE_SECRET|prototype|0019",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:655dd66fd2492dd0",
+      "text": "Bu dönemde nüfusun göç yönündeki bir trend olduğunu fark ettim.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "ABRUPT_TOPIC_SWITCH|UNKNOWN_TO_CHARACTER|POPULATION_SOCIETY",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0010",
+      "text": "Bir daha sınırımıza girersen birliklerini vuracağım.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "TARGETED_EMBEDDING_V1|THREATEN|prototype|0010",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:oodtaxp0012",
+      "text": "Fotosentez neden kloroplastta gerçekleşir?",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "OOD_TAXONOMY_V1|ACADEMIC_BIOLOGY|prototype|0012",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:consstress0028",
+      "text": "Füzelerin hedefe kilitlendiğine dair kanıtı saklıyorsunuz.",
+      "history": [],
+      "speakerFamily": "MILITARY_OFFICER",
+      "familyId": "CONSENSUS_STRESS_V2|MISSILE_PROOF_WITHHOLDING_ACCUSATION|calibration|0028",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0019",
+      "text": "Üçüncü taburu kuzeye sevk etmeyi düşünüyor musunuz?",
+      "history": [],
+      "speakerFamily": "MILITARY_OFFICER",
+      "familyId": "CONSENSUS_STRESS_V2|BATTALION_DEPLOYMENT_QUESTION|calibration|0019",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:b69dc4a9c580fc90",
+      "text": "Bu arada banka konusuna geçelim. Gelecekteki yatırım fırsatları hakkında konuşmak ister misiniz?",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "EMOTIONAL_PRESSURE|SUPPORTED_PUBLIC|COMPANIES_BANKS",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0013",
+      "text": "Füzelerimiz hedefinize kilitli, kanıtını şimdi göstermeyeceğim.",
+      "history": [],
+      "speakerFamily": "MILITARY_OFFICER",
+      "familyId": "CONSENSUS_STRESS_V2|MISSILE_LOCK_WITHHELD_PROOF|calibration|0013",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0030",
+      "text": "Bütün oyların sizde olduğunu hangi tutanakla kanıtlayacaksınız?",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "CONSENSUS_STRESS_V2|VOTE_CONTROL_EVIDENCE_CHALLENGE|calibration|0030",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:stability0012",
+      "text": "Söylediğinizin aksine anlaşma henüz imzalanmadı.",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "REPRESENTATION_STABILITY_V1|AGREEMENT_SIGNATURE_CORRECTION|calibration|0012",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:stability0079",
+      "text": "Selamlar, kurul üyeleri.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "REPRESENTATION_STABILITY_V1|BOARD_GROUP_GREETING|calibration|0079",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0017",
+      "text": "Ablukayı kaldırırsanız birliklerimizi geri çekeceğiz.",
+      "history": [],
+      "speakerFamily": "MILITARY_OFFICER",
+      "familyId": "CONSENSUS_STRESS_V2|BLOCKADE_WITHDRAWAL_COMMITMENT|calibration|0017",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0023",
+      "text": "İsterseniz tahıl gemilerinize ücretsiz kılavuz gönderirim.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "CONSENSUS_STRESS_V2|FREE_GRAIN_SHIP_GUIDANCE_OFFER|calibration|0023",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0007",
+      "text": "Bakırın tonu için sekiz yüz verirseniz altı aylık sevkiyat garantisi sunarız.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "CONSENSUS_STRESS_V2|COPPER_PRICE_SUPPLY_EXCHANGE|calibration|0007",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0018",
+      "text": "Bizi tehdit etseniz de limanı açmayacağız.",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "CONSENSUS_STRESS_V2|PORT_OPENING_REFUSAL|calibration|0018",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0020",
+      "text": "Konvoy yakıt kayıtlarını dün maliyeye iletti.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "CONSENSUS_STRESS_V2|CONVOY_FUEL_RECORD_REPORT|calibration|0020",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0027",
+      "text": "Generalin emirlerinin başkentten gelmediği söyleniyor.",
+      "history": [],
+      "speakerFamily": "MILITARY_OFFICER",
+      "familyId": "CONSENSUS_STRESS_V2|GENERAL_COMMAND_ORIGIN_HEARSAY|calibration|0027",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0004",
+      "text": "Üçüncü taburu kuzey geçidine sevk et.",
+      "history": [],
+      "speakerFamily": "MILITARY_OFFICER",
+      "familyId": "CONSENSUS_STRESS_V2|BATTALION_NORTH_PASS_DIRECTIVE|calibration|0004",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0010",
+      "text": "Aramızda kalsın, kabine yarın valiyi görevden alacak.",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "CONSENSUS_STRESS_V2|CABINET_GOVERNOR_DISCLOSURE|calibration|0010",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:dirrisk0018",
+      "text": "Bu şehrin en iyi saklanan sırrı, fırıncıların sabah çöreğidir.",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "DIRECTIONAL_RISK_V2|FIGURATIVE_CITY_SECRET_SMALL_TALK|calibration|0018",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0001",
+      "text": "Bu ablukayı kaldırmadığınız takdirde liman depolarınız sabaha kadar yanar.",
+      "history": [],
+      "speakerFamily": "MILITARY_OFFICER",
+      "familyId": "CONSENSUS_STRESS_V2|BLOCKADE_WAREHOUSE_CONSEQUENCE|calibration|0001",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:oodtaxc0012",
+      "text": "Pisagor teoremini basitçe açıklar mısın?",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "OOD_TAXONOMY_V1|ACADEMIC_MATHEMATICS|calibration|0012",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:0f09a6e3b6c127e1",
+      "text": "Yönetimdeki bazı kararlar biraz karanlık görünüyor.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "ABRUPT_TOPIC_SWITCH|UNKNOWN_TO_CHARACTER|GOVERNMENT_AUTHORITY",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:fa72bd9ff93739da",
+      "text": "Cermen Federasyonu'nun yönetimindeki değişiklikler neden oldu?",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "FALSE_SHARED_MEMORY|FALSE_PREMISE|GOVERNMENT_AUTHORITY",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:stability0002",
+      "text": "Sence bu bakan güvenilir biri mi?",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "REPRESENTATION_STABILITY_V1|MINISTER_TRUST_OPINION|prototype|0002",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0029",
+      "text": "Elimde belge olmadan rakibinizin teslim olduğunu söylüyorum.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "TARGETED_EMBEDDING_V1|BLUFF_CANDIDATE|prototype|0029",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:stability0009",
+      "text": "Elinizde kanıt yokken beni nasıl suçlayabilirsiniz?",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "REPRESENTATION_STABILITY_V1|EVIDENCELESS_ACCUSATION_CHALLENGE|prototype|0009",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:5bc70d4648e3bc75",
+      "text": "Son haberlerde bazı önemli haberler eksik.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "ABRUPT_TOPIC_SWITCH|UNKNOWN_TO_CHARACTER|MEDIA_INFORMATION_WAR",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:58dfd67bae753e02",
+      "text": "selamlar dostum",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "sha256:3a65503f96b3ea17bdd6e3ad8180eeb11364d4a89f621acf0e8f1f7c140809d3",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:stability0017",
+      "text": "Borcu cuma gününe kadar ödeyeceğime söz veriyorum.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "REPRESENTATION_STABILITY_V1|DEBT_PAYMENT_PROMISE|prototype|0017",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:stability0024",
+      "text": "Konvoyunuza iki kamyonla destek olabilirim.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "REPRESENTATION_STABILITY_V1|CONVOY_TRUCK_SUPPORT|prototype|0024",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0038",
+      "text": "Liman kullanım hakkı karşılığında ortak ticaret anlaşması yapalım.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "TARGETED_EMBEDDING_V1|PROPOSE_COMMERCIAL_DEAL|prototype|0038",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:stability0030",
+      "text": "Birliklerimi sınır dışına gönderme talebinizi reddediyorum.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "REPRESENTATION_STABILITY_V1|TROOP_DEPLOYMENT_REJECTION|prototype|0030",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:b16b3ba177ff5a5c",
+      "text": "Bu arada banka konusuna geçelim. Şirketimiz yeni bir yatırım fırsatı buldu ve onu değerlendirmek için bankaya başvurduk.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "ECONOMIC_RUMOR|FALSE_PREMISE|COMPANIES_BANKS",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0046",
+      "text": "Kuzey cephesinde iki tabur geri çekildi.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "TARGETED_EMBEDDING_V1|REPORT_MILITARY|prototype|0046",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:d3d89bdf9d19a5c5",
+      "text": "Bütçemizi gözden geçirmenizi istiyorum.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "ELLIPSIS|FUTURE_DOMAIN|ECONOMY",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0020",
+      "text": "Ajanın gerçek kimliğini yalnız seninle paylaşacağım.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "TARGETED_EMBEDDING_V1|SHARE_SECRET|prototype|0020",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:4248c1d6446cd430",
+      "text": "görevin bitimine çok yakın.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "ABRUPT_TOPIC_SWITCH|UNKNOWN_TO_CHARACTER|TASKS_JOBS",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0011",
+      "text": "Teklifimi reddedersen limanlarını abluka altına alırım.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "TARGETED_EMBEDDING_V1|THREATEN|prototype|0011",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:oodtaxp0006",
+      "text": "Bana uzayda geçen kısa bir şiir yaz.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "OOD_TAXONOMY_V1|CREATIVE_WRITING_POEM|prototype|0006",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:dirrisk0020",
+      "text": "Olmayan bir muhbirin adını saklıyormuş gibi davranarak bizi kandırıyorsunuz.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "DIRECTIONAL_RISK_V2|FALSE_INFORMANT_ACCUSATION|calibration|0020",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0026",
+      "text": "Kabine valiyi yarın görevden mi alacak?",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "CONSENSUS_STRESS_V2|CABINET_GOVERNOR_QUESTION|calibration|0026",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:stability0005",
+      "text": "Komutanın kararını kişisel olarak doğru buluyor musun?",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "REPRESENTATION_STABILITY_V1|COMMAND_DECISION_OPINION|calibration|0005",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0015",
+      "text": "Rezervimiz üç katına çıktı; banka kayıtlarını paylaşmayacağım.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "CONSENSUS_STRESS_V2|RESERVE_CLAIM_WITHHELD_RECORDS|calibration|0015",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:dirrisk0013",
+      "text": "Bu kesin iddianızı destekleyen bir kanıtınız var mı?",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "DIRECTIONAL_RISK_V2|EVIDENCE_CHALLENGE|calibration|0013",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:stability0075",
+      "text": "Hayır, toplantı salı değil çarşamba yapılacak.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "REPRESENTATION_STABILITY_V1|MEETING_DAY_CORRECTION|calibration|0075",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:stability0078",
+      "text": "İyi akşamlar sayın başkan.",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "REPRESENTATION_STABILITY_V1|FORMAL_EVENING_GREETING|calibration|0078",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:dirrisk0008",
+      "text": "Bu dosyanın içeriğini dışarıya sızdırmayacağıma söz veriyorum.",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "DIRECTIONAL_RISK_V2|CONFIDENTIALITY_PROMISE|calibration|0008",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0021",
+      "text": "İstersen dosyayı müsteşara ben ulaştırabilirim.",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "CONSENSUS_STRESS_V2|TREASURY_FILE_SUPPORT_OFFER|calibration|0021",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0009",
+      "text": "On kamyon tahıl karşılığında iki jeneratörü devredebiliriz.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "CONSENSUS_STRESS_V2|GRAIN_GENERATOR_BARTER|calibration|0009",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:dirrisk0010",
+      "text": "Muhbirin adını size vermeyi reddediyorum.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "DIRECTIONAL_RISK_V2|INFORMANT_DISCLOSURE_REJECTION|calibration|0010",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0022",
+      "text": "Bakırın tonu bugün sekiz yüz krediye yükseldi.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "CONSENSUS_STRESS_V2|COPPER_PRICE_REPORT|calibration|0022",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0016",
+      "text": "Komşu devlet saldırırsa depoların yanacağını istihbarat raporu söylüyor.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "CONSENSUS_STRESS_V2|INTELLIGENCE_DAMAGE_FORECAST|calibration|0016",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0025",
+      "text": "Bu konuyu aramızda tutar mısın?",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "CONSENSUS_STRESS_V2|CONFIDENTIALITY_REQUEST_WITHOUT_DISCLOSURE|calibration|0025",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0011",
+      "text": "Bunu yalnız sen bil: doğu kasasındaki altınların yarısı sahte.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "CONSENSUS_STRESS_V2|COUNTERFEIT_VAULT_DISCLOSURE|calibration|0011",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:b6c039b83f9ddf2c",
+      "text": "Bu arada güven konusuna geçelim. Sizinle çalışırken güvenin önemini duydum.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "EMOTIONAL_PRESSURE|FALSE_PREMISE|CHARACTER_IDENTITY_RELATION_MEMORY",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0003",
+      "text": "Sözleşmeden çekilirsen bütün gizli ödemelerini meclise açıklarım.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "CONSENSUS_STRESS_V2|CONTRACT_PAYMENT_EXPOSURE|calibration|0003",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:oodtaxc0006",
+      "text": "Bir polisiye roman için açılış cümlesi üret.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "OOD_TAXONOMY_V1|CREATIVE_WRITING_NOVEL|calibration|0006",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:02968ba3881e1d7c",
+      "text": "Cermen Federasyonu'nun en son haberleri neler?",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "FALSE_SHARED_MEMORY|FALSE_PREMISE|MEDIA_INFORMATION_WAR",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:stability0003",
+      "text": "Bu şirketin halka açılması hakkında ne düşünüyorsun?",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "REPRESENTATION_STABILITY_V1|PUBLIC_OFFERING_OPINION|prototype|0003",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0030",
+      "text": "Askerim olmadığı halde sınırda büyük bir kuvvetim varmış gibi davranıyorum.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "TARGETED_EMBEDDING_V1|BLUFF_CANDIDATE|prototype|0030",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:4d1e513d347bfb0c",
+      "text": "Hayır, ihracat konusunda önceki sözümü düzeltmek istiyorum.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "IMPOSSIBLE_TASK|AMBIGUOUS_OR_NOISY|TRADE_LOGISTICS",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:ceea4ec752f93be9",
+      "text": "selamlar",
+      "history": [],
+      "speakerFamily": "EXECUTIVE",
+      "familyId": "sha256:eb0ccbbec6b0f4aea7de75a691a51ee0d44f234a83be6cae3750e44f80441e2a",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0067",
+      "text": "Size saldırmayacağız.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "TARGETED_EMBEDDING_V1|THREAT_NEGATED|prototype|0067",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:stability0023",
+      "text": "İsterseniz raporu sizin için ben hazırlayabilirim.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "REPRESENTATION_STABILITY_V1|REPORT_PREPARATION_OFFER|prototype|0023",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0039",
+      "text": "Şirketlerimiz arasında uzun vadeli tedarik sözleşmesi teklif ediyorum.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "TARGETED_EMBEDDING_V1|PROPOSE_COMMERCIAL_DEAL|prototype|0039",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0068",
+      "text": "Gizli bilgiyi seninle paylaşmayacağım.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "TARGETED_EMBEDDING_V1|SECRET_REFUSAL|prototype|0068",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:87e8e9be027d1dc1",
+      "text": "Bu arada ekonomi konusuna geçelim. Son zamanlarda fiyatlar çok dikkat çekiyor.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "ECONOMIC_RUMOR|SUPPORTED_PUBLIC|ECONOMY",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0047",
+      "text": "Sınır garnizonunun mühimmatı azaldı.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "TARGETED_EMBEDDING_V1|REPORT_MILITARY|prototype|0047",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:8b9d671babbea10b",
+      "text": "Bu arada dezenformasyon konusuna geçelim. Gelecek hafta büyük bir etkinlik yapılacak ve bu etkinliği dezenformasyonla desteklemek istiyoruz.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "EMOTIONAL_PRESSURE|FUTURE_DOMAIN|MEDIA_INFORMATION_WAR",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0021",
+      "text": "Kasadaki gizli belgenin yerini sana açıklıyorum.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "TARGETED_EMBEDDING_V1|SHARE_SECRET|prototype|0021",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:9610a222ea702af5",
+      "text": "Yeni bir bilim insanı, toprakların son derece eski olduğunu keşfetti.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "ABRUPT_TOPIC_SWITCH|UNKNOWN_TO_CHARACTER|TECHNOLOGY_INNOVATION",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:targeted0012",
+      "text": "Bu bilgiyi açıklarsan kariyerini bitiririm.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "TARGETED_EMBEDDING_V1|THREATEN|prototype|0012",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:oodtaxp0005",
+      "text": "Günaydın kelimesini Japoncaya çevir.",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "OOD_TAXONOMY_V1|LANGUAGE_TRANSLATION|prototype|0005",
+      "split": "prototype"
+    },
+    {
+      "id": "semantic-intent:dirrisk0019",
+      "text": "Sahte bir hesap dökümü gösterip borcu ödediğinizi söylüyorsunuz.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "DIRECTIONAL_RISK_V2|FORGED_LEDGER_ACCUSATION|calibration|0019",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0024",
+      "text": "On kamyon tahılın karşılığında kaç jeneratör verirsiniz?",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "CONSENSUS_STRESS_V2|GRAIN_GENERATOR_QUOTE_QUESTION|calibration|0024",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:stability0004",
+      "text": "Sen olsan bu barış teklifini kabul eder miydin?",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "REPRESENTATION_STABILITY_V1|PEACE_CHOICE_HYPOTHETICAL|calibration|0004",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0014",
+      "text": "Bütün oylar bizde, tutanakları ancak seçimden sonra açarım.",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "CONSENSUS_STRESS_V2|VOTE_CONTROL_DELAYED_RECORDS|calibration|0014",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:stability0064",
+      "text": "Tek bir rapora dayanarak bütün şehri nasıl tahliye edebilirsiniz?",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "REPRESENTATION_STABILITY_V1|EVACUATION_BASIS_CHALLENGE|calibration|0064",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:stability0011",
+      "text": "Hayır, sevkiyat dün değil bu sabah ulaştı.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "REPRESENTATION_STABILITY_V1|SHIPMENT_TIME_CORRECTION|calibration|0011",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:stability0077",
+      "text": "Merhaba, görüşmeye başlayabiliriz.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "REPRESENTATION_STABILITY_V1|NEGOTIATION_OPENING_GREETING|calibration|0077",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:stability0020",
+      "text": "Kararınız çıkana kadar fabrikayı kapatmayacağıma söz veriyorum.",
+      "history": [],
+      "speakerFamily": "COMPANY_EXECUTIVE",
+      "familyId": "REPRESENTATION_STABILITY_V1|FACTORY_CONTINUITY_PROMISE|calibration|0020",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:dirrisk0015",
+      "text": "İstersen gizli geçitten çıkmanız için kendi muhafızlarımı gönderebilirim.",
+      "history": [],
+      "speakerFamily": "AGENT",
+      "familyId": "DIRECTIONAL_RISK_V2|COVERT_ESCORT_SUPPORT_OFFER|calibration|0015",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:consstress0008",
+      "text": "Liman kullanımını bize açın, karşılığında gümrük payını yüzde iki artırayım.",
+      "history": [],
+      "speakerFamily": "POLITICAL_FIGURE",
+      "familyId": "CONSENSUS_STRESS_V2|PORT_CUSTOMS_SHARE_EXCHANGE|calibration|0008",
+      "split": "calibration"
+    },
+    {
+      "id": "semantic-intent:4c4950730d2e91e5",
+      "text": "Hayır, nüfus konusunda sana katılmıyorum. Bizim için daha az nüfuslu bir bölge daha uygun olacak.",
+      "history": [],
+      "speakerFamily": "COMMANDER",
+      "familyId": "INVENTED_EVENT|FALSE_PREMISE|POPULATION_SOCIETY",
+      "split": "calibration"
+    }
+  ]
+}

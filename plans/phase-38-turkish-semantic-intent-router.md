@@ -19,6 +19,8 @@ touches:
   - qa-runtime/external-ai-reviews/PROTOCOL.md
   - qa-runtime/external-ai-reviews/external-review-0001/consensus.json
   - qa-runtime/external-ai-reviews/external-review-0002/consensus.json
+  - qa-runtime/external-ai-reviews/external-review-0003/input.json
+  - qa-runtime/external-ai-reviews/external-review-0003/gemini-3-8-flash.json
   - tests/story-semantic-intent-router.test.js
   - tests/story-semantic-review-server.test.js
   - tests/story-conversation-semantic-frame.test.js
@@ -34,7 +36,7 @@ conflicts_with:
   - bugfix-story-invalid-battle-target-guard
   - electron-story-lifecycle-acceptance
 created: 2026-08-27
-last_touched: 2026-09-02
+last_touched: 2026-09-03
 ---
 
 # Faz 38 — Türkçe Semantik Niyet Yönlendiricisi
@@ -1315,3 +1317,12 @@ model kartı + calibration ölçümüyle sürümlenir; evrensel varsayımlar red
   hata `20 → 17` oldu. Başlangıçtaki 143 hatanın `126/143`ü (`%88,1`) kapandı.
   Dört hedef regresyon paketi geçti. Bu non-blind geliştirme ölçümü B1/ürün
   kabulü değildir.
+- Kullanıcı 3 Eylül 2026 tarihinde `Gemini-3.8-Flash` için denetimli 100 ailelik
+  denemeyi onayladı. Model yalnız `external-review-0003` steril girdisine ve
+  kendi yeni çıktı yoluna yetkilendirildi; `CONSENSUS_ELIGIBLE: false` olduğu
+  için sonucu oy, gold, uzlaşma veya hakem girdisi olamaz.
+- Parti, önceki iki dış incelemede kullanılmamış ve yalnız bireysel Codex
+  incelemeli non-blind kayıtlardan seçilen 100 kayıt/100 benzersiz aile taşır:
+  53 prototype, 47 calibration ve 19 speech-act sınıfı. Steril alan kümesi,
+  kaynak eşitliği, önceki parti çakışmazlığı ve protokol görev zarfı kalıcı
+  regresyonla doğrulanır.

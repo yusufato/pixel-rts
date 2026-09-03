@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const review = require('../tools/story-semantic-review-server');
 const benchmark = require('../tools/story-semantic-intent-benchmark');
 const corpus = require('../tools/story-semantic-intent-corpus.json');
@@ -32,6 +34,41 @@ assert.ok(v3Candidates.filter(row => row.adjudication).every(row =>
     row.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW'
     && benchmark.validateLabels(row.adjudication.labels).ok),
 'only individually reviewed, fully labeled v3 rows may become gold');
+
+const externalReviewRoot = path.join(__dirname, '..', 'qa-runtime',
+    'external-ai-reviews');
+const geminiBatch = require('../qa-runtime/external-ai-reviews/external-review-0003/input.json');
+const priorExternalRows = [
+    require('../qa-runtime/external-ai-reviews/external-review-0001/input.json'),
+    require('../qa-runtime/external-ai-reviews/external-review-0002/input.json')
+].flatMap(batch => batch.records || []);
+const allowedExternalFields = ['familyId', 'history', 'id', 'speakerFamily', 'split', 'text'];
+assert.equal(geminiBatch.schemaVersion, 1);
+assert.equal(geminiBatch.kind, 'EXTERNAL_SEMANTIC_REVIEW_INPUT');
+assert.equal(geminiBatch.batchId, 'external-review-0003');
+assert.equal(geminiBatch.records.length, 100);
+assert.equal(new Set(geminiBatch.records.map(row => row.id)).size, 100);
+assert.equal(new Set(geminiBatch.records.map(row => row.familyId)).size, 100);
+assert.ok(geminiBatch.records.every(row =>
+    JSON.stringify(Object.keys(row).sort()) === JSON.stringify(allowedExternalFields)
+    && ['prototype', 'calibration'].includes(row.split)
+    && Array.isArray(row.history)));
+const priorExternalIds = new Set(priorExternalRows.map(row => row.id));
+const priorExternalFamilies = new Set(priorExternalRows.map(row => row.familyId));
+assert.ok(geminiBatch.records.every(row =>
+    !priorExternalIds.has(row.id) && !priorExternalFamilies.has(row.familyId)));
+const sourceById = new Map(corpus.candidates.map(row => [row.id, row]));
+assert.ok(geminiBatch.records.every(row => {
+    const source = sourceById.get(row.id);
+    return source && source.split !== 'blind_test'
+        && source.adjudication
+        && source.adjudication.reviewer === 'CODEX_INDIVIDUAL_REVIEW'
+        && allowedExternalFields.every(field =>
+            JSON.stringify(row[field]) === JSON.stringify(source[field]));
+}));
+const externalProtocol = fs.readFileSync(path.join(externalReviewRoot, 'PROTOCOL.md'), 'utf8');
+assert.match(externalProtocol, /ACTIVE_BATCH_ID: external-review-0003/);
+assert.match(externalProtocol, /Gemini-3\.8-Flash:[\s\S]*?STATUS: READY[\s\S]*?CONSENSUS_ELIGIBLE: false[\s\S]*?EXPECTED_RECORD_COUNT: 100[\s\S]*?EXPECTED_UNIQUE_FAMILY_COUNT: 100/);
 
 const candidate = Object.assign({}, corpus.candidates[0]);
 delete candidate.adjudication;

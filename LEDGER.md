@@ -1891,3 +1891,10 @@
 - **What happened:** Kısıtlı dinleyici çerçevesinden sonra gerçekten açıklanan olgu ile gizli içeriği dinleyiciye olumlu birinci kişi şimdiki/gelecek açıklama eylemiyle aktarma `CONFIDE` bileşimine bağlandı. Soru, olumsuz açıklama, içeriksiz gizlilik talimatı ve dinleyiciden açıklama isteme dışarıda kaldı.
 - **Evidence:** Spent blind açılmadan `SHARE_SECRET` `12/15 → 15/15`, yanlış gizli paylaşım `0`, OOD `33/33`; toplam `252/272 → 255/272` (`%92,6 → %93,8`), hata `20 → 17` ve başlangıç hata kapanışı `126/143` (`%88,1`) oldu. Dört hedef regresyon paketi exit `0` verdi.
 - **Implication for future audits:** `gizli` sözcüğünü tek başına sır paylaşımı sayma. Açıklanmış içerik, sınırlı dinleyici ve olumlu aktarım yönünü birlikte doğrula; gelecek zaman bu corpus sözleşmesinde gerçek gizli aktarım yönünü korur. Bu sonuç B1 veya ürün kabulü değildir.
+
+## 2026-09-03 — Gemini 3.8 Flash denetimli 100-aile partisi açıldı
+- **Type:** Executed
+- **Source:** `phase-38-turkish-semantic-intent-router` external evaluator experiment
+- **What happened:** Kullanıcı onayıyla `Gemini-3.8-Flash`, yalnız `external-review-0003` için `LABELER` olarak açıldı; görev `CONSENSUS_ELIGIBLE: false` olduğundan sonucu gold zincirine veya hakemliğe giremez. Steril input 100 kayıt ve 100 benzersiz aileyle üretildi.
+- **Evidence:** Parti 53 prototype + 47 calibration kayıt ve 19 speech-act sınıfı taşır. Her kayıt yalnız `id`, `text`, `history`, `speakerFamily`, `familyId`, `split` alanlarına sahiptir; spent-blind yoktur ve önceki iki dış partiyle ID/aile çakışması bulunmaz. Review-server regresyonu bu kapıları doğruladı.
+- **Implication for future audits:** Gemini deneme çıktısını Sonnet/Opus oyu, gold veya consensus girdisi sayma. Görev `READY` iken model yalnız atanmış input/output yollarını kullanabilir; 100/100 kardinalitesi bozulursa fail-closed durmalıdır.
